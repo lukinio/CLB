@@ -31,19 +31,25 @@ class IntervalMLP(nn.Module):
         e2 = self.fc2.eps.detach()
         print(f"sum: {e1.sum()} - mean: {e1.mean()} - std: {e1.std()}")
         print(f"sum: {e2.sum()} - mean: {e2.mean()} - std: {e2.std()}")
+        # print(100 * "=")
+        # print(e1)
+        # print(100 * "+")
+        # print(e2)
+        # print(100 * "+")
 
         for name, layer in self.last.items():
             l = layer.eps.detach()
             print(f"last-{name} sum: {l.sum()} - mean: {l.mean()} - std: {l.std()}")
-            layer.rest_importance()
-        self.fc1.rest_importance()
-        self.fc2.rest_importance()
+            # print(100 * "+")
+            # print(l)
+            # print(100 * "+")
+
 
     def reset_importance(self):
-        for _, layer in self.last.items():
-            layer.rest_importance()
         self.fc1.rest_importance()
         self.fc2.rest_importance()
+        for _, layer in self.last.items():
+            layer.rest_importance()
 
     def set_eps(self, eps, trainable=False):
         if trainable:

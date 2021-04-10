@@ -235,7 +235,7 @@ class NormalNN(nn.Module):
         print('=> Save Done')
 
     def cuda(self):
-        torch.cuda.set_device(self.config['gpuid'][0])
+        # torch.cuda.set_device(self.config['gpuid'][0])
         self.model = self.model.cuda()
         self.criterion_fn = self.criterion_fn.cuda()
         # Multi-GPU

@@ -30,18 +30,18 @@ class AvgPool2dInterval(nn.AvgPool2d):
 
 
 class MaxPool2dInterval(nn.MaxPool2d):
-    def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False):
+    def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=True, ceil_mode=False):
         super(MaxPool2dInterval, self).__init__(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
 
     def forward(self, x):
         x_middle, x_lower, x_upper = split_activation(x)
-        mid = super().forward(x_middle)
-        lower = super().forward(x_lower)
-        upper = super().forward(x_upper)
+        # mid = super().forward(x_middle)
+        # lower = super().forward(x_lower)
+        # upper = super().forward(x_upper)
 
-        # mid, ini = super().forward(x_middle)
-        # lower = retrieve_elements_from_indices(x_lower, ini)
-        # upper = retrieve_elements_from_indices(x_upper, ini)
+        mid, ini = super().forward(x_middle)
+        lower = retrieve_elements_from_indices(x_lower, ini)
+        upper = retrieve_elements_from_indices(x_upper, ini)
         return torch.cat((mid, lower, upper), dim=1)
 
 
@@ -67,7 +67,8 @@ class IntervalDropout(nn.Module):
 class LinearInterval(nn.Linear):
     def __init__(self, in_features, out_features, bias=True, input_layer=False):
         super().__init__(in_features, out_features, bias)
-        self.importance = nn.Parameter(torch.zeros(in_features), requires_grad=True)
+        self.importance = nn.Parameter(torch.zeros(self.weight.data()), requires_grad=True)
+        # self.importance = nn.Parameter(torch.randn(self.weight.data.size()), requires_grad=True)
         self.eps = 0
         self.input_layer = input_layer
 
@@ -76,8 +77,9 @@ class LinearInterval(nn.Linear):
         self.eps = r * exp / exp.sum()
 
     def rest_importance(self):
-        self.importance.data = torch.zeros(self.in_features).cuda()
-        # self.importance.data = torch.randn(self.in_features).cuda()
+        # w1 = torch.abs(1 / self.weight)
+        # self.importance.data = (w1 / w1.sum()).cuda()
+        self.importance.data = torch.zeros(self.weight.data.size()).cuda()
 
     def forward(self, x):
         if self.input_layer:
@@ -100,11 +102,25 @@ class LinearInterval(nn.Linear):
 
 class Conv2dInterval(nn.Conv2d):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
-                 padding=0, dilation=1, groups=1, bias=True, eps=0, input_layer=False):
+                 padding=0, dilation=1, groups=1, bias=True, input_layer=False):
         super().__init__(in_channels, out_channels, kernel_size, stride,
                          padding, dilation, groups, bias)
-        self.eps = eps
+        self.importance = nn.Parameter(torch.zeros(self.weight.data.size()), requires_grad=True)
+        # self.importance = nn.Parameter(torch.randn(self.weight.data.size()), requires_grad=True)
+        self.eps = 0
         self.input_layer = input_layer
+
+    def calc_eps(self, r):
+        exp = self.importance.exp()
+        self.eps = r * exp / exp.sum()
+        # print(f"0: {exp.sum(dim=0).size()}, 1: {exp.sum(dim=1).size()}, 2: {exp.sum(dim=2).size()}")
+        # print(self.eps.size())
+
+    def rest_importance(self):
+        w1 = torch.abs(1 / self.weight)
+        self.importance.data = (w1 / w1.sum()).cuda()
+        # self.importance.data = torch.zeros(self.weight.data.size()).cuda()
+        # self.importance.data = torch.randn(self.weight.data.size()).cuda()
 
     def forward(self, x):
         if self.input_layer:
@@ -135,33 +151,40 @@ class Conv2dInterval(nn.Conv2d):
 
 
 if __name__ == '__main__':
+    c = Conv2dInterval(16, 32, 3)
+    print(c.importance.size())
+    print(c.weight.data.size())
+    c.calc_eps(0.1)
+
     # li = LinearInterval(5, 3)
     # for n, p in li.named_parameters():
     #     print(f"name: {n}")
     #     print(n, p)
 
-    pool = nn.MaxPool2d(2, stride=2, return_indices=True)
-    unpool = nn.MaxUnpool2d(2, stride=2)
-    input = torch.tensor([[[[1., 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]])
-    input1 = torch.tensor([[[[1., 2, 3, 4], [5, 0, 7, 0], [9, 10, 11, 12], [13, 0, 15, 0]]]])
-
-    print(input.size())
-    print(input)
-    output, ini = pool(input)
-    print(f"output: {output.size()}, ini: {ini.size()}")
-    print(output)
-    print(ini)
-    print()
-    fini = torch.flatten(ini, 2)
-    ft = torch.flatten(input1, 2)
-    print(ft.size())
-    print(ft[:, :, fini].view(output.size()))
-
-    o = retrieve_elements_from_indices(input1, ini)
-    print(o)
+    # pool = nn.MaxPool2d(2, stride=2, return_indices=True)
+    # unpool = nn.MaxUnpool2d(2, stride=2)
+    # input = torch.tensor([[[[1., 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]]])
+    # input1 = torch.tensor([[[[1., 2, 3, 4], [5, 0, 7, 0], [9, 10, 11, 12], [13, 0, 15, 0]]]])
+    #
+    # print(input.size())
+    # print(input)
+    # output, ini = pool(input)
+    # print(f"output: {output.size()}, ini: {ini.size()}")
+    # print(output)
+    # print(ini)
+    # print()
+    # fini = torch.flatten(ini, 2)
+    # ft = torch.flatten(input1, 2)
+    # print(ft.size())
+    # print(ft[:, :, fini].view(output.size()))
+    #
+    # o = retrieve_elements_from_indices(input1, ini)
+    # print(o)
 
     # print(f"fini: {ini.size()}")
     # print(unpool(output, ini) == input)
     # print(input1[unpool(output, ini) == input])
     # mask = (unpool(output, ini) == input).long()
     # print(input1.gather(dim=2, index=mask))
+
+

@@ -64,10 +64,6 @@ def run(args):
 
     else:  # Incremental learning
         # Feed data to agent and evaluate agent's performance
-        # task_eps_max = [7, 3, 1.5, 0.75, 0.1]
-        # task_eps_max = [10, 3.3, 1.1, 0.3, 0.1] best
-        # task_eps_max = [10, 2, 0.5, 0.1, 0.1] 30% IC
-        task_eps_max = [10, 1, 0.7, 0.1, 0.1]
         for i in range(len(task_names)):
             train_name = task_names[i]
             print('======================', train_name, '=======================')
@@ -83,13 +79,15 @@ def run(args):
                 agent.eps_scheduler.end = args.eps_max
             agent.kappa_scheduler.end = args.kappa_min
             iter_on_batch = len(train_loader)
-            agent.kappa_scheduler.calc_coefficient(args.kappa_min-1, args.kappa_epoch, iter_on_batch)
-            agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch, iter_on_batch)
+            agent.kappa_scheduler.calc_coefficient(args.kappa_min-1, args.kappa_epoch[i], iter_on_batch)
+            agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
             # agent.eps_scheduler.calc_coefficient(args.eps_val / td, args.eps_epoch, iter_on_batch)
             agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
 
             # agent.kappa_scheduler.warm_epoch(1, iter_on_batch)
             # agent.eps_scheduler.warm_epoch(1, iter_on_batch)
+
+            agent.config['schedule'] = args.schedule[i]
 
             # if agent.multihead:
             #     for _, layer in agent.model.last.items():
@@ -106,7 +104,8 @@ def run(args):
             # if agent.model.eps:
             agent.model.print_eps()
             agent.model.reset_importance()
-            if args.clipping:
+            if args.clipping and args.eps_val[i]:
+                agent.save_params()
                 agent.save_previous_task_param()
 
             # Evaluate
@@ -117,6 +116,7 @@ def run(args):
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader)
+                agent.validation_with_move_weights(val_loader)
 
     return acc_table, task_names
 
@@ -150,9 +150,9 @@ def get_args(argv):
     parser.add_argument('--lr', type=float, default=0.01, help="Learning rate")
     parser.add_argument('--momentum', type=float, default=0)
     parser.add_argument('--weight_decay', type=float, default=0)
-    parser.add_argument('--kappa_epoch', type=float, default=10)
+    parser.add_argument('--kappa_epoch', nargs="+", type=float)
     parser.add_argument('--kappa_min', type=float, default=0.5)
-    parser.add_argument('--eps_epoch', type=float, default=10)
+    parser.add_argument('--eps_epoch', nargs="+", type=float)
     parser.add_argument('--eps_max', type=float, default=0)
     parser.add_argument('--eps_val', nargs="+", type=float)
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
