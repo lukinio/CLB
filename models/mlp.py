@@ -13,9 +13,8 @@ class IntervalMLP(nn.Module):
         self.fc2 = LinearInterval(hidden_dim, hidden_dim)
         # Subject to be replaced dependent on task
         self.last = LinearInterval(hidden_dim, out_dim)
-        self.a = nn.Parameter(torch.zeros(3), requires_grad=True)
-        self.e = None
-
+        self.a = nn.Parameter(torch.Tensor([0, 0, 0]), requires_grad=True)
+        self.e = torch.zeros(3)
         self.bounds = None
 
     def save_bounds(self, x):
@@ -26,43 +25,40 @@ class IntervalMLP(nn.Module):
         exp = self.a.exp()
         self.e = r * exp / exp.sum()
 
-    def print_eps(self):
-        e1 = self.fc1.eps.detach()
-        e2 = self.fc2.eps.detach()
-        print(f"sum: {e1.sum()} - mean: {e1.mean()} - std: {e1.std()}")
-        print(f"sum: {e2.sum()} - mean: {e2.mean()} - std: {e2.std()}")
-        # print(100 * "=")
-        # print(e1)
-        # print(100 * "+")
-        # print(e2)
-        # print(100 * "+")
-
-        for name, layer in self.last.items():
-            l = layer.eps.detach()
-            print(f"last-{name} sum: {l.sum()} - mean: {l.mean()} - std: {l.std()}")
-            # print(100 * "+")
-            # print(l)
-            # print(100 * "+")
-
+    def print_eps(self, head="All"):
+        for c in self.children():
+            if isinstance(c, LinearInterval):
+                e = c.eps.detach()
+                print(f"sum: {e.sum()} -mean: {e.mean()} - std: {e.std()}")
+                print(f" * min {e.min()}, max: {e.max()}")
+            elif isinstance(c, nn.ModuleDict):
+                e = c[head].eps.detach()
+                print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
+                print(f" * min {e.min()}, max: {e.max()}")
+        print(f"sum eps on layers: {self.e}")
 
     def reset_importance(self):
-        self.fc1.rest_importance()
-        self.fc2.rest_importance()
-        for _, layer in self.last.items():
-            layer.rest_importance()
+        for c in self.children():
+            if isinstance(c, LinearInterval):
+                c.rest_importance()
+            elif isinstance(c, nn.ModuleDict) and "All" in c.keys():
+                    c["All"].rest_importance()
 
-    def set_eps(self, eps, trainable=False):
+    def set_eps(self, eps, trainable=False, head="All"):
         if trainable:
             self.calc_eps(eps)
-            self.fc1.calc_eps(self.e[0])
-            self.fc2.calc_eps(self.e[1])
-            for _, layer in self.last.items():
-                layer.calc_eps(self.e[2])
         else:
-            self.fc1.calc_eps(eps)
-            self.fc2.calc_eps(eps)
-            for _, layer in self.last.items():
-                layer.calc_eps(eps)
+            self.e[:] = eps
+        i = 0
+        for c in self.children():
+            if isinstance(c, LinearInterval):
+                neurons = c.weight.size(0) * c.weight.size(1)
+                c.calc_eps(self.e[i])
+                i += 1
+            elif isinstance(c, nn.ModuleDict):
+                neurons = c[head].weight.size(0) * c[head].weight.size(1)
+                c[head].calc_eps(self.e[i])
+                i += 1
 
     def features(self, x):
         x = x.view(-1, self.in_dim)

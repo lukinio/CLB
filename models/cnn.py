@@ -101,8 +101,9 @@ class IntervalCNN(nn.Module):
             nn.ReLU()
         )
         self.last = LinearInterval(256, out_dim)
+        # self.a = nn.Parameter(torch.Tensor([0, 5, 5, 5, 5, 5, 5, 5, 5]), requires_grad=True)
         self.a = nn.Parameter(torch.zeros(9), requires_grad=True)
-        self.e = None
+        self.e = torch.zeros(9)
 
         self.bounds = None
 
@@ -110,70 +111,56 @@ class IntervalCNN(nn.Module):
         s = x.size(1) // 3
         self.bounds = x[:, s:2*s], x[:, 2*s:]
 
-    def print_eps(self):
-        e = self.input.eps.detach()
-        print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
-        print(f"min: {e.min()} - max: {e.max()}")
-
-        for c in (self.c1, self.c2, self.c3):
-            e1 = c[0].eps.detach()
-            e2 = c[2].eps.detach()
-            print(f"sum: {e1.sum()} - mean: {e1.mean()} - std: {e1.std()}")
-            print(f"min: {e1.min()} - max: {e1.max()}")
-            print(f"sum: {e2.sum()} - mean: {e2.mean()} - std: {e2.std()}")
-            print(f"min: {e2.min()} - max: {e2.max()}")
-
-        e = self.fc1[0].eps.detach()
-        print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
-        print(f"min: {e.min()} - max: {e.max()}")
-
-        for name, layer in self.last.items():
-            l = layer.eps.detach()
-            print(f"last-{name} sum: {l.sum()} - mean: {l.mean()} - std: {l.std()}")
-            print(f"min: {l.min()} - max: {l.max()}")
-
     def calc_eps(self, r):
         exp = self.a.exp()
         self.e = r * exp / exp.sum()
 
+    def print_eps(self, head="All"):
+        for c in self.children():
+            if isinstance(c, nn.Sequential):
+                for layer in c.children():
+                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
+                        e = layer.eps.detach()
+                        print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
+                        print(f" * min {e.min()}, max: {e.max()}")
+            elif isinstance(c, nn.ModuleDict):
+                e = c[head].eps.detach()
+                print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
+                print(f" * min {e.min()}, max: {e.max()}")
+            elif isinstance(c, (Conv2dInterval, LinearInterval)):
+                e = c.eps.detach()
+                print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
+                print(f" * min {e.min()}, max: {e.max()}")
+
     def reset_importance(self):
-        self.input.rest_importance()
-        self.c1[0].rest_importance()
-        self.c1[2].rest_importance()
-        self.c2[0].rest_importance()
-        self.c2[2].rest_importance()
-        self.c3[0].rest_importance()
-        self.c3[2].rest_importance()
-        self.fc1[0].rest_importance()
-        for _, layer in self.last.items():
-            layer.rest_importance()
+        for c in self.children():
+            if isinstance(c, nn.Sequential):
+                for layer in c.children():
+                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
+                        layer.rest_importance()
+            elif isinstance(c, nn.ModuleDict) and "All" in c.keys():
+                c["All"].rest_importance()
+            elif isinstance(c, (Conv2dInterval, LinearInterval)):
+                c.rest_importance()
 
-    def set_eps(self, eps, trainable=False):
-
+    def set_eps(self, eps, trainable=False, head="All"):
         if trainable:
             self.calc_eps(eps)
-
-            self.input.calc_eps(self.e[0])
-            self.c1[0].calc_eps(self.e[1])
-            self.c1[2].calc_eps(self.e[2])
-            self.c2[0].calc_eps(self.e[3])
-            self.c2[2].calc_eps(self.e[4])
-            self.c3[0].calc_eps(self.e[5])
-            self.c3[2].calc_eps(self.e[6])
-            self.fc1[0].calc_eps(self.e[7])
-            for _, layer in self.last.items():
-                layer.calc_eps(self.e[8])
         else:
-            self.input.calc_eps(eps)
-            self.c1[0].calc_eps(eps)
-            self.c1[2].calc_eps(eps)
-            self.c2[0].calc_eps(eps)
-            self.c2[2].calc_eps(eps)
-            self.c3[0].calc_eps(eps)
-            self.c3[2].calc_eps(eps)
-            self.fc1[0].calc_eps(eps)
-            for _, layer in self.last.items():
-                layer.calc_eps(eps)
+            self.e[:] = eps
+        i = 0
+        for c in self.children():
+            if isinstance(c, nn.Sequential):
+                for layer in c.children():
+                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
+                        layer.calc_eps(self.e[i])
+                        i += 1
+            elif isinstance(c, nn.ModuleDict):
+                self.last[head].calc_eps(eps)
+                i += 1
+            elif isinstance(c, (Conv2dInterval, LinearInterval)):
+                c.calc_eps(self.e[i])
+                i += 1
 
     def features(self, x):
         x = self.input(x)
