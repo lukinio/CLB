@@ -66,4 +66,3 @@ python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimi
 # --eps_val 15 4 3 1 1 81% - z exp.sum(dim=1)[:, None] BT i --eps_per_model
 # --eps_val 100 10 1 0.1 0.01 acc 75% - z exp.sum(dim=1)[:, None] BT
 # --eps_val 6000 2000 666 222 111
-
