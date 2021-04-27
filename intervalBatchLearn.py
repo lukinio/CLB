@@ -9,6 +9,7 @@ from collections import OrderedDict
 import dataloaders.base
 from dataloaders.datasetGen import SplitGen, PermutedGen
 import agents
+import gc
 
 
 def run(args):
@@ -122,8 +123,10 @@ def run(args):
                 acc_table[val_name][train_name] = agent.validation(val_loader)
                 agent.validation_with_move_weights(val_loader)
 
-            agent.tb.close()
-
+            # agent.tb.close()
+    del agent
+    gc.collect()
+    torch.cuda.empty_cache()
     return acc_table, task_names
 
 

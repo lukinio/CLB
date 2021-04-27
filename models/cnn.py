@@ -101,10 +101,9 @@ class IntervalCNN(nn.Module):
             nn.ReLU()
         )
         self.last = LinearInterval(256, out_dim)
-        # self.a = nn.Parameter(torch.Tensor([0, 5, 5, 5, 5, 5, 5, 5, 5]), requires_grad=True)
+        # self.a = nn.Parameter(torch.Tensor([0, 0, 0, 0, 0, 0, 0, 10, 0]), requires_grad=True)
         self.a = nn.Parameter(torch.zeros(9), requires_grad=True)
         self.e = torch.zeros(9)
-
         self.bounds = None
 
     def save_bounds(self, x):
@@ -131,6 +130,7 @@ class IntervalCNN(nn.Module):
                 e = c.eps.detach()
                 print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
                 print(f" * min {e.min()}, max: {e.max()}")
+        print(f"eps: {self.e}")
 
     def reset_importance(self):
         for c in self.children():

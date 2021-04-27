@@ -142,8 +142,6 @@ class IntervalNet(nn.Module):
                 c.weight.data += sign * c.eps
 
     def validation_with_move_weights(self, dataloader):
-        if len(self.prev_weight) == 0:
-            self.save_params()
         # moves = (0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
         moves = (1, )
         for move in moves:
@@ -248,6 +246,7 @@ class IntervalNet(nn.Module):
         return loss, robust_err, robust_loss
 
     def save_params(self):
+        self.prev_weight, self.prev_eps = {}, {}
         i = 0
         for block in self.model.children():
             if isinstance(block, nn.Sequential):
@@ -313,32 +312,29 @@ class IntervalNet(nn.Module):
         # self.tb.add_histogram("fc2/importance", self.model.fc2.importance, self.current_task)
 
         # self.tb.add_histogram('last/bias', self.model.last[self.current_head].weight, self.current_task)
-        self.tb.add_histogram('last/weight', self.model.last[self.current_head].weight, self.current_task)
-        self.tb.add_histogram("last/eps", self.model.last[self.current_head].eps, self.current_task)
-        self.tb.add_histogram("last/importance", self.model.last[self.current_head].importance, self.current_task)
-        self.tb.flush()
+        # self.tb.add_histogram('last/weight', self.model.last[self.current_head].weight, self.current_task)
+        # self.tb.add_histogram("last/eps", self.model.last[self.current_head].eps, self.current_task)
+        # self.tb.add_histogram("last/importance", self.model.last[self.current_head].importance, self.current_task)
+        # self.tb.flush()
 
-    def clip_weights(self, i, layer):
-        w = layer.weight.data.detach()
+    def clip_weights(self, i, weights):
         low_old = self.prev_weight[i] - self.prev_eps[i]
         upp_old = self.prev_weight[i] + self.prev_eps[i]
-        w = torch.max(low_old, w)
-        w = torch.min(upp_old, w)
-        return w
+        weights = torch.max(low_old, weights)
+        weights = torch.min(upp_old, weights)
+        return weights
 
-    def clip_intervals(self, i, layer):
+    def clip_intervals(self, i, layer_weight, layer_eps):
         eps_old = self.prev_eps[i]
         assert (eps_old >= 0).all()
 
         low_old = self.prev_weight[i] - eps_old
         upp_old = self.prev_weight[i] + eps_old
-        w = layer.weight.data.detach()
-        assert (low_old <= w).all()
-        assert (upp_old >= w).all()
+        assert (low_old <= layer_weight).all()
+        assert (upp_old >= layer_weight).all()
 
-        eps = layer.eps.detach()
-        low_new = w - eps
-        upp_new = w + eps
+        low_new = layer_weight - layer_eps
+        upp_new = layer_weight + layer_eps
 
         low = torch.max(low_old, low_new)
         upp = torch.min(upp_old, upp_new)
@@ -360,18 +356,18 @@ class IntervalNet(nn.Module):
             if isinstance(c, nn.Sequential):
                 for layer in c.children():
                     if isinstance(layer, (Conv2dInterval, LinearInterval)):
-                        layer.weight.data = self.clip_weights(i, layer)
-                        layer.eps, layer.weight.data = self.clip_intervals(i, layer)
+                        layer.weight.data = self.clip_weights(i, layer.weight.data.detach())
+                        layer.eps, layer.weight.data = self.clip_intervals(i, layer.weight.data.detach(), layer.eps.detach())
                         i += 1
 
             elif isinstance(c, nn.ModuleDict) and not self.multihead:
-                c["All"].weight.data = self.clip_weights(i, c["All"])
-                c["All"].eps, c["All"].weight.data = self.clip_intervals(i, c["All"])
+                c["All"].weight.data = self.clip_weights(i, c["All"].weight.data.detach())
+                c["All"].eps, c["All"].weight.data = self.clip_intervals(i, c["All"].weight.data.detach(), c["All"].eps.detach())
                 i += 1
 
             elif isinstance(c, (Conv2dInterval, LinearInterval)):
-                c.weight.data = self.clip_weights(i, c)
-                c.eps, c.weight.data = self.clip_intervals(i, c)
+                c.weight.data = self.clip_weights(i, c.weight.data.detach())
+                c.eps, c.weight.data = self.clip_intervals(i, c.weight.data.detach(), c.eps.detach())
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
@@ -388,7 +384,7 @@ class IntervalNet(nn.Module):
         self.kappa_scheduler.step()
         self.eps_scheduler.step()
         self.model.set_eps(self.eps_scheduler.current, trainable=self.config['eps_per_model'], head=self.current_head)
-        return loss.detach(), robust_err, robust_loss, out
+        return loss.item(), robust_err, robust_loss, out
 
     def learn_batch(self, train_loader, val_loader=None):
         if self.reset_optimizer:  # Reset optimizer before learning each task
@@ -435,14 +431,14 @@ class IntervalNet(nn.Module):
                 data_timer.toc()
 
             self.log(' * Train Acc {acc.avg:.3f}, Loss {loss.avg:.3f}'.format(loss=losses, acc=acc))
-            self.log(f" * , robust loss: {robust_loss:.3f} robust error: {robust_err:.8f}")
+            self.log(f" * robust loss: {robust_loss:.3f} robust error: {robust_err:.8f}")
 
             # Evaluate the performance of current task
             if val_loader is not None:
                 self.validation(val_loader)
 
             self.scheduler.step()
-            self.tb.flush()
+            # self.tb.flush()
 
     def add_valid_output_dim(self, dim=0):
         # This function is kind of ad-hoc, but it is the simplest way to support incremental class learning

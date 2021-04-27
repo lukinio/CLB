@@ -52,11 +52,9 @@ class IntervalMLP(nn.Module):
         i = 0
         for c in self.children():
             if isinstance(c, LinearInterval):
-                neurons = c.weight.size(0) * c.weight.size(1)
                 c.calc_eps(self.e[i])
                 i += 1
             elif isinstance(c, nn.ModuleDict):
-                neurons = c[head].weight.size(0) * c[head].weight.size(1)
                 c[head].calc_eps(self.e[i])
                 i += 1
 
