@@ -1,0 +1,4416 @@
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.847, Loss 0.020
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.39
+Epoch:1
+LR: 0.001
+ * Train Acc 99.811, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.622, time 0.38
+Epoch:2
+LR: 0.001
+ * Train Acc 99.874, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 99.929, Loss 0.001
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.40
+Epoch:4
+LR: 0.001
+ * Train Acc 99.992, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.41
+Epoch:5
+LR: 0.001
+ * Train Acc 99.953, Loss 0.002
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.42
+Epoch:6
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.39
+Epoch:7
+LR: 0.001
+ * Train Acc 99.968, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.40
+Epoch:8
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:9
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.43
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1110.799560546875 -mean: 0.002711912849918008 - std: 0.00029897887725383043
+ * min 0.0015593135030940175, max: 0.003096623346209526
+sum: 606.2718505859375 -mean: 0.00378919905051589 - std: 0.0003078275767620653
+ * min 0.002532762009650469, max: 0.004561891779303551
+sum: 27.073211669921875 - mean: 0.006768303457647562 - std: 0.00010877637396333739
+ * min 0.006012116093188524, max: 0.0076399608515203
+sum eps on layers: tensor([2.7770, 1.5157, 2.7073], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.40
+ * Lower 1 Val Acc 99.953, time 0.42
+ * Upper 1 Val Acc 99.953, time 0.40
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 64.348, Loss 0.816
+ * , robust loss: 0.455 robust error: 0.14606742
+ *  Val Acc 67.630, time 0.44
+Epoch:1
+LR: 0.001
+ * Train Acc 64.629, Loss 0.482
+ * , robust loss: 0.040 robust error: 0.00000000
+ *  Val Acc 63.222, time 0.35
+Epoch:2
+LR: 0.001
+ * Train Acc 59.409, Loss 0.447
+ * , robust loss: 0.008 robust error: 0.00000000
+ *  Val Acc 57.738, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 53.801, Loss 0.481
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 52.449, time 0.38
+Epoch:4
+LR: 0.001
+ * Train Acc 47.605, Loss 0.537
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 44.760, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 40.036, Loss 0.616
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 37.169, time 0.42
+Epoch:6
+LR: 0.001
+ * Train Acc 34.163, Loss 0.697
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 32.811, time 0.45
+Epoch:7
+LR: 0.001
+ * Train Acc 31.252, Loss 0.760
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 30.509, time 0.48
+Epoch:8
+LR: 0.001
+ * Train Acc 28.960, Loss 0.816
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 28.355, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 27.173, Loss 0.871
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 26.690, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 25.395, Loss 0.928
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 24.241, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 23.898, Loss 0.986
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 22.576, time 0.36
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2192.984130859375 -mean: 0.005353964865207672 - std: 0.002257535234093666
+ * min 0.0008771048742346466, max: 0.008064903318881989
+sum: 194.45948791503906 -mean: 0.0012153717689216137 - std: 0.0004289415664970875
+ * min 0.0003301283868495375, max: 0.0020312871783971786
+sum: 10.313909530639648 - mean: 0.002578477608039975 - std: 0.0012651492143049836
+ * min 0.0007260087295435369, max: 0.008589710108935833
+sum eps on layers: tensor([5.4825, 0.4861, 1.0314], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.858, time 0.36
+ * Lower 1 Val Acc 99.149, time 0.35
+ * Upper 1 Val Acc 99.149, time 0.35
+validation split name: 2
+ *  Val Acc 22.576, time 0.33
+ * Lower 1 Val Acc 38.198, time 0.33
+ * Upper 1 Val Acc 38.198, time 0.34
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 72.165, Loss 1.179
+ * , robust loss: 0.637 robust error: 0.04761905
+ *  Val Acc 83.725, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 81.373, Loss 0.745
+ * , robust loss: 0.270 robust error: 0.01587302
+ *  Val Acc 84.632, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 81.772, Loss 0.590
+ * , robust loss: 0.093 robust error: 0.00000000
+ *  Val Acc 84.525, time 0.33
+Epoch:3
+LR: 0.001
+ * Train Acc 81.195, Loss 0.538
+ * , robust loss: 0.042 robust error: 0.00000000
+ *  Val Acc 83.725, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 80.467, Loss 0.525
+ * , robust loss: 0.015 robust error: 0.00000000
+ *  Val Acc 82.231, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 79.339, Loss 0.526
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 81.003, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 78.318, Loss 0.532
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 80.309, time 0.33
+Epoch:7
+LR: 0.001
+ * Train Acc 77.324, Loss 0.540
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 79.136, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 76.028, Loss 0.551
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 78.655, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 74.563, Loss 0.564
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 77.108, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 72.814, Loss 0.581
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 74.653, time 0.32
+Epoch:11
+LR: 0.001
+ * Train Acc 70.683, Loss 0.598
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 73.372, time 0.36
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 748.0687255859375 -mean: 0.0018263396341353655 - std: 0.001004961202852428
+ * min 9.216032776748762e-05, max: 0.0031399731524288654
+sum: 18.6397647857666 -mean: 0.00011649852967821062 - std: 5.3908755944576114e-05
+ * min 1.6994446923490614e-05, max: 0.0002383668179390952
+sum: 0.8322863578796387 - mean: 0.00020807159307878464 - std: 0.00013673503417521715
+ * min 3.7596681067952886e-05, max: 0.0010511755244806409
+sum eps on layers: tensor([1.8702, 0.0466, 0.0832], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 98.156, time 0.34
+ * Lower 1 Val Acc 98.061, time 0.38
+ * Upper 1 Val Acc 98.061, time 0.33
+validation split name: 2
+ *  Val Acc 0.147, time 0.34
+ * Lower 1 Val Acc 0.539, time 0.35
+ * Upper 1 Val Acc 0.539, time 0.33
+validation split name: 3
+ *  Val Acc 73.372, time 0.32
+ * Lower 1 Val Acc 73.746, time 0.34
+ * Upper 1 Val Acc 73.746, time 0.34
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.371
+ * , robust loss: 1.754 robust error: 0.56626506
+ *  Val Acc 0.000, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 1.904
+ * , robust loss: 0.888 robust error: 0.06024096
+ *  Val Acc 0.000, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 1.600
+ * , robust loss: 0.441 robust error: 0.04819277
+ *  Val Acc 0.000, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.428
+ * , robust loss: 0.163 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.352
+ * , robust loss: 0.071 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.324
+ * , robust loss: 0.033 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.31
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.321
+ * , robust loss: 0.013 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.330
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.348
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.372
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.398
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.425
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 786.1593017578125 -mean: 0.001919334172271192 - std: 0.0013242103159427643
+ * min 2.4664284865139052e-05, max: 0.003986791707575321
+sum: 5.194272518157959 -mean: 3.246420237701386e-05 - std: 1.7789445337257348e-05
+ * min 3.279201791883679e-06, max: 7.633757195435464e-05
+sum: 0.2161598950624466 - mean: 5.403997784014791e-05 - std: 5.4886109865037724e-05
+ * min 7.299091976165073e-06, max: 0.000616006669588387
+sum eps on layers: tensor([1.9654, 0.0130, 0.0216], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 97.589, time 0.41
+ * Lower 1 Val Acc 97.589, time 0.38
+ * Upper 1 Val Acc 97.589, time 0.37
+validation split name: 2
+ *  Val Acc 0.196, time 0.36
+ * Lower 1 Val Acc 0.490, time 0.37
+ * Upper 1 Val Acc 0.490, time 0.36
+validation split name: 3
+ *  Val Acc 76.307, time 0.35
+ * Lower 1 Val Acc 75.293, time 0.37
+ * Upper 1 Val Acc 75.293, time 0.36
+validation split name: 4
+ *  Val Acc 0.000, time 0.37
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.34
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.512
+ * , robust loss: 2.172 robust error: 1.00000000
+ *  Val Acc 0.000, time 0.32
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.259
+ * , robust loss: 1.726 robust error: 0.58000000
+ *  Val Acc 0.000, time 0.36
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.064
+ * , robust loss: 1.328 robust error: 0.16000000
+ *  Val Acc 0.000, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.881
+ * , robust loss: 1.000 robust error: 0.11000000
+ *  Val Acc 0.000, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.727
+ * , robust loss: 0.626 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.606
+ * , robust loss: 0.465 robust error: 0.03000000
+ *  Val Acc 0.000, time 0.36
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.517
+ * , robust loss: 0.352 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.455
+ * , robust loss: 0.219 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.39
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.413
+ * , robust loss: 0.153 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.40
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.386
+ * , robust loss: 0.104 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.370
+ * , robust loss: 0.072 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.360
+ * , robust loss: 0.055 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.29010009765625 -mean: 0.000972387904766947 - std: 0.0007507363334298134
+ * min 2.980455292345141e-06, max: 0.002328682690858841
+sum: 0.654101550579071 -mean: 4.0881345739762764e-06 - std: 2.4689520614629146e-06
+ * min 3.084591355673183e-07, max: 1.0587515134830028e-05
+sum: 0.026394937187433243 - mean: 6.598734671570128e-06 - std: 1.1650377018668223e-05
+ * min 5.277213972476602e-07, max: 0.00019027679809369147
+sum eps on layers: tensor([0.9957, 0.0016, 0.0026], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 97.352, time 0.38
+ * Lower 1 Val Acc 97.494, time 0.38
+ * Upper 1 Val Acc 97.494, time 0.35
+validation split name: 2
+ *  Val Acc 0.147, time 0.36
+ * Lower 1 Val Acc 0.245, time 0.35
+ * Upper 1 Val Acc 0.245, time 0.35
+validation split name: 3
+ *  Val Acc 78.495, time 0.35
+ * Lower 1 Val Acc 78.068, time 0.33
+ * Upper 1 Val Acc 78.068, time 0.33
+validation split name: 4
+ *  Val Acc 0.000, time 0.37
+ * Lower 1 Val Acc 0.000, time 0.34
+ * Upper 1 Val Acc 0.000, time 0.37
+validation split name: 5
+ *  Val Acc 0.000, time 0.34
+ * Lower 1 Val Acc 0.000, time 0.33
+ * Upper 1 Val Acc 0.000, time 0.35
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 61.21703100145179
+Task 3 average acc: 57.225136157683686
+Task 4 average acc: 43.52297569889841
+Task 5 average acc: 35.19887161818805
+===Summary of experiment repeats: 1 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162  0.          0.          0.          0.          0.
+  0.          0.          0.          0.        ]
+mean: 3.5198871618188052 std: 10.559661485456415
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.997, Loss 0.019
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:1
+LR: 0.001
+ * Train Acc 99.905, Loss 0.003
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 99.811, time 0.40
+Epoch:2
+LR: 0.001
+ * Train Acc 99.913, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.32
+Epoch:4
+LR: 0.001
+ * Train Acc 99.929, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.42
+Epoch:6
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:9
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.33
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1156.375 -mean: 0.0028231809847056866 - std: 0.00034930428955703974
+ * min 0.0015321525279432535, max: 0.0032431839499622583
+sum: 585.9774169921875 -mean: 0.0036623587366193533 - std: 0.00034588450216688216
+ * min 0.002465220633894205, max: 0.00447427062317729
+sum: 26.44118881225586 - mean: 0.0066102975979447365 - std: 0.00011777444160543382
+ * min 0.0058473097160458565, max: 0.0074845594353973866
+sum eps on layers: tensor([2.8909, 1.4649, 2.6441], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.33
+ * Lower 1 Val Acc 99.953, time 0.34
+ * Upper 1 Val Acc 99.953, time 0.37
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 67.202, Loss 1.023
+ * , robust loss: 0.695 robust error: 0.17977528
+ *  Val Acc 69.050, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 69.236, Loss 0.677
+ * , robust loss: 0.127 robust error: 0.04494382
+ *  Val Acc 67.140, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 66.697, Loss 0.577
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 64.300, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 62.776, Loss 0.592
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 59.696, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 57.639, Loss 0.645
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 53.869, time 0.33
+Epoch:5
+LR: 0.001
+ * Train Acc 51.079, Loss 0.723
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 46.670, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 44.594, Loss 0.802
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 40.695, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 38.415, Loss 0.855
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 36.778, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 33.179, Loss 0.897
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 30.852, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 29.018, Loss 0.938
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 27.277, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 26.363, Loss 0.980
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 24.976, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 24.435, Loss 1.022
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 22.772, time 0.37
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2295.58935546875 -mean: 0.0056044659577310085 - std: 0.0023374310694634914
+ * min 0.0007410084363073111, max: 0.008451583795249462
+sum: 170.1029815673828 -mean: 0.001063143601641059 - std: 0.0003787781752180308
+ * min 0.0002337700134376064, max: 0.0018044032622128725
+sum: 8.357686042785645 - mean: 0.002089421497657895 - std: 0.0010759264696389437
+ * min 0.0004558454966172576, max: 0.008612135425209999
+sum eps on layers: tensor([5.7390, 0.4253, 0.8358], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.858, time 0.36
+ * Lower 1 Val Acc 95.319, time 0.36
+ * Upper 1 Val Acc 95.319, time 0.38
+validation split name: 2
+ *  Val Acc 22.772, time 0.34
+ * Lower 1 Val Acc 49.314, time 0.37
+ * Upper 1 Val Acc 49.314, time 0.35
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 56.788, Loss 1.434
+ * , robust loss: 1.068 robust error: 0.17460317
+ *  Val Acc 70.011, time 0.32
+Epoch:1
+LR: 0.001
+ * Train Acc 65.435, Loss 1.011
+ * , robust loss: 0.500 robust error: 0.04761905
+ *  Val Acc 69.157, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 64.166, Loss 0.814
+ * , robust loss: 0.197 robust error: 0.00000000
+ *  Val Acc 67.556, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 63.225, Loss 0.726
+ * , robust loss: 0.079 robust error: 0.00000000
+ *  Val Acc 66.756, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 62.133, Loss 0.692
+ * , robust loss: 0.066 robust error: 0.01587302
+ *  Val Acc 64.941, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 61.405, Loss 0.682
+ * , robust loss: 0.022 robust error: 0.00000000
+ *  Val Acc 64.141, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 60.162, Loss 0.684
+ * , robust loss: 0.012 robust error: 0.00000000
+ *  Val Acc 62.540, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 58.572, Loss 0.693
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 60.192, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 56.388, Loss 0.706
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 58.431, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 53.929, Loss 0.722
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 53.949, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 50.954, Loss 0.741
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 51.601, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 47.962, Loss 0.759
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 48.132, time 0.38
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 765.56884765625 -mean: 0.0018690645229071379 - std: 0.0010662934510037303
+ * min 6.264900002861395e-05, max: 0.0033076924737542868
+sum: 12.83560848236084 -mean: 8.022254769457504e-05 - std: 3.9213886338984594e-05
+ * min 1.0902414032898378e-05, max: 0.0001768877264112234
+sum: 0.5398899912834167 - mean: 0.00013497250620275736 - std: 9.637513721827418e-05
+ * min 2.1527090211748146e-05, max: 0.000748654652852565
+sum eps on layers: tensor([1.9139, 0.0321, 0.0540], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 95.792, time 0.41
+ * Lower 1 Val Acc 93.664, time 0.39
+ * Upper 1 Val Acc 93.664, time 0.37
+validation split name: 2
+ *  Val Acc 27.032, time 0.41
+ * Lower 1 Val Acc 26.494, time 0.58
+ * Upper 1 Val Acc 26.494, time 0.43
+validation split name: 3
+ *  Val Acc 48.132, time 0.34
+ * Lower 1 Val Acc 48.239, time 0.35
+ * Upper 1 Val Acc 48.239, time 0.32
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.482
+ * , robust loss: 1.985 robust error: 0.63855422
+ *  Val Acc 0.000, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.123
+ * , robust loss: 1.396 robust error: 0.21686747
+ *  Val Acc 0.000, time 0.35
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 1.846
+ * , robust loss: 0.815 robust error: 0.09638554
+ *  Val Acc 0.000, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.636
+ * , robust loss: 0.443 robust error: 0.03614458
+ *  Val Acc 0.000, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.506
+ * , robust loss: 0.242 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.437
+ * , robust loss: 0.132 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.38
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.407
+ * , robust loss: 0.076 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.401
+ * , robust loss: 0.034 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.407
+ * , robust loss: 0.024 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.419
+ * , robust loss: 0.012 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.435
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.453
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.38
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 792.0737915039062 -mean: 0.0019337738631293178 - std: 0.0013675999362021685
+ * min 1.301251268159831e-05, max: 0.004342248663306236
+sum: 3.061558723449707 -mean: 1.9134740796289407e-05 - std: 1.1114748303953093e-05
+ * min 1.471599944125046e-06, max: 4.573629121296108e-05
+sum: 0.12161721289157867 - mean: 3.040430419787299e-05 - std: 3.891258529620245e-05
+ * min 3.333957693030243e-06, max: 0.0005226883804425597
+sum eps on layers: tensor([1.9802, 0.0077, 0.0122], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 95.319, time 0.43
+ * Lower 1 Val Acc 93.191, time 0.41
+ * Upper 1 Val Acc 93.191, time 0.38
+validation split name: 2
+ *  Val Acc 25.465, time 0.40
+ * Lower 1 Val Acc 24.780, time 0.38
+ * Upper 1 Val Acc 24.780, time 0.37
+validation split name: 3
+ *  Val Acc 51.494, time 0.36
+ * Lower 1 Val Acc 51.601, time 0.38
+ * Upper 1 Val Acc 51.601, time 0.37
+validation split name: 4
+ *  Val Acc 0.000, time 0.33
+ * Lower 1 Val Acc 0.000, time 0.38
+ * Upper 1 Val Acc 0.000, time 0.40
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.551
+ * , robust loss: 2.361 robust error: 1.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.384
+ * , robust loss: 1.994 robust error: 0.68000000
+ *  Val Acc 0.000, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.251
+ * , robust loss: 1.784 robust error: 0.50000000
+ *  Val Acc 0.000, time 0.39
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.114
+ * , robust loss: 1.478 robust error: 0.21000000
+ *  Val Acc 0.000, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.984
+ * , robust loss: 1.146 robust error: 0.07000000
+ *  Val Acc 0.000, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.866
+ * , robust loss: 0.978 robust error: 0.08000000
+ *  Val Acc 0.000, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.762
+ * , robust loss: 0.700 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.676
+ * , robust loss: 0.544 robust error: 0.03000000
+ *  Val Acc 0.000, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.607
+ * , robust loss: 0.423 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.552
+ * , robust loss: 0.314 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.38
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.510
+ * , robust loss: 0.251 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.38
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.479
+ * , robust loss: 0.187 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.6563720703125 -mean: 0.0009732821490615606 - std: 0.0007502477965317667
+ * min 2.0757518086611526e-06, max: 0.003173835575580597
+sum: 0.5243840217590332 -mean: 3.277400082879467e-06 - std: 2.031824124060222e-06
+ * min 2.2291382606454135e-07, max: 8.505289770255331e-06
+sum: 0.020481958985328674 - mean: 5.120490186527604e-06 - std: 1.16687815534533e-05
+ * min 3.2599896826468466e-07, max: 0.00022604283003602177
+sum eps on layers: tensor([0.9966, 0.0013, 0.0020], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 94.090, time 0.37
+ * Lower 1 Val Acc 92.624, time 0.34
+ * Upper 1 Val Acc 92.624, time 0.36
+validation split name: 2
+ *  Val Acc 22.576, time 0.36
+ * Lower 1 Val Acc 22.233, time 0.41
+ * Upper 1 Val Acc 22.233, time 0.32
+validation split name: 3
+ *  Val Acc 63.714, time 0.34
+ * Lower 1 Val Acc 63.287, time 0.33
+ * Upper 1 Val Acc 63.287, time 0.36
+validation split name: 4
+ *  Val Acc 0.000, time 0.36
+ * Lower 1 Val Acc 0.000, time 0.36
+ * Upper 1 Val Acc 0.000, time 0.36
+validation split name: 5
+ *  Val Acc 0.000, time 0.34
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.33
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 61.31497419439987
+Task 3 average acc: 56.98554022504842
+Task 4 average acc: 43.06962732636211
+Task 5 average acc: 36.07594425593115
+===Summary of experiment repeats: 2 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426  0.          0.          0.          0.
+  0.          0.          0.          0.        ]
+mean: 7.1274815874119195 std: 14.256312213759125
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 99.045, Loss 0.021
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:1
+LR: 0.001
+ * Train Acc 99.905, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 99.905, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.33
+Epoch:3
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.41
+Epoch:5
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:8
+LR: 0.001
+ * Train Acc 99.992, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 99.850, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 99.968, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.39
+Epoch:11
+LR: 0.001
+ * Train Acc 99.976, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1197.75634765625 -mean: 0.0029242096934467554 - std: 0.00035547366132959723
+ * min 0.0014609311474487185, max: 0.003418427426367998
+sum: 560.0613403320312 -mean: 0.003500383347272873 - std: 0.00033962607267312706
+ * min 0.00208735978230834, max: 0.004354295786470175
+sum: 26.054561614990234 - mean: 0.006513640750199556 - std: 0.00012982473708689213
+ * min 0.005639673676341772, max: 0.007549278903752565
+sum eps on layers: tensor([2.9944, 1.4002, 2.6055], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.35
+ * Lower 1 Val Acc 99.905, time 0.35
+ * Upper 1 Val Acc 99.905, time 0.34
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 82.397, Loss 0.748
+ * , robust loss: 0.434 robust error: 0.01123596
+ *  Val Acc 83.154, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 80.304, Loss 0.485
+ * , robust loss: 0.093 robust error: 0.00000000
+ *  Val Acc 78.893, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 77.070, Loss 0.413
+ * , robust loss: 0.017 robust error: 0.00000000
+ *  Val Acc 76.102, time 0.40
+Epoch:3
+LR: 0.001
+ * Train Acc 73.191, Loss 0.420
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 71.205, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 67.384, Loss 0.449
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 65.965, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 61.304, Loss 0.483
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 58.962, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 55.530, Loss 0.515
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 53.379, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 51.402, Loss 0.542
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 50.392, time 0.40
+Epoch:8
+LR: 0.001
+ * Train Acc 48.259, Loss 0.566
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 48.286, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 44.669, Loss 0.589
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 44.907, time 0.40
+Epoch:10
+LR: 0.001
+ * Train Acc 41.261, Loss 0.613
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 41.724, time 0.39
+Epoch:11
+LR: 0.001
+ * Train Acc 38.233, Loss 0.638
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 38.737, time 0.38
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2298.96435546875 -mean: 0.005612705834209919 - std: 0.0022622442338615656
+ * min 0.0007361253956332803, max: 0.00861450657248497
+sum: 170.30661010742188 -mean: 0.001064416253939271 - std: 0.0003494773991405964
+ * min 0.0002466783334966749, max: 0.0016880189068615437
+sum: 8.268224716186523 - mean: 0.0020670562516897917 - std: 0.0009303860715590417
+ * min 0.000499839661642909, max: 0.006449428386986256
+sum eps on layers: tensor([5.7474, 0.4258, 0.8268], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.669, time 0.39
+ * Lower 1 Val Acc 91.489, time 0.36
+ * Upper 1 Val Acc 91.489, time 0.39
+validation split name: 2
+ *  Val Acc 38.737, time 0.37
+ * Lower 1 Val Acc 60.529, time 0.39
+ * Upper 1 Val Acc 60.529, time 0.41
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 71.020, Loss 1.282
+ * , robust loss: 0.975 robust error: 0.04761905
+ *  Val Acc 79.136, time 0.39
+Epoch:1
+LR: 0.001
+ * Train Acc 76.507, Loss 1.008
+ * , robust loss: 0.552 robust error: 0.01587302
+ *  Val Acc 77.962, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 74.705, Loss 0.818
+ * , robust loss: 0.275 robust error: 0.00000000
+ *  Val Acc 77.108, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 74.589, Loss 0.707
+ * , robust loss: 0.131 robust error: 0.00000000
+ *  Val Acc 77.054, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 74.261, Loss 0.660
+ * , robust loss: 0.068 robust error: 0.00000000
+ *  Val Acc 76.574, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 73.897, Loss 0.640
+ * , robust loss: 0.038 robust error: 0.00000000
+ *  Val Acc 76.041, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 73.222, Loss 0.632
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 75.667, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 72.556, Loss 0.633
+ * , robust loss: 0.010 robust error: 0.00000000
+ *  Val Acc 74.920, time 0.37
+Epoch:8
+LR: 0.001
+ * Train Acc 71.722, Loss 0.636
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 74.013, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 70.239, Loss 0.644
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 72.625, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 68.969, Loss 0.650
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 72.412, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 68.268, Loss 0.654
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 70.971, time 0.36
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 766.8370361328125 -mean: 0.001872160704806447 - std: 0.0010386573849245906
+ * min 5.7990633649751544e-05, max: 0.0033245584927499294
+sum: 12.195806503295898 -mean: 7.622379052918404e-05 - std: 3.457243656157516e-05
+ * min 8.80932839208981e-06, max: 0.0001508911227574572
+sum: 0.5241813659667969 - mean: 0.00013104535173624754 - std: 9.886533371172845e-05
+ * min 1.659348163229879e-05, max: 0.0012403541477397084
+sum eps on layers: tensor([1.9171, 0.0305, 0.0524], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 93.522, time 0.36
+ * Lower 1 Val Acc 91.017, time 0.38
+ * Upper 1 Val Acc 91.017, time 0.42
+validation split name: 2
+ *  Val Acc 15.426, time 0.36
+ * Lower 1 Val Acc 17.091, time 0.37
+ * Upper 1 Val Acc 17.091, time 0.41
+validation split name: 3
+ *  Val Acc 70.971, time 0.37
+ * Lower 1 Val Acc 75.667, time 0.35
+ * Upper 1 Val Acc 75.667, time 0.35
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 10.802, Loss 2.112
+ * , robust loss: 1.640 robust error: 0.34939759
+ *  Val Acc 10.272, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 9.784, Loss 1.797
+ * , robust loss: 1.159 robust error: 0.10843373
+ *  Val Acc 7.503, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 7.428, Loss 1.565
+ * , robust loss: 0.709 robust error: 0.03614458
+ *  Val Acc 5.539, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 5.541, Loss 1.388
+ * , robust loss: 0.351 robust error: 0.01204819
+ *  Val Acc 4.330, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 4.350, Loss 1.275
+ * , robust loss: 0.211 robust error: 0.00000000
+ *  Val Acc 3.273, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 3.275, Loss 1.213
+ * , robust loss: 0.095 robust error: 0.00000000
+ *  Val Acc 2.467, time 0.41
+Epoch:6
+LR: 0.001
+ * Train Acc 2.356, Loss 1.181
+ * , robust loss: 0.054 robust error: 0.00000000
+ *  Val Acc 1.662, time 0.40
+Epoch:7
+LR: 0.001
+ * Train Acc 1.354, Loss 1.170
+ * , robust loss: 0.033 robust error: 0.00000000
+ *  Val Acc 0.856, time 0.39
+Epoch:8
+LR: 0.001
+ * Train Acc 0.755, Loss 1.171
+ * , robust loss: 0.020 robust error: 0.00000000
+ *  Val Acc 0.453, time 0.39
+Epoch:9
+LR: 0.001
+ * Train Acc 0.295, Loss 1.177
+ * , robust loss: 0.010 robust error: 0.00000000
+ *  Val Acc 0.151, time 0.38
+Epoch:10
+LR: 0.001
+ * Train Acc 0.041, Loss 1.188
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 0.050, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 0.008, Loss 1.200
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.39
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 790.3961181640625 -mean: 0.0019296780228614807 - std: 0.0013064591912552714
+ * min 1.5138952221604995e-05, max: 0.004113319795578718
+sum: 3.6407933235168457 -mean: 2.2754957171855494e-05 - std: 1.1835597433673684e-05
+ * min 1.7976379922401975e-06, max: 5.132648584549315e-05
+sum: 0.14907924830913544 - mean: 3.72698123101145e-05 - std: 5.094498555990867e-05
+ * min 3.651211500255158e-06, max: 0.0007552988827228546
+sum eps on layers: tensor([1.9760, 0.0091, 0.0149], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 91.820, time 0.42
+ * Lower 1 Val Acc 90.402, time 0.40
+ * Upper 1 Val Acc 90.402, time 0.37
+validation split name: 2
+ *  Val Acc 13.761, time 0.39
+ * Lower 1 Val Acc 15.230, time 0.35
+ * Upper 1 Val Acc 15.230, time 0.41
+validation split name: 3
+ *  Val Acc 72.785, time 0.37
+ * Lower 1 Val Acc 77.161, time 0.33
+ * Upper 1 Val Acc 77.161, time 0.38
+validation split name: 4
+ *  Val Acc 0.000, time 0.36
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.39
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.589
+ * , robust loss: 2.382 robust error: 0.95000000
+ *  Val Acc 0.000, time 0.39
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.421
+ * , robust loss: 2.030 robust error: 0.76000000
+ *  Val Acc 0.000, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.285
+ * , robust loss: 1.731 robust error: 0.36000000
+ *  Val Acc 0.000, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.152
+ * , robust loss: 1.469 robust error: 0.19000000
+ *  Val Acc 0.000, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 2.022
+ * , robust loss: 1.195 robust error: 0.09000000
+ *  Val Acc 0.000, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.904
+ * , robust loss: 1.066 robust error: 0.10000000
+ *  Val Acc 0.000, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.799
+ * , robust loss: 0.733 robust error: 0.03000000
+ *  Val Acc 0.000, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.711
+ * , robust loss: 0.576 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.637
+ * , robust loss: 0.482 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.578
+ * , robust loss: 0.354 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.533
+ * , robust loss: 0.263 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.497
+ * , robust loss: 0.210 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.80792236328125 -mean: 0.0009736521169543266 - std: 0.0007407105877064168
+ * min 1.9385972791496897e-06, max: 0.0024067494086921215
+sum: 0.45826271176338196 -mean: 2.864141833924805e-06 - std: 1.6227041896854644e-06
+ * min 1.825964517365719e-07, max: 6.987701908656163e-06
+sum: 0.01834581419825554 - mean: 4.586453542287927e-06 - std: 1.2066281669831369e-05
+ * min 3.4288092365386547e-07, max: 0.0003254865005146712
+sum eps on layers: tensor([0.9970, 0.0011, 0.0018], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 90.213, time 0.40
+ * Lower 1 Val Acc 89.835, time 0.39
+ * Upper 1 Val Acc 89.835, time 0.41
+validation split name: 2
+ *  Val Acc 11.361, time 0.38
+ * Lower 1 Val Acc 12.733, time 0.35
+ * Upper 1 Val Acc 12.733, time 0.38
+validation split name: 3
+ *  Val Acc 72.839, time 0.38
+ * Lower 1 Val Acc 75.027, time 0.37
+ * Upper 1 Val Acc 75.027, time 0.38
+validation split name: 4
+ *  Val Acc 0.000, time 0.39
+ * Lower 1 Val Acc 0.000, time 0.36
+ * Upper 1 Val Acc 0.000, time 0.39
+validation split name: 5
+ *  Val Acc 0.000, time 0.34
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.34
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 69.20278177191508
+Task 3 average acc: 59.973232049989804
+Task 4 average acc: 44.591708792697425
+Task 5 average acc: 34.882604744939485
+===Summary of experiment repeats: 3 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474  0.          0.          0.
+  0.          0.          0.          0.        ]
+mean: 10.615742061905868 std: 16.21817078370195
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.697, Loss 0.020
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.764, time 0.40
+Epoch:1
+LR: 0.001
+ * Train Acc 99.826, Loss 0.004
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.622, time 0.39
+Epoch:2
+LR: 0.001
+ * Train Acc 99.897, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:3
+LR: 0.001
+ * Train Acc 99.921, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.39
+Epoch:4
+LR: 0.001
+ * Train Acc 99.921, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.39
+Epoch:5
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 99.968, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+Epoch:7
+LR: 0.001
+ * Train Acc 99.976, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.716, time 0.38
+Epoch:9
+LR: 0.001
+ * Train Acc 99.976, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1115.6676025390625 -mean: 0.0027237976901233196 - std: 0.00033938040724024177
+ * min 0.0015198029577732086, max: 0.0031421452295035124
+sum: 611.44384765625 -mean: 0.0038215238600969315 - std: 0.00036352392635308206
+ * min 0.002480780705809593, max: 0.00474000908434391
+sum: 26.82221221923828 - mean: 0.006705553270876408 - std: 9.999780013458803e-05
+ * min 0.005837784148752689, max: 0.007728703320026398
+sum eps on layers: tensor([2.7892, 1.5286, 2.6822], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.34
+ * Lower 1 Val Acc 99.953, time 0.36
+ * Upper 1 Val Acc 99.953, time 0.37
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 81.314, Loss 0.620
+ * , robust loss: 0.290 robust error: 0.03370787
+ *  Val Acc 85.260, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 82.348, Loss 0.353
+ * , robust loss: 0.029 robust error: 0.00000000
+ *  Val Acc 82.664, time 0.32
+Epoch:2
+LR: 0.001
+ * Train Acc 78.766, Loss 0.329
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 78.355, time 0.40
+Epoch:3
+LR: 0.001
+ * Train Acc 73.852, Loss 0.352
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 71.352, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 67.566, Loss 0.389
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 64.985, time 0.39
+Epoch:5
+LR: 0.001
+ * Train Acc 60.146, Loss 0.435
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 58.031, time 0.39
+Epoch:6
+LR: 0.001
+ * Train Acc 53.991, Loss 0.484
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 52.595, time 0.39
+Epoch:7
+LR: 0.001
+ * Train Acc 50.285, Loss 0.526
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 48.776, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 47.572, Loss 0.564
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 46.670, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 45.355, Loss 0.601
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 44.417, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 43.742, Loss 0.640
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 42.997, time 0.42
+Epoch:11
+LR: 0.001
+ * Train Acc 41.856, Loss 0.680
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 41.234, time 0.36
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2158.92236328125 -mean: 0.005270806606858969 - std: 0.0021843533031642437
+ * min 0.0008995549287647009, max: 0.007854741998016834
+sum: 222.45474243164062 -mean: 0.0013903421349823475 - std: 0.00047681646537967026
+ * min 0.00038677031989209354, max: 0.0023188842460513115
+sum: 10.465572357177734 - mean: 0.0026163931470364332 - std: 0.0011173770762979984
+ * min 0.0008842971292324364, max: 0.008033904246985912
+sum eps on layers: tensor([5.3973, 0.5561, 1.0466], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.385, time 0.40
+ * Lower 1 Val Acc 52.955, time 0.37
+ * Upper 1 Val Acc 52.955, time 0.40
+validation split name: 2
+ *  Val Acc 41.234, time 0.39
+ * Lower 1 Val Acc 60.235, time 0.42
+ * Upper 1 Val Acc 60.235, time 0.38
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 62.479, Loss 1.277
+ * , robust loss: 0.683 robust error: 0.00000000
+ *  Val Acc 78.975, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 77.306, Loss 0.795
+ * , robust loss: 0.309 robust error: 0.00000000
+ *  Val Acc 84.685, time 0.38
+Epoch:2
+LR: 0.001
+ * Train Acc 78.620, Loss 0.636
+ * , robust loss: 0.113 robust error: 0.00000000
+ *  Val Acc 80.309, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 77.244, Loss 0.576
+ * , robust loss: 0.045 robust error: 0.00000000
+ *  Val Acc 80.470, time 0.39
+Epoch:4
+LR: 0.001
+ * Train Acc 76.170, Loss 0.559
+ * , robust loss: 0.018 robust error: 0.00000000
+ *  Val Acc 80.470, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 75.522, Loss 0.560
+ * , robust loss: 0.008 robust error: 0.00000000
+ *  Val Acc 77.268, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 73.906, Loss 0.566
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 76.201, time 0.53
+Epoch:7
+LR: 0.001
+ * Train Acc 72.485, Loss 0.575
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 73.533, time 0.37
+Epoch:8
+LR: 0.001
+ * Train Acc 70.621, Loss 0.587
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 71.985, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 67.930, Loss 0.602
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 69.317, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 65.311, Loss 0.619
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 67.022, time 0.39
+Epoch:11
+LR: 0.001
+ * Train Acc 62.577, Loss 0.635
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 60.406, time 0.37
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 748.8106689453125 -mean: 0.0018281510565429926 - std: 0.0010585597483441234
+ * min 9.587716340320185e-05, max: 0.00315356464125216
+sum: 19.191743850708008 -mean: 0.00011994839587714523 - std: 5.665131538989954e-05
+ * min 1.8669838027562946e-05, max: 0.0002774893946480006
+sum: 0.7999410629272461 - mean: 0.00019998526840936393 - std: 0.00013090283027850091
+ * min 3.524245767039247e-05, max: 0.0010538665810599923
+sum eps on layers: tensor([1.8720, 0.0480, 0.0800], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 79.905, time 0.38
+ * Lower 1 Val Acc 65.816, time 0.37
+ * Upper 1 Val Acc 65.816, time 0.36
+validation split name: 2
+ *  Val Acc 12.243, time 0.40
+ * Lower 1 Val Acc 11.361, time 0.37
+ * Upper 1 Val Acc 11.361, time 0.37
+validation split name: 3
+ *  Val Acc 60.406, time 0.32
+ * Lower 1 Val Acc 67.876, time 0.33
+ * Upper 1 Val Acc 67.876, time 0.37
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 35.229, Loss 1.666
+ * , robust loss: 1.108 robust error: 0.06024096
+ *  Val Acc 38.520, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 35.697, Loss 1.278
+ * , robust loss: 0.497 robust error: 0.00000000
+ *  Val Acc 34.038, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 31.741, Loss 1.075
+ * , robust loss: 0.234 robust error: 0.00000000
+ *  Val Acc 31.974, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 31.396, Loss 0.979
+ * , robust loss: 0.092 robust error: 0.00000000
+ *  Val Acc 30.866, time 0.38
+Epoch:4
+LR: 0.001
+ * Train Acc 31.191, Loss 0.943
+ * , robust loss: 0.046 robust error: 0.00000000
+ *  Val Acc 31.974, time 0.39
+Epoch:5
+LR: 0.001
+ * Train Acc 30.493, Loss 0.931
+ * , robust loss: 0.018 robust error: 0.00000000
+ *  Val Acc 29.708, time 0.39
+Epoch:6
+LR: 0.001
+ * Train Acc 27.350, Loss 0.932
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 27.241, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 23.664, Loss 0.940
+ * , robust loss: 0.004 robust error: 0.00000000
+ *  Val Acc 20.846, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 18.567, Loss 0.952
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 16.415, time 0.41
+Epoch:9
+LR: 0.001
+ * Train Acc 12.936, Loss 0.966
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 10.926, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 7.560, Loss 0.982
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 7.654, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 3.907, Loss 0.997
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 3.676, time 0.36
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 782.0518798828125 -mean: 0.0019093062728643417 - std: 0.0013240175321698189
+ * min 3.1873500120127574e-05, max: 0.004021467175334692
+sum: 7.000726222991943 -mean: 4.375453863758594e-05 - std: 2.40145054704044e-05
+ * min 4.800724127562717e-06, max: 0.00011489549069665372
+sum: 0.273684024810791 - mean: 6.842100992798805e-05 - std: 6.217670306796208e-05
+ * min 9.3643275249633e-06, max: 0.000892574549652636
+sum eps on layers: tensor([1.9551, 0.0175, 0.0274], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 72.199, time 0.37
+ * Lower 1 Val Acc 66.194, time 0.40
+ * Upper 1 Val Acc 66.194, time 0.37
+validation split name: 2
+ *  Val Acc 11.655, time 0.38
+ * Lower 1 Val Acc 11.851, time 0.37
+ * Upper 1 Val Acc 11.851, time 0.36
+validation split name: 3
+ *  Val Acc 62.166, time 0.36
+ * Lower 1 Val Acc 68.943, time 0.38
+ * Upper 1 Val Acc 68.943, time 0.36
+validation split name: 4
+ *  Val Acc 3.676, time 0.37
+ * Lower 1 Val Acc 1.158, time 0.37
+ * Upper 1 Val Acc 1.158, time 0.39
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.110, Loss 2.545
+ * , robust loss: 2.241 robust error: 0.81000000
+ *  Val Acc 0.050, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 0.025, Loss 2.300
+ * , robust loss: 1.797 robust error: 0.43000000
+ *  Val Acc 0.000, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.103
+ * , robust loss: 1.267 robust error: 0.08000000
+ *  Val Acc 0.000, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.920
+ * , robust loss: 0.995 robust error: 0.07000000
+ *  Val Acc 0.000, time 0.39
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.762
+ * , robust loss: 0.673 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.639
+ * , robust loss: 0.444 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.36
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.548
+ * , robust loss: 0.329 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.40
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.484
+ * , robust loss: 0.217 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.440
+ * , robust loss: 0.147 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.41
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.412
+ * , robust loss: 0.103 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.394
+ * , robust loss: 0.078 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.384
+ * , robust loss: 0.050 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.41912841796875 -mean: 0.0009727029246278107 - std: 0.0007849113317206502
+ * min 2.554834509282955e-06, max: 0.002362128347158432
+sum: 0.6303051710128784 -mean: 3.939407179132104e-06 - std: 2.5104334326897515e-06
+ * min 2.853122396118124e-07, max: 1.242422058567172e-05
+sum: 0.02376404032111168 - mean: 5.9410103858681396e-06 - std: 1.1676213944156189e-05
+ * min 5.831396947542089e-07, max: 0.00038951809983700514
+sum eps on layers: tensor([0.9960, 0.0016, 0.0024], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 77.352, time 0.38
+ * Lower 1 Val Acc 75.650, time 0.37
+ * Upper 1 Val Acc 75.650, time 0.37
+validation split name: 2
+ *  Val Acc 10.872, time 0.35
+ * Lower 1 Val Acc 10.921, time 0.35
+ * Upper 1 Val Acc 10.921, time 0.40
+validation split name: 3
+ *  Val Acc 70.918, time 0.34
+ * Lower 1 Val Acc 73.106, time 0.35
+ * Upper 1 Val Acc 73.106, time 0.33
+validation split name: 4
+ *  Val Acc 1.511, time 0.38
+ * Lower 1 Val Acc 0.655, time 0.35
+ * Upper 1 Val Acc 0.655, time 0.36
+validation split name: 5
+ *  Val Acc 0.000, time 0.41
+ * Lower 1 Val Acc 0.000, time 0.39
+ * Upper 1 Val Acc 0.000, time 0.39
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 70.30971351037202
+Task 3 average acc: 50.85129536574152
+Task 4 average acc: 37.42401010647633
+Task 5 average acc: 32.13046742741928
+===Summary of experiment repeats: 4 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743  0.          0.
+  0.          0.          0.          0.        ]
+mean: 13.828788804647797 std: 16.9624390050822
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.697, Loss 0.020
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.811, time 0.38
+Epoch:1
+LR: 0.001
+ * Train Acc 99.850, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 99.842, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.39
+Epoch:3
+LR: 0.001
+ * Train Acc 99.921, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 99.913, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.40
+Epoch:6
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.41
+Epoch:7
+LR: 0.001
+ * Train Acc 99.929, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:8
+LR: 0.001
+ * Train Acc 99.921, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.764, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 99.961, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.41
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1164.7529296875 -mean: 0.0028436349239200354 - std: 0.0003487015201244503
+ * min 0.0015471521764993668, max: 0.003287326777353883
+sum: 588.618896484375 -mean: 0.0036788680590689182 - std: 0.000343104125931859
+ * min 0.0023932214826345444, max: 0.004573419690132141
+sum: 26.16570281982422 - mean: 0.0065414258278906345 - std: 0.00010264702723361552
+ * min 0.0056610810570418835, max: 0.007590767461806536
+sum eps on layers: tensor([2.9119, 1.4715, 2.6166], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.38
+ * Lower 1 Val Acc 99.905, time 0.37
+ * Upper 1 Val Acc 99.905, time 0.37
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 89.883, Loss 0.535
+ * , robust loss: 0.212 robust error: 0.01123596
+ *  Val Acc 92.214, time 0.38
+Epoch:1
+LR: 0.001
+ * Train Acc 90.595, Loss 0.298
+ * , robust loss: 0.019 robust error: 0.00000000
+ *  Val Acc 89.716, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 86.930, Loss 0.286
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 85.211, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 81.396, Loss 0.312
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 77.816, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 73.157, Loss 0.352
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 68.707, time 0.36
+Epoch:5
+LR: 0.001
+ * Train Acc 61.544, Loss 0.413
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 56.611, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 50.567, Loss 0.484
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 47.747, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 44.363, Loss 0.546
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 42.997, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 40.524, Loss 0.598
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 39.667, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 37.356, Loss 0.651
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 36.337, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 34.660, Loss 0.705
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 33.595, time 0.38
+Epoch:11
+LR: 0.001
+ * Train Acc 32.079, Loss 0.761
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 31.244, time 0.36
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2160.767578125 -mean: 0.005275311414152384 - std: 0.0021172454580664635
+ * min 0.0009470441727899015, max: 0.007828242145478725
+sum: 218.84762573242188 -mean: 0.0013677976094186306 - std: 0.00044578671804629266
+ * min 0.0003917446010746062, max: 0.0023249429650604725
+sum: 10.509618759155273 - mean: 0.002627404872328043 - std: 0.0010537204798310995
+ * min 0.0008501749252900481, max: 0.007911799475550652
+sum eps on layers: tensor([5.4019, 0.5471, 1.0510], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.811, time 0.37
+ * Lower 1 Val Acc 96.596, time 0.38
+ * Upper 1 Val Acc 96.596, time 0.36
+validation split name: 2
+ *  Val Acc 31.244, time 0.34
+ * Lower 1 Val Acc 60.970, time 0.35
+ * Upper 1 Val Acc 60.970, time 0.35
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 55.571, Loss 1.357
+ * , robust loss: 0.898 robust error: 0.11111111
+ *  Val Acc 66.009, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 63.109, Loss 0.866
+ * , robust loss: 0.379 robust error: 0.04761905
+ *  Val Acc 62.273, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 60.463, Loss 0.688
+ * , robust loss: 0.115 robust error: 0.00000000
+ *  Val Acc 61.900, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 60.463, Loss 0.627
+ * , robust loss: 0.043 robust error: 0.00000000
+ *  Val Acc 63.821, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 62.284, Loss 0.605
+ * , robust loss: 0.024 robust error: 0.00000000
+ *  Val Acc 64.354, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 62.062, Loss 0.603
+ * , robust loss: 0.010 robust error: 0.00000000
+ *  Val Acc 64.995, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 61.946, Loss 0.608
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 62.006, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 60.250, Loss 0.617
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 60.939, time 0.39
+Epoch:8
+LR: 0.001
+ * Train Acc 58.865, Loss 0.627
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 58.858, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 56.885, Loss 0.641
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 55.870, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 55.278, Loss 0.659
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 55.336, time 0.31
+Epoch:11
+LR: 0.001
+ * Train Acc 52.979, Loss 0.678
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 53.095, time 0.34
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 755.2863159179688 -mean: 0.0018439607229083776 - std: 0.0010398824233561754
+ * min 8.373073796974495e-05, max: 0.0032036977354437113
+sum: 16.791744232177734 -mean: 0.00010494839807506651 - std: 4.7897199692670256e-05
+ * min 1.5084983715496492e-05, max: 0.00022468964743893594
+sum: 0.6980501413345337 - mean: 0.00017451254825573415 - std: 0.00011455301864771172
+ * min 2.741892785707023e-05, max: 0.0012831331696361303
+sum eps on layers: tensor([1.8882, 0.0420, 0.0698], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 57.541, time 0.37
+ * Lower 1 Val Acc 45.910, time 0.39
+ * Upper 1 Val Acc 45.910, time 0.35
+validation split name: 2
+ *  Val Acc 10.823, time 0.39
+ * Lower 1 Val Acc 14.251, time 0.35
+ * Upper 1 Val Acc 14.251, time 0.35
+validation split name: 3
+ *  Val Acc 53.095, time 0.36
+ * Lower 1 Val Acc 56.190, time 0.34
+ * Upper 1 Val Acc 56.190, time 0.36
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 30.518, Loss 2.129
+ * , robust loss: 1.560 robust error: 0.60240964
+ *  Val Acc 32.880, time 0.32
+Epoch:1
+LR: 0.001
+ * Train Acc 31.093, Loss 1.735
+ * , robust loss: 0.953 robust error: 0.14457831
+ *  Val Acc 32.578, time 0.38
+Epoch:2
+LR: 0.001
+ * Train Acc 30.559, Loss 1.486
+ * , robust loss: 0.475 robust error: 0.02409639
+ *  Val Acc 31.722, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 29.730, Loss 1.331
+ * , robust loss: 0.238 robust error: 0.02409639
+ *  Val Acc 31.118, time 0.40
+Epoch:4
+LR: 0.001
+ * Train Acc 29.040, Loss 1.250
+ * , robust loss: 0.136 robust error: 0.02409639
+ *  Val Acc 30.514, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 27.957, Loss 1.212
+ * , robust loss: 0.040 robust error: 0.00000000
+ *  Val Acc 29.507, time 0.33
+Epoch:6
+LR: 0.001
+ * Train Acc 27.300, Loss 1.200
+ * , robust loss: 0.087 robust error: 0.02409639
+ *  Val Acc 28.651, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 26.414, Loss 1.205
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 28.097, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 25.289, Loss 1.219
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 27.090, time 0.39
+Epoch:9
+LR: 0.001
+ * Train Acc 24.017, Loss 1.239
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 25.881, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 22.843, Loss 1.264
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 24.220, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 21.637, Loss 1.290
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 22.759, time 0.35
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 787.637451171875 -mean: 0.0019229429308325052 - std: 0.0013395799323916435
+ * min 2.1215926608419977e-05, max: 0.004069213289767504
+sum: 4.7570085525512695 -mean: 2.973130358441267e-05 - std: 1.6058947949204594e-05
+ * min 3.1182173643173883e-06, max: 6.878865679027513e-05
+sum: 0.19013957679271698 - mean: 4.75348970212508e-05 - std: 5.277152740745805e-05
+ * min 4.5341707846091595e-06, max: 0.0009872125228866935
+sum eps on layers: tensor([1.9691, 0.0119, 0.0190], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 44.728, time 0.35
+ * Lower 1 Val Acc 41.513, time 0.36
+ * Upper 1 Val Acc 41.513, time 0.42
+validation split name: 2
+ *  Val Acc 8.962, time 0.37
+ * Lower 1 Val Acc 12.880, time 0.38
+ * Upper 1 Val Acc 12.880, time 0.38
+validation split name: 3
+ *  Val Acc 49.413, time 0.35
+ * Lower 1 Val Acc 51.014, time 0.36
+ * Upper 1 Val Acc 51.014, time 0.35
+validation split name: 4
+ *  Val Acc 22.759, time 0.36
+ * Lower 1 Val Acc 23.615, time 0.37
+ * Upper 1 Val Acc 23.615, time 0.37
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.395
+ * , robust loss: 2.037 robust error: 0.86000000
+ *  Val Acc 0.000, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.143
+ * , robust loss: 1.675 robust error: 0.37000000
+ *  Val Acc 0.000, time 0.38
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 1.961
+ * , robust loss: 1.244 robust error: 0.13000000
+ *  Val Acc 0.000, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.793
+ * , robust loss: 0.927 robust error: 0.05000000
+ *  Val Acc 0.000, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.648
+ * , robust loss: 0.700 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.532
+ * , robust loss: 0.432 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.447
+ * , robust loss: 0.279 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.39
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.387
+ * , robust loss: 0.199 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.346
+ * , robust loss: 0.159 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.318
+ * , robust loss: 0.107 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.301
+ * , robust loss: 0.071 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.291
+ * , robust loss: 0.047 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.4361267089844 -mean: 0.000972744426690042 - std: 0.0007605026476085186
+ * min 2.888110884669004e-06, max: 0.002360732527449727
+sum: 0.6125280857086182 -mean: 3.828300577879418e-06 - std: 2.2655945031146985e-06
+ * min 3.1679940093454206e-07, max: 9.652799235482235e-06
+sum: 0.023783303797245026 - mean: 5.945826160314027e-06 - std: 1.134145259129582e-05
+ * min 5.514245913218474e-07, max: 0.00021441173157654703
+sum eps on layers: tensor([0.9961, 0.0015, 0.0024], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 44.917, time 0.40
+ * Lower 1 Val Acc 43.404, time 0.34
+ * Upper 1 Val Acc 43.404, time 0.37
+validation split name: 2
+ *  Val Acc 5.632, time 0.39
+ * Lower 1 Val Acc 8.031, time 0.37
+ * Upper 1 Val Acc 8.031, time 0.39
+validation split name: 3
+ *  Val Acc 54.162, time 0.32
+ * Lower 1 Val Acc 55.390, time 0.30
+ * Upper 1 Val Acc 55.390, time 0.37
+validation split name: 4
+ *  Val Acc 18.832, time 0.34
+ * Lower 1 Val Acc 19.637, time 0.33
+ * Upper 1 Val Acc 19.637, time 0.34
+validation split name: 5
+ *  Val Acc 0.000, time 0.35
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.37
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 65.52737662746624
+Task 3 average acc: 40.4863593235395
+Task 4 average acc: 31.46556750659588
+Task 5 average acc: 24.7086067775265
+===Summary of experiment repeats: 5 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678  0.
+  0.          0.          0.          0.        ]
+mean: 16.299649482400447 std: 16.562991530644815
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.910, Loss 0.020
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:1
+LR: 0.001
+ * Train Acc 99.858, Loss 0.004
+ * , robust loss: 0.029 robust error: 0.01538462
+ *  Val Acc 99.905, time 0.35
+Epoch:2
+LR: 0.001
+ * Train Acc 99.937, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.39
+Epoch:3
+LR: 0.001
+ * Train Acc 99.929, Loss 0.003
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.42
+Epoch:4
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:5
+LR: 0.001
+ * Train Acc 99.976, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 99.921, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.37
+Epoch:7
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1173.673583984375 -mean: 0.0028654139023274183 - std: 0.0003474449331406504
+ * min 0.001439100713469088, max: 0.00336076389066875
+sum: 577.1107177734375 -mean: 0.003606941783800721 - std: 0.0003511354443617165
+ * min 0.0022238234523683786, max: 0.004445202182978392
+sum: 26.230384826660156 - mean: 0.006557596381753683 - std: 0.00014292298874352127
+ * min 0.005675056017935276, max: 0.0076158433221280575
+sum eps on layers: tensor([2.9342, 1.4428, 2.6230], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.37
+ * Lower 1 Val Acc 99.953, time 0.39
+ * Upper 1 Val Acc 99.953, time 0.42
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 54.215, Loss 1.003
+ * , robust loss: 0.641 robust error: 0.15730337
+ *  Val Acc 57.003, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 52.684, Loss 0.678
+ * , robust loss: 0.114 robust error: 0.01123596
+ *  Val Acc 50.539, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 47.324, Loss 0.570
+ * , robust loss: 0.036 robust error: 0.00000000
+ *  Val Acc 45.739, time 0.42
+Epoch:3
+LR: 0.001
+ * Train Acc 42.286, Loss 0.581
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 39.324, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 35.363, Loss 0.633
+ * , robust loss: 0.004 robust error: 0.00000000
+ *  Val Acc 29.579, time 0.36
+Epoch:5
+LR: 0.001
+ * Train Acc 28.472, Loss 0.700
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 24.094, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 24.874, Loss 0.753
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 22.625, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 23.203, Loss 0.791
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 21.009, time 0.41
+Epoch:8
+LR: 0.001
+ * Train Acc 21.946, Loss 0.826
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 19.638, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 20.870, Loss 0.861
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 18.756, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 19.712, Loss 0.897
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 17.728, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 18.695, Loss 0.932
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 16.699, time 0.34
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2329.435302734375 -mean: 0.005687097553163767 - std: 0.0023605588357895613
+ * min 0.0006583062349818647, max: 0.008861935697495937
+sum: 156.50848388671875 -mean: 0.0009781779954209924 - std: 0.00032629887573421
+ * min 0.00022159944637678564, max: 0.0015743832336738706
+sum: 7.851404190063477 - mean: 0.001962851034477353 - std: 0.0010477583855390549
+ * min 0.00039293672307394445, max: 0.008025502786040306
+sum eps on layers: tensor([5.8236, 0.3913, 0.7851], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.905, time 0.37
+ * Lower 1 Val Acc 99.716, time 0.39
+ * Upper 1 Val Acc 99.716, time 0.36
+validation split name: 2
+ *  Val Acc 16.699, time 0.42
+ * Lower 1 Val Acc 34.672, time 0.33
+ * Upper 1 Val Acc 34.672, time 0.35
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 12.350, Loss 1.829
+ * , robust loss: 1.436 robust error: 0.31746032
+ *  Val Acc 15.368, time 0.32
+Epoch:1
+LR: 0.001
+ * Train Acc 11.569, Loss 1.458
+ * , robust loss: 0.844 robust error: 0.12698413
+ *  Val Acc 6.777, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 7.449, Loss 1.224
+ * , robust loss: 0.500 robust error: 0.06349206
+ *  Val Acc 8.324, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 8.461, Loss 1.063
+ * , robust loss: 0.231 robust error: 0.04761905
+ *  Val Acc 7.791, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 8.062, Loss 0.987
+ * , robust loss: 0.110 robust error: 0.00000000
+ *  Val Acc 8.004, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 9.802, Loss 0.947
+ * , robust loss: 0.065 robust error: 0.00000000
+ *  Val Acc 8.645, time 0.38
+Epoch:6
+LR: 0.001
+ * Train Acc 9.678, Loss 0.934
+ * , robust loss: 0.032 robust error: 0.00000000
+ *  Val Acc 8.111, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 9.181, Loss 0.934
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 8.485, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 9.074, Loss 0.940
+ * , robust loss: 0.013 robust error: 0.00000000
+ *  Val Acc 7.097, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 7.254, Loss 0.950
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 5.336, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 5.318, Loss 0.964
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 4.055, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 4.466, Loss 0.980
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 2.775, time 0.34
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 775.1954956054688 -mean: 0.0018925670301541686 - std: 0.0010870830155909061
+ * min 4.9619640776654705e-05, max: 0.0034074471332132816
+sum: 9.139382362365723 -mean: 5.712113852496259e-05 - std: 2.6599573175190017e-05
+ * min 6.159325494081713e-06, max: 0.00011876018106704578
+sum: 0.39162832498550415 - mean: 9.790708281798288e-05 - std: 7.971096056280658e-05
+ * min 1.118904310715152e-05, max: 0.0009968061931431293
+sum eps on layers: tensor([1.9380, 0.0228, 0.0392], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.149, time 0.35
+ * Lower 1 Val Acc 98.487, time 0.37
+ * Upper 1 Val Acc 98.487, time 0.37
+validation split name: 2
+ *  Val Acc 50.686, time 0.36
+ * Lower 1 Val Acc 56.660, time 0.35
+ * Upper 1 Val Acc 56.660, time 0.38
+validation split name: 3
+ *  Val Acc 2.775, time 0.35
+ * Lower 1 Val Acc 1.227, time 0.36
+ * Upper 1 Val Acc 1.227, time 0.36
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.507
+ * , robust loss: 2.134 robust error: 0.63855422
+ *  Val Acc 0.000, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.205
+ * , robust loss: 1.397 robust error: 0.26506024
+ *  Val Acc 0.000, time 0.40
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 1.951
+ * , robust loss: 1.008 robust error: 0.15662651
+ *  Val Acc 0.000, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.738
+ * , robust loss: 0.593 robust error: 0.09638554
+ *  Val Acc 0.000, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.589
+ * , robust loss: 0.401 robust error: 0.06024096
+ *  Val Acc 0.000, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.497
+ * , robust loss: 0.182 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.32
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.447
+ * , robust loss: 0.104 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.426
+ * , robust loss: 0.087 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.420
+ * , robust loss: 0.040 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.423
+ * , robust loss: 0.027 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.433
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.445
+ * , robust loss: 0.009 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 793.9588623046875 -mean: 0.001938376110047102 - std: 0.0013777728891000152
+ * min 1.011617041513091e-05, max: 0.004227709956467152
+sum: 2.2784664630889893 -mean: 1.4240415111999027e-05 - std: 7.715376341366209e-06
+ * min 1.0737099955804297e-06, max: 3.373519939486869e-05
+sum: 0.0940670445561409 - mean: 2.3516762666986324e-05 - std: 3.6189980164635926e-05
+ * min 2.2066838027967606e-06, max: 0.0010963005479425192
+sum eps on layers: tensor([1.9849, 0.0057, 0.0094], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 98.960, time 0.36
+ * Lower 1 Val Acc 98.392, time 0.35
+ * Upper 1 Val Acc 98.392, time 0.36
+validation split name: 2
+ *  Val Acc 52.008, time 0.36
+ * Lower 1 Val Acc 56.464, time 0.36
+ * Upper 1 Val Acc 56.464, time 0.36
+validation split name: 3
+ *  Val Acc 5.870, time 0.33
+ * Lower 1 Val Acc 2.935, time 0.34
+ * Upper 1 Val Acc 2.935, time 0.36
+validation split name: 4
+ *  Val Acc 0.000, time 0.38
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.38
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 6.686, Loss 2.365
+ * , robust loss: 2.141 robust error: 0.74000000
+ *  Val Acc 8.522, time 0.39
+Epoch:1
+LR: 0.001
+ * Train Acc 6.737, Loss 2.211
+ * , robust loss: 1.891 robust error: 0.48000000
+ *  Val Acc 5.043, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 2.729, Loss 2.089
+ * , robust loss: 1.669 robust error: 0.31000000
+ *  Val Acc 1.210, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 0.678, Loss 1.961
+ * , robust loss: 1.302 robust error: 0.10000000
+ *  Val Acc 0.252, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 0.153, Loss 1.840
+ * , robust loss: 1.105 robust error: 0.10000000
+ *  Val Acc 0.202, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 0.076, Loss 1.729
+ * , robust loss: 0.880 robust error: 0.04000000
+ *  Val Acc 0.151, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 0.068, Loss 1.635
+ * , robust loss: 0.616 robust error: 0.00000000
+ *  Val Acc 0.101, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 0.034, Loss 1.556
+ * , robust loss: 0.613 robust error: 0.04000000
+ *  Val Acc 0.050, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 0.017, Loss 1.492
+ * , robust loss: 0.406 robust error: 0.02000000
+ *  Val Acc 0.050, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 0.017, Loss 1.441
+ * , robust loss: 0.277 robust error: 0.00000000
+ *  Val Acc 0.101, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 0.025, Loss 1.402
+ * , robust loss: 0.246 robust error: 0.00000000
+ *  Val Acc 0.101, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 0.034, Loss 1.374
+ * , robust loss: 0.189 robust error: 0.01000000
+ *  Val Acc 0.101, time 0.37
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 399.06219482421875 -mean: 0.0009742729016579688 - std: 0.0007513687014579773
+ * min 1.6699261777830543e-06, max: 0.002316573401913047
+sum: 0.3607986867427826 -mean: 2.254991841255105e-06 - std: 1.3069590067971149e-06
+ * min 1.4137904713606986e-07, max: 5.442289420898305e-06
+sum: 0.014425459317862988 - mean: 3.6063649986317614e-06 - std: 8.514533874404151e-06
+ * min 2.5639093337304075e-07, max: 0.00023647287162020802
+sum eps on layers: tensor([9.9766e-01, 9.0200e-04, 1.4425e-03], device='cuda:0',
+       grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 97.730, time 0.39
+ * Lower 1 Val Acc 97.210, time 0.36
+ * Upper 1 Val Acc 97.210, time 0.38
+validation split name: 2
+ *  Val Acc 52.498, time 0.38
+ * Lower 1 Val Acc 54.358, time 0.34
+ * Upper 1 Val Acc 54.358, time 0.34
+validation split name: 3
+ *  Val Acc 19.584, time 0.35
+ * Lower 1 Val Acc 15.101, time 0.33
+ * Upper 1 Val Acc 15.101, time 0.32
+validation split name: 4
+ *  Val Acc 0.000, time 0.34
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.38
+validation split name: 5
+ *  Val Acc 0.101, time 0.35
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.35
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 58.302375874947614
+Task 3 average acc: 50.86978391819134
+Task 4 average acc: 39.209360888831775
+Task 5 average acc: 33.982536635191465
+===Summary of experiment repeats: 6 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678 33.98253664
+  0.          0.          0.          0.        ]
+mean: 19.697903145919593 std: 16.35497334034859
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.460, Loss 0.020
+ * , robust loss: 0.163 robust error: 0.01538462
+ *  Val Acc 99.716, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 99.834, Loss 0.003
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:2
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 99.897, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:5
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 99.921, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.811, time 0.40
+Epoch:7
+LR: 0.001
+ * Train Acc 99.976, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 99.905, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.574, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 99.961, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:10
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1205.03125 -mean: 0.0029419707134366035 - std: 0.00036763414391316473
+ * min 0.001529594650492072, max: 0.0034292510244995356
+sum: 564.457763671875 -mean: 0.0035278608556836843 - std: 0.00035526789724826813
+ * min 0.0021453099325299263, max: 0.004450278356671333
+sum: 25.762779235839844 - mean: 0.006440694909542799 - std: 0.00010538237984292209
+ * min 0.005744969472289085, max: 0.0072348336689174175
+sum eps on layers: tensor([3.0126, 1.4111, 2.5763], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.36
+ * Lower 1 Val Acc 99.953, time 0.34
+ * Upper 1 Val Acc 99.953, time 0.37
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 81.099, Loss 0.604
+ * , robust loss: 0.265 robust error: 0.03370787
+ *  Val Acc 84.378, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 82.546, Loss 0.349
+ * , robust loss: 0.039 robust error: 0.00000000
+ *  Val Acc 82.223, time 0.39
+Epoch:2
+LR: 0.001
+ * Train Acc 80.544, Loss 0.325
+ * , robust loss: 0.004 robust error: 0.00000000
+ *  Val Acc 80.020, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 78.451, Loss 0.344
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 77.473, time 0.38
+Epoch:4
+LR: 0.001
+ * Train Acc 75.829, Loss 0.376
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 74.290, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 72.190, Loss 0.416
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 70.225, time 0.36
+Epoch:6
+LR: 0.001
+ * Train Acc 67.086, Loss 0.459
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 64.447, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 59.550, Loss 0.499
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 56.513, time 0.37
+Epoch:8
+LR: 0.001
+ * Train Acc 50.484, Loss 0.533
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 47.992, time 0.39
+Epoch:9
+LR: 0.001
+ * Train Acc 41.583, Loss 0.568
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 39.961, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 35.718, Loss 0.604
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 34.329, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 31.880, Loss 0.641
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 29.726, time 0.39
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2196.24072265625 -mean: 0.0053619155660271645 - std: 0.002097195014357567
+ * min 0.0009061254095286131, max: 0.007996992208063602
+sum: 204.37425231933594 -mean: 0.001277339062653482 - std: 0.0004218085086904466
+ * min 0.00032603449653834105, max: 0.002079230733215809
+sum: 9.984620094299316 - mean: 0.002496155211701989 - std: 0.0009963373886421323
+ * min 0.0007943513919599354, max: 0.006603315006941557
+sum eps on layers: tensor([5.4906, 0.5109, 0.9985], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.764, time 0.39
+ * Lower 1 Val Acc 62.033, time 0.36
+ * Upper 1 Val Acc 62.033, time 0.32
+validation split name: 2
+ *  Val Acc 29.726, time 0.37
+ * Lower 1 Val Acc 71.743, time 0.38
+ * Upper 1 Val Acc 71.743, time 0.33
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 75.406, Loss 1.218
+ * , robust loss: 0.792 robust error: 0.00000000
+ *  Val Acc 87.940, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 85.812, Loss 0.808
+ * , robust loss: 0.339 robust error: 0.00000000
+ *  Val Acc 86.339, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 85.093, Loss 0.633
+ * , robust loss: 0.128 robust error: 0.00000000
+ *  Val Acc 85.806, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 85.235, Loss 0.570
+ * , robust loss: 0.054 robust error: 0.00000000
+ *  Val Acc 85.272, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 85.350, Loss 0.550
+ * , robust loss: 0.023 robust error: 0.00000000
+ *  Val Acc 85.699, time 0.39
+Epoch:5
+LR: 0.001
+ * Train Acc 85.421, Loss 0.544
+ * , robust loss: 0.011 robust error: 0.00000000
+ *  Val Acc 86.553, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 86.043, Loss 0.544
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 85.806, time 0.38
+Epoch:7
+LR: 0.001
+ * Train Acc 85.208, Loss 0.549
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 87.727, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 84.906, Loss 0.556
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 86.713, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 84.303, Loss 0.566
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 84.792, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 83.361, Loss 0.578
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 82.711, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 81.968, Loss 0.591
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 82.070, time 0.35
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 754.444580078125 -mean: 0.0018419056432321668 - std: 0.0010036961175501347
+ * min 8.33858284750022e-05, max: 0.0031920785550028086
+sum: 17.030033111572266 -mean: 0.0001064377065631561 - std: 4.689758497988805e-05
+ * min 1.4571563951903954e-05, max: 0.00022804390755482018
+sum: 0.713133692741394 - mean: 0.00017828342970460653 - std: 0.00010671700147213414
+ * min 2.761483847280033e-05, max: 0.001003810204565525
+sum eps on layers: tensor([1.8861, 0.0426, 0.0713], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 52.955, time 0.34
+ * Lower 1 Val Acc 52.908, time 0.37
+ * Upper 1 Val Acc 52.908, time 0.34
+validation split name: 2
+ *  Val Acc 11.312, time 0.33
+ * Lower 1 Val Acc 12.341, time 0.37
+ * Upper 1 Val Acc 12.341, time 0.38
+validation split name: 3
+ *  Val Acc 82.070, time 0.35
+ * Lower 1 Val Acc 84.098, time 0.35
+ * Upper 1 Val Acc 84.098, time 0.35
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.714
+ * , robust loss: 2.168 robust error: 0.67469880
+ *  Val Acc 0.000, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.314
+ * , robust loss: 1.344 robust error: 0.24096386
+ *  Val Acc 0.000, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.004
+ * , robust loss: 0.829 robust error: 0.13253012
+ *  Val Acc 0.000, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.773
+ * , robust loss: 0.518 robust error: 0.06024096
+ *  Val Acc 0.000, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.632
+ * , robust loss: 0.233 robust error: 0.02409639
+ *  Val Acc 0.000, time 0.32
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.555
+ * , robust loss: 0.095 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.518
+ * , robust loss: 0.066 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.508
+ * , robust loss: 0.030 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.514
+ * , robust loss: 0.018 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.531
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.30
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.553
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.577
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 789.4855346679688 -mean: 0.0019274548394605517 - std: 0.0013470688136294484
+ * min 1.8528135115047917e-05, max: 0.004376944154500961
+sum: 4.026566982269287 -mean: 2.5166042178170756e-05 - std: 1.3409702660283074e-05
+ * min 2.27871510105615e-06, max: 6.22799270786345e-05
+sum: 0.16219815611839294 - mean: 4.054954115417786e-05 - std: 5.013929330743849e-05
+ * min 3.1815716283745132e-06, max: 0.0009411766659468412
+sum eps on layers: tensor([1.9737, 0.0101, 0.0162], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 52.955, time 0.34
+ * Lower 1 Val Acc 52.955, time 0.32
+ * Upper 1 Val Acc 52.955, time 0.34
+validation split name: 2
+ *  Val Acc 9.158, time 0.33
+ * Lower 1 Val Acc 10.186, time 0.33
+ * Upper 1 Val Acc 10.186, time 0.36
+validation split name: 3
+ *  Val Acc 83.725, time 0.35
+ * Lower 1 Val Acc 86.499, time 0.35
+ * Upper 1 Val Acc 86.499, time 0.31
+validation split name: 4
+ *  Val Acc 0.000, time 0.32
+ * Lower 1 Val Acc 0.000, time 0.32
+ * Upper 1 Val Acc 0.000, time 0.33
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.085, Loss 2.666
+ * , robust loss: 2.282 robust error: 0.81000000
+ *  Val Acc 0.000, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 0.042, Loss 2.453
+ * , robust loss: 2.082 robust error: 0.65000000
+ *  Val Acc 0.000, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.280
+ * , robust loss: 1.730 robust error: 0.38000000
+ *  Val Acc 0.000, time 0.33
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.111
+ * , robust loss: 1.282 robust error: 0.19000000
+ *  Val Acc 0.000, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.957
+ * , robust loss: 0.946 robust error: 0.13000000
+ *  Val Acc 0.000, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.824
+ * , robust loss: 0.640 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.717
+ * , robust loss: 0.519 robust error: 0.03000000
+ *  Val Acc 0.000, time 0.32
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.634
+ * , robust loss: 0.365 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.32
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.572
+ * , robust loss: 0.254 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.527
+ * , robust loss: 0.201 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.497
+ * , robust loss: 0.143 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.31
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.476
+ * , robust loss: 0.107 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.752685546875 -mean: 0.0009735172498039901 - std: 0.0007697247783653438
+ * min 2.3176964987214888e-06, max: 0.002843614900484681
+sum: 0.48550236225128174 -mean: 3.0343896924023284e-06 - std: 1.7818094875110546e-06
+ * min 2.1144168727005308e-07, max: 8.1064754340332e-06
+sum: 0.01904498040676117 - mean: 4.761245236295508e-06 - std: 1.0751394256658386e-05
+ * min 3.398178876068414e-07, max: 0.00030077985138632357
+sum eps on layers: tensor([0.9969, 0.0012, 0.0019], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 53.097, time 0.36
+ * Lower 1 Val Acc 53.097, time 0.35
+ * Upper 1 Val Acc 53.097, time 0.33
+validation split name: 2
+ *  Val Acc 10.088, time 0.31
+ * Lower 1 Val Acc 10.676, time 0.34
+ * Upper 1 Val Acc 10.676, time 0.35
+validation split name: 3
+ *  Val Acc 82.177, time 0.35
+ * Lower 1 Val Acc 83.404, time 0.34
+ * Upper 1 Val Acc 83.404, time 0.30
+validation split name: 4
+ *  Val Acc 0.000, time 0.33
+ * Lower 1 Val Acc 0.000, time 0.36
+ * Upper 1 Val Acc 0.000, time 0.34
+validation split name: 5
+ *  Val Acc 0.000, time 0.34
+ * Lower 1 Val Acc 0.000, time 0.36
+ * Upper 1 Val Acc 0.000, time 0.38
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 64.74467622018
+Task 3 average acc: 48.779319698174476
+Task 4 average acc: 36.45935610782725
+Task 5 average acc: 29.072447348043205
+===Summary of experiment repeats: 7 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678 33.98253664
+ 29.07244735  0.          0.          0.        ]
+mean: 22.605147880723912 std: 15.133424928965011
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 99.108, Loss 0.021
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.32
+Epoch:1
+LR: 0.001
+ * Train Acc 99.921, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 99.889, Loss 0.003
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:3
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 99.889, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:5
+LR: 0.001
+ * Train Acc 99.968, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.32
+Epoch:6
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.33
+Epoch:7
+LR: 0.001
+ * Train Acc 99.992, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.32
+Epoch:8
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.31
+Epoch:9
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.33
+Epoch:10
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.34
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1223.259521484375 -mean: 0.0029864732641726732 - std: 0.00037046015495434403
+ * min 0.0015376261435449123, max: 0.003486141562461853
+sum: 563.785400390625 -mean: 0.0035236587282270193 - std: 0.00033811700996011496
+ * min 0.002181067829951644, max: 0.004407630302011967
+sum: 25.323875427246094 - mean: 0.006330969277769327 - std: 9.633564332034439e-05
+ * min 0.005729737225919962, max: 0.007012782618403435
+sum eps on layers: tensor([3.0581, 1.4095, 2.5324], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.905, time 0.37
+ * Lower 1 Val Acc 99.905, time 0.34
+ * Upper 1 Val Acc 99.905, time 0.33
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 82.703, Loss 0.612
+ * , robust loss: 0.254 robust error: 0.01123596
+ *  Val Acc 86.386, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 82.257, Loss 0.365
+ * , robust loss: 0.035 robust error: 0.00000000
+ *  Val Acc 82.811, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 78.501, Loss 0.334
+ * , robust loss: 0.008 robust error: 0.00000000
+ *  Val Acc 78.501, time 0.31
+Epoch:3
+LR: 0.001
+ * Train Acc 73.720, Loss 0.355
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 73.555, time 0.32
+Epoch:4
+LR: 0.001
+ * Train Acc 67.499, Loss 0.390
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 65.573, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 59.782, Loss 0.436
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 57.003, time 0.36
+Epoch:6
+LR: 0.001
+ * Train Acc 51.791, Loss 0.487
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 50.392, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 46.298, Loss 0.531
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 44.760, time 0.30
+Epoch:8
+LR: 0.001
+ * Train Acc 42.220, Loss 0.570
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 41.087, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 38.241, Loss 0.609
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 36.141, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 34.527, Loss 0.649
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 33.007, time 0.32
+Epoch:11
+LR: 0.001
+ * Train Acc 31.533, Loss 0.688
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 29.383, time 0.33
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2237.741455078125 -mean: 0.005463236011564732 - std: 0.0021764577832072973
+ * min 0.0008900065440684557, max: 0.008192689158022404
+sum: 192.80337524414062 -mean: 0.0012050210498273373 - std: 0.000388164771720767
+ * min 0.00031747648608870804, max: 0.0019897418096661568
+sum: 9.236371040344238 - mean: 0.0023090927861630917 - std: 0.0010454080766066909
+ * min 0.0006462968303821981, max: 0.007022698409855366
+sum eps on layers: tensor([5.5944, 0.4820, 0.9236], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.811, time 0.33
+ * Lower 1 Val Acc 95.461, time 0.32
+ * Upper 1 Val Acc 95.461, time 0.35
+validation split name: 2
+ *  Val Acc 29.383, time 0.32
+ * Lower 1 Val Acc 61.312, time 0.36
+ * Upper 1 Val Acc 61.312, time 0.34
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 34.849, Loss 1.672
+ * , robust loss: 1.319 robust error: 0.25396825
+ *  Val Acc 48.773, time 0.34
+Epoch:1
+LR: 0.001
+ * Train Acc 47.554, Loss 1.227
+ * , robust loss: 0.773 robust error: 0.12698413
+ *  Val Acc 50.480, time 0.32
+Epoch:2
+LR: 0.001
+ * Train Acc 48.912, Loss 0.974
+ * , robust loss: 0.338 robust error: 0.06349206
+ *  Val Acc 53.949, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 49.738, Loss 0.850
+ * , robust loss: 0.118 robust error: 0.01587302
+ *  Val Acc 51.761, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 48.886, Loss 0.800
+ * , robust loss: 0.052 robust error: 0.00000000
+ *  Val Acc 52.615, time 0.32
+Epoch:5
+LR: 0.001
+ * Train Acc 49.845, Loss 0.780
+ * , robust loss: 0.023 robust error: 0.00000000
+ *  Val Acc 52.188, time 0.31
+Epoch:6
+LR: 0.001
+ * Train Acc 49.383, Loss 0.776
+ * , robust loss: 0.022 robust error: 0.00000000
+ *  Val Acc 52.828, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 48.957, Loss 0.779
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 51.441, time 0.33
+Epoch:8
+LR: 0.001
+ * Train Acc 47.714, Loss 0.789
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 48.453, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 45.645, Loss 0.803
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 47.332, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 43.940, Loss 0.818
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 43.010, time 0.33
+Epoch:11
+LR: 0.001
+ * Train Acc 40.877, Loss 0.838
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 42.049, time 0.38
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 767.0966186523438 -mean: 0.0018727944698184729 - std: 0.0010904482332989573
+ * min 6.165439845062792e-05, max: 0.003310352796688676
+sum: 12.373851776123047 -mean: 7.733656821073964e-05 - std: 3.528168599586934e-05
+ * min 1.1186990377609618e-05, max: 0.00016367819625884295
+sum: 0.513238251209259 - mean: 0.00012830956256948411 - std: 9.700319060357288e-05
+ * min 1.856789822340943e-05, max: 0.0008654370903968811
+sum eps on layers: tensor([1.9177, 0.0309, 0.0513], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 98.203, time 0.33
+ * Lower 1 Val Acc 96.879, time 0.31
+ * Upper 1 Val Acc 96.879, time 0.35
+validation split name: 2
+ *  Val Acc 28.257, time 0.33
+ * Lower 1 Val Acc 25.269, time 0.37
+ * Upper 1 Val Acc 25.269, time 0.31
+validation split name: 3
+ *  Val Acc 42.049, time 0.30
+ * Lower 1 Val Acc 46.852, time 0.30
+ * Upper 1 Val Acc 46.852, time 0.34
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.008, Loss 2.416
+ * , robust loss: 2.031 robust error: 0.74698795
+ *  Val Acc 0.000, time 0.31
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.029
+ * , robust loss: 1.332 robust error: 0.27710843
+ *  Val Acc 0.000, time 0.36
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 1.751
+ * , robust loss: 0.629 robust error: 0.04819277
+ *  Val Acc 0.000, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 1.549
+ * , robust loss: 0.377 robust error: 0.06024096
+ *  Val Acc 0.000, time 0.32
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.429
+ * , robust loss: 0.162 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.368
+ * , robust loss: 0.113 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.342
+ * , robust loss: 0.058 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.31
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.337
+ * , robust loss: 0.024 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.343
+ * , robust loss: 0.011 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.356
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.375
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.31
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.394
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 790.6317138671875 -mean: 0.0019302531145513058 - std: 0.0013670428888872266
+ * min 1.6942014553933404e-05, max: 0.004057037178426981
+sum: 3.6308534145355225 -mean: 2.2692833226756193e-05 - std: 1.2032678569084965e-05
+ * min 2.3054362827679142e-06, max: 5.423293623607606e-05
+sum: 0.1434379518032074 - mean: 3.585948797990568e-05 - std: 4.223711584927514e-05
+ * min 4.033573077322217e-06, max: 0.0005104982410557568
+sum eps on layers: tensor([1.9766, 0.0091, 0.0143], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 98.014, time 0.31
+ * Lower 1 Val Acc 97.258, time 0.32
+ * Upper 1 Val Acc 97.258, time 0.33
+validation split name: 2
+ *  Val Acc 27.522, time 0.35
+ * Lower 1 Val Acc 24.731, time 0.34
+ * Upper 1 Val Acc 24.731, time 0.31
+validation split name: 3
+ *  Val Acc 44.557, time 0.34
+ * Lower 1 Val Acc 47.919, time 0.36
+ * Upper 1 Val Acc 47.919, time 0.33
+validation split name: 4
+ *  Val Acc 0.000, time 0.30
+ * Lower 1 Val Acc 0.000, time 0.33
+ * Upper 1 Val Acc 0.000, time 0.36
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.549
+ * , robust loss: 2.263 robust error: 0.95000000
+ *  Val Acc 0.000, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.342
+ * , robust loss: 1.921 robust error: 0.66000000
+ *  Val Acc 0.000, time 0.31
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.187
+ * , robust loss: 1.549 robust error: 0.33000000
+ *  Val Acc 0.000, time 0.33
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.033
+ * , robust loss: 1.267 robust error: 0.20000000
+ *  Val Acc 0.000, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.891
+ * , robust loss: 0.998 robust error: 0.12000000
+ *  Val Acc 0.000, time 0.32
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.767
+ * , robust loss: 0.731 robust error: 0.04000000
+ *  Val Acc 0.000, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.666
+ * , robust loss: 0.547 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.585
+ * , robust loss: 0.394 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.525
+ * , robust loss: 0.271 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.479
+ * , robust loss: 0.239 robust error: 0.03000000
+ *  Val Acc 0.000, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.447
+ * , robust loss: 0.155 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.31
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.425
+ * , robust loss: 0.125 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.4085998535156 -mean: 0.000972677196841687 - std: 0.0007509774877689779
+ * min 2.9654956961167045e-06, max: 0.0022351171355694532
+sum: 0.6264365911483765 -mean: 3.9152287172328215e-06 - std: 2.232968199677998e-06
+ * min 3.3288284839727567e-07, max: 9.958629561879206e-06
+sum: 0.024124102666974068 - mean: 6.031025804986712e-06 - std: 1.3887155546399299e-05
+ * min 4.366927441878943e-07, max: 0.00031131439027376473
+sum eps on layers: tensor([0.9960, 0.0016, 0.0024], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 97.967, time 0.33
+ * Lower 1 Val Acc 97.872, time 0.32
+ * Upper 1 Val Acc 97.872, time 0.37
+validation split name: 2
+ *  Val Acc 23.702, time 0.35
+ * Lower 1 Val Acc 22.772, time 0.35
+ * Upper 1 Val Acc 22.772, time 0.37
+validation split name: 3
+ *  Val Acc 49.093, time 0.31
+ * Lower 1 Val Acc 49.733, time 0.32
+ * Upper 1 Val Acc 49.733, time 0.32
+validation split name: 4
+ *  Val Acc 0.000, time 0.32
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.34
+validation split name: 5
+ *  Val Acc 0.000, time 0.32
+ * Lower 1 Val Acc 0.000, time 0.36
+ * Upper 1 Val Acc 0.000, time 0.36
+Task 1 average acc: 99.90543735224587
+Task 2 average acc: 64.59691629445938
+Task 3 average acc: 56.16967123590504
+Task 4 average acc: 42.52332968350991
+Task 5 average acc: 34.152401057293545
+===Summary of experiment repeats: 8 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678 33.98253664
+ 29.07244735 34.15240106  0.          0.        ]
+mean: 26.020387986453272 std: 13.401168591666828
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.500, Loss 0.020
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.433, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 99.858, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.811, time 0.35
+Epoch:2
+LR: 0.001
+ * Train Acc 99.921, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 99.945, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.764, time 0.53
+Epoch:5
+LR: 0.001
+ * Train Acc 99.937, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.32
+Epoch:6
+LR: 0.001
+ * Train Acc 99.976, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.716, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 99.889, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 99.953, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.35
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1142.158935546875 -mean: 0.002788473851978779 - std: 0.0003160848282277584
+ * min 0.0015205622185021639, max: 0.0032040546648204327
+sum: 584.1771850585938 -mean: 0.0036511074285954237 - std: 0.00029871336300857365
+ * min 0.0024020960554480553, max: 0.004435541108250618
+sum: 26.841602325439453 - mean: 0.006710400804877281 - std: 0.00011443375115050003
+ * min 0.006022397894412279, max: 0.007489762268960476
+sum eps on layers: tensor([2.8554, 1.4604, 2.6842], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.953, time 0.36
+ * Lower 1 Val Acc 99.953, time 0.32
+ * Upper 1 Val Acc 99.953, time 0.35
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 83.266, Loss 0.650
+ * , robust loss: 0.306 robust error: 0.05617978
+ *  Val Acc 87.953, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 84.614, Loss 0.378
+ * , robust loss: 0.024 robust error: 0.00000000
+ *  Val Acc 84.917, time 0.35
+Epoch:2
+LR: 0.001
+ * Train Acc 81.520, Loss 0.351
+ * , robust loss: 0.006 robust error: 0.00000000
+ *  Val Acc 81.048, time 0.37
+Epoch:3
+LR: 0.001
+ * Train Acc 76.855, Loss 0.375
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 74.094, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 70.047, Loss 0.415
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 66.748, time 0.33
+Epoch:5
+LR: 0.001
+ * Train Acc 62.578, Loss 0.468
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 60.137, time 0.33
+Epoch:6
+LR: 0.001
+ * Train Acc 55.637, Loss 0.526
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 52.742, time 0.33
+Epoch:7
+LR: 0.001
+ * Train Acc 49.185, Loss 0.576
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 46.621, time 0.36
+Epoch:8
+LR: 0.001
+ * Train Acc 42.766, Loss 0.618
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 41.087, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 36.728, Loss 0.659
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 34.427, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 32.170, Loss 0.702
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 30.803, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 28.671, Loss 0.745
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 28.257, time 0.33
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2208.6943359375 -mean: 0.005392319988459349 - std: 0.0021358265075832605
+ * min 0.000885823043063283, max: 0.008065527305006981
+sum: 198.41781616210938 -mean: 0.0012401113053783774 - std: 0.0003957839508075267
+ * min 0.00033091389923356473, max: 0.001993675949051976
+sum: 9.822195053100586 - mean: 0.0024555488489568233 - std: 0.001076678279787302
+ * min 0.0006985592190176249, max: 0.0071213566698133945
+sum eps on layers: tensor([5.5217, 0.4960, 0.9822], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.716, time 0.36
+ * Lower 1 Val Acc 60.804, time 0.33
+ * Upper 1 Val Acc 60.804, time 0.35
+validation split name: 2
+ *  Val Acc 28.257, time 0.33
+ * Lower 1 Val Acc 59.256, time 0.35
+ * Upper 1 Val Acc 59.256, time 0.34
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 44.908, Loss 1.298
+ * , robust loss: 0.869 robust error: 0.11111111
+ *  Val Acc 50.053, time 0.33
+Epoch:1
+LR: 0.001
+ * Train Acc 54.097, Loss 0.904
+ * , robust loss: 0.415 robust error: 0.01587302
+ *  Val Acc 56.030, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 55.918, Loss 0.739
+ * , robust loss: 0.249 robust error: 0.01587302
+ *  Val Acc 51.601, time 0.31
+Epoch:3
+LR: 0.001
+ * Train Acc 53.458, Loss 0.659
+ * , robust loss: 0.080 robust error: 0.00000000
+ *  Val Acc 54.856, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 53.005, Loss 0.625
+ * , robust loss: 0.033 robust error: 0.00000000
+ *  Val Acc 51.334, time 0.36
+Epoch:5
+LR: 0.001
+ * Train Acc 52.517, Loss 0.616
+ * , robust loss: 0.019 robust error: 0.00000000
+ *  Val Acc 52.241, time 0.33
+Epoch:6
+LR: 0.001
+ * Train Acc 51.390, Loss 0.616
+ * , robust loss: 0.011 robust error: 0.00000000
+ *  Val Acc 51.227, time 0.34
+Epoch:7
+LR: 0.001
+ * Train Acc 50.928, Loss 0.620
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 51.121, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 49.667, Loss 0.628
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 49.253, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 48.389, Loss 0.641
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 47.599, time 0.34
+Epoch:10
+LR: 0.001
+ * Train Acc 46.844, Loss 0.658
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 45.945, time 0.32
+Epoch:11
+LR: 0.001
+ * Train Acc 45.512, Loss 0.675
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 45.037, time 0.31
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 760.353271484375 -mean: 0.0018563311314210296 - std: 0.001037120004184544
+ * min 7.145627751015127e-05, max: 0.003276389790698886
+sum: 14.41984748840332 -mean: 9.012404188979417e-05 - std: 4.0810311475070193e-05
+ * min 1.2055634215357713e-05, max: 0.00019164108380209655
+sum: 0.630671501159668 - mean: 0.0001576678769197315 - std: 0.00011495506623759866
+ * min 2.1767091311630793e-05, max: 0.0014142259024083614
+sum eps on layers: tensor([1.9009, 0.0360, 0.0631], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 88.369, time 0.32
+ * Lower 1 Val Acc 81.560, time 0.37
+ * Upper 1 Val Acc 81.560, time 0.40
+validation split name: 2
+ *  Val Acc 14.838, time 0.37
+ * Lower 1 Val Acc 15.132, time 0.36
+ * Upper 1 Val Acc 15.132, time 0.34
+validation split name: 3
+ *  Val Acc 45.037, time 0.31
+ * Lower 1 Val Acc 46.478, time 0.34
+ * Upper 1 Val Acc 46.478, time 0.32
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 3.093
+ * , robust loss: 2.438 robust error: 1.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.703
+ * , robust loss: 1.777 robust error: 0.46987952
+ *  Val Acc 0.000, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.383
+ * , robust loss: 1.109 robust error: 0.18072289
+ *  Val Acc 0.000, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.112
+ * , robust loss: 0.851 robust error: 0.15662651
+ *  Val Acc 0.000, time 0.37
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 1.926
+ * , robust loss: 0.396 robust error: 0.06024096
+ *  Val Acc 0.000, time 0.33
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.816
+ * , robust loss: 0.231 robust error: 0.02409639
+ *  Val Acc 0.000, time 0.39
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.759
+ * , robust loss: 0.129 robust error: 0.01204819
+ *  Val Acc 0.000, time 0.32
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.738
+ * , robust loss: 0.061 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.739
+ * , robust loss: 0.033 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.754
+ * , robust loss: 0.015 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.32
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.776
+ * , robust loss: 0.007 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.804
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.38
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 792.55810546875 -mean: 0.001934956293553114 - std: 0.0014166983310133219
+ * min 1.2399614206515253e-05, max: 0.004177390597760677
+sum: 2.7793776988983154 -mean: 1.7371110516251065e-05 - std: 9.546046385366935e-06
+ * min 1.3570701185017242e-06, max: 4.192499545752071e-05
+sum: 0.11656278371810913 - mean: 2.914069773396477e-05 - std: 4.3577616452239454e-05
+ * min 2.8877664135507075e-06, max: 0.0006738102529197931
+sum eps on layers: tensor([1.9814, 0.0069, 0.0117], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 87.470, time 0.34
+ * Lower 1 Val Acc 81.939, time 0.36
+ * Upper 1 Val Acc 81.939, time 0.39
+validation split name: 2
+ *  Val Acc 13.369, time 0.34
+ * Lower 1 Val Acc 13.859, time 0.36
+ * Upper 1 Val Acc 13.859, time 0.36
+validation split name: 3
+ *  Val Acc 46.478, time 0.36
+ * Lower 1 Val Acc 47.599, time 0.33
+ * Upper 1 Val Acc 47.599, time 0.34
+validation split name: 4
+ *  Val Acc 0.000, time 0.35
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.37
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.000, Loss 2.692
+ * , robust loss: 2.377 robust error: 1.00000000
+ *  Val Acc 0.000, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 0.000, Loss 2.486
+ * , robust loss: 2.059 robust error: 0.95000000
+ *  Val Acc 0.000, time 0.33
+Epoch:2
+LR: 0.001
+ * Train Acc 0.000, Loss 2.318
+ * , robust loss: 1.787 robust error: 0.48000000
+ *  Val Acc 0.000, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 0.000, Loss 2.156
+ * , robust loss: 1.301 robust error: 0.15000000
+ *  Val Acc 0.000, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 0.000, Loss 2.006
+ * , robust loss: 1.019 robust error: 0.09000000
+ *  Val Acc 0.000, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 0.000, Loss 1.871
+ * , robust loss: 0.746 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.36
+Epoch:6
+LR: 0.001
+ * Train Acc 0.000, Loss 1.762
+ * , robust loss: 0.525 robust error: 0.01000000
+ *  Val Acc 0.000, time 0.32
+Epoch:7
+LR: 0.001
+ * Train Acc 0.000, Loss 1.676
+ * , robust loss: 0.432 robust error: 0.02000000
+ *  Val Acc 0.000, time 0.34
+Epoch:8
+LR: 0.001
+ * Train Acc 0.000, Loss 1.612
+ * , robust loss: 0.267 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 0.000, Loss 1.565
+ * , robust loss: 0.202 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+Epoch:10
+LR: 0.001
+ * Train Acc 0.000, Loss 1.531
+ * , robust loss: 0.175 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.33
+Epoch:11
+LR: 0.001
+ * Train Acc 0.000, Loss 1.508
+ * , robust loss: 0.109 robust error: 0.00000000
+ *  Val Acc 0.000, time 0.36
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.7357177734375 -mean: 0.0009734758641570807 - std: 0.0007758623105473816
+ * min 2.094535147989518e-06, max: 0.002311970107257366
+sum: 0.4804909825325012 -mean: 3.0030685138626723e-06 - std: 1.764469857334916e-06
+ * min 2.1235103986327886e-07, max: 7.5690668381867e-06
+sum: 0.019594551995396614 - mean: 4.898638053418836e-06 - std: 1.1639855983958114e-05
+ * min 3.041902516542905e-07, max: 0.00025438901502639055
+sum eps on layers: tensor([0.9968, 0.0012, 0.0020], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 85.154, time 0.35
+ * Lower 1 Val Acc 82.459, time 0.34
+ * Upper 1 Val Acc 82.459, time 0.36
+validation split name: 2
+ *  Val Acc 14.936, time 0.38
+ * Lower 1 Val Acc 14.104, time 0.34
+ * Upper 1 Val Acc 14.104, time 0.36
+validation split name: 3
+ *  Val Acc 55.123, time 0.33
+ * Lower 1 Val Acc 53.842, time 0.36
+ * Upper 1 Val Acc 53.842, time 0.32
+validation split name: 4
+ *  Val Acc 0.000, time 0.33
+ * Lower 1 Val Acc 0.000, time 0.35
+ * Upper 1 Val Acc 0.000, time 0.37
+validation split name: 5
+ *  Val Acc 0.000, time 0.37
+ * Lower 1 Val Acc 0.000, time 0.37
+ * Upper 1 Val Acc 0.000, time 0.34
+Task 1 average acc: 99.95271867612293
+Task 2 average acc: 63.98646161113079
+Task 3 average acc: 49.414847104315385
+Task 4 average acc: 36.82945416871977
+Task 5 average acc: 31.042546670196714
+===Summary of experiment repeats: 9 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678 33.98253664
+ 29.07244735 34.15240106 31.04254667  0.        ]
+mean: 29.124642653472943 std: 10.235774092489432
+split_boundaries: [0, 2, 4, 6, 8, 10]
+{'1': [0, 1], '2': [2, 3], '3': [4, 5], '4': [6, 7], '5': [8, 9]}
+IntervalMLP(
+  (fc1): LinearInterval(in_features=1024, out_features=400, bias=False)
+  (fc2): LinearInterval(in_features=400, out_features=400, bias=False)
+  (last): ModuleDict(
+    (All): LinearInterval(in_features=400, out_features=10, bias=False)
+  )
+)
+#parameter of model: 1147203
+Task order: ['1', '2', '3', '4', '5']
+====================== 1 =======================
+Incremental class: Old valid output dimension: ALL
+Incremental class: New Valid output dimension: 2
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 98.752, Loss 0.018
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.36
+Epoch:1
+LR: 0.001
+ * Train Acc 99.826, Loss 0.003
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.38
+Epoch:2
+LR: 0.001
+ * Train Acc 99.866, Loss 0.004
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.34
+Epoch:3
+LR: 0.001
+ * Train Acc 99.913, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 99.929, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.858, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 99.976, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.39
+Epoch:6
+LR: 0.001
+ * Train Acc 99.968, Loss 0.001
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.905, time 0.38
+Epoch:7
+LR: 0.001
+ * Train Acc 99.897, Loss 0.002
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:8
+LR: 0.001
+ * Train Acc 99.984, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 99.953, time 0.37
+Epoch:9
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.36
+Epoch:10
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.36
+Epoch:11
+LR: 0.001
+ * Train Acc 100.000, Loss 0.000
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 100.000, time 0.38
+after batch eps: 6.99999999999984, kappa: 0.5
+sum: 1140.31005859375 -mean: 0.0027839599642902613 - std: 0.00031189582659862936
+ * min 0.0015089854132384062, max: 0.0032261917367577553
+sum: 603.1194458007812 -mean: 0.0037694964557886124 - std: 0.00032490197918377817
+ * min 0.0024253076408058405, max: 0.0045563108287751675
+sum: 26.41426658630371 - mean: 0.00660356692969799 - std: 0.00012468468048609793
+ * min 0.005836985539644957, max: 0.007474902085959911
+sum eps on layers: tensor([2.8508, 1.5078, 2.6414], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 100.000, time 0.35
+ * Lower 1 Val Acc 99.953, time 0.40
+ * Upper 1 Val Acc 99.953, time 0.39
+====================== 2 =======================
+Incremental class: Old valid output dimension: 2
+Incremental class: New Valid output dimension: 4
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 44.032, Loss 1.189
+ * , robust loss: 0.722 robust error: 0.20224719
+ *  Val Acc 48.580, time 0.37
+Epoch:1
+LR: 0.001
+ * Train Acc 44.296, Loss 0.823
+ * , robust loss: 0.211 robust error: 0.04494382
+ *  Val Acc 43.732, time 0.36
+Epoch:2
+LR: 0.001
+ * Train Acc 40.078, Loss 0.686
+ * , robust loss: 0.039 robust error: 0.00000000
+ *  Val Acc 39.863, time 0.39
+Epoch:3
+LR: 0.001
+ * Train Acc 36.264, Loss 0.699
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 35.260, time 0.33
+Epoch:4
+LR: 0.001
+ * Train Acc 31.161, Loss 0.769
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 29.334, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 25.875, Loss 0.871
+ * , robust loss: 0.002 robust error: 0.00000000
+ *  Val Acc 24.878, time 0.35
+Epoch:6
+LR: 0.001
+ * Train Acc 22.376, Loss 0.980
+ * , robust loss: 0.001 robust error: 0.00000000
+ *  Val Acc 22.625, time 0.37
+Epoch:7
+LR: 0.001
+ * Train Acc 20.515, Loss 1.061
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 20.862, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 19.158, Loss 1.124
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 18.217, time 0.33
+Epoch:9
+LR: 0.001
+ * Train Acc 17.677, Loss 1.177
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 17.679, time 0.37
+Epoch:10
+LR: 0.001
+ * Train Acc 16.718, Loss 1.226
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 16.552, time 0.33
+Epoch:11
+LR: 0.001
+ * Train Acc 15.973, Loss 1.271
+ * , robust loss: 0.000 robust error: 0.00000000
+ *  Val Acc 15.720, time 0.37
+after batch eps: 7.0000000000001386, kappa: 0.5
+sum: 2176.80615234375 -mean: 0.005314467940479517 - std: 0.0022404741030186415
+ * min 0.000661591999232769, max: 0.008328886702656746
+sum: 172.34500122070312 -mean: 0.0010771562810987234 - std: 0.00036501462454907596
+ * min 0.0002234232088085264, max: 0.001773811993189156
+sum: 11.271225929260254 - mean: 0.0028178065549582243 - std: 0.0016611767932772636
+ * min 0.0005126986070536077, max: 0.01436865795403719
+sum eps on layers: tensor([5.4420, 0.4309, 1.1271], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.858, time 0.39
+ * Lower 1 Val Acc 99.669, time 0.34
+ * Upper 1 Val Acc 99.669, time 0.34
+validation split name: 2
+ *  Val Acc 15.720, time 0.34
+ * Lower 1 Val Acc 33.839, time 0.37
+ * Upper 1 Val Acc 33.839, time 0.41
+====================== 3 =======================
+Incremental class: Old valid output dimension: 4
+Incremental class: New Valid output dimension: 6
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 31.066, Loss 1.652
+ * , robust loss: 1.139 robust error: 0.26984127
+ *  Val Acc 39.594, time 0.35
+Epoch:1
+LR: 0.001
+ * Train Acc 39.821, Loss 1.238
+ * , robust loss: 0.848 robust error: 0.15873016
+ *  Val Acc 45.998, time 0.34
+Epoch:2
+LR: 0.001
+ * Train Acc 43.612, Loss 1.029
+ * , robust loss: 0.393 robust error: 0.03174603
+ *  Val Acc 43.757, time 0.35
+Epoch:3
+LR: 0.001
+ * Train Acc 42.724, Loss 0.901
+ * , robust loss: 0.173 robust error: 0.01587302
+ *  Val Acc 43.116, time 0.34
+Epoch:4
+LR: 0.001
+ * Train Acc 42.582, Loss 0.833
+ * , robust loss: 0.096 robust error: 0.00000000
+ *  Val Acc 42.529, time 0.35
+Epoch:5
+LR: 0.001
+ * Train Acc 41.738, Loss 0.803
+ * , robust loss: 0.040 robust error: 0.00000000
+ *  Val Acc 43.330, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 41.197, Loss 0.791
+ * , robust loss: 0.025 robust error: 0.00000000
+ *  Val Acc 43.063, time 0.37
+Epoch:7
+LR: 0.001
+ * Train Acc 40.043, Loss 0.790
+ * , robust loss: 0.016 robust error: 0.00000000
+ *  Val Acc 41.889, time 0.33
+Epoch:8
+LR: 0.001
+ * Train Acc 38.453, Loss 0.797
+ * , robust loss: 0.008 robust error: 0.00000000
+ *  Val Acc 37.727, time 0.34
+Epoch:9
+LR: 0.001
+ * Train Acc 35.976, Loss 0.808
+ * , robust loss: 0.005 robust error: 0.00000000
+ *  Val Acc 33.778, time 0.35
+Epoch:10
+LR: 0.001
+ * Train Acc 32.709, Loss 0.822
+ * , robust loss: 0.004 robust error: 0.00000000
+ *  Val Acc 32.070, time 0.34
+Epoch:11
+LR: 0.001
+ * Train Acc 30.498, Loss 0.836
+ * , robust loss: 0.003 robust error: 0.00000000
+ *  Val Acc 29.883, time 0.37
+after batch eps: 1.9999999999999674, kappa: 0.5
+sum: 767.3353271484375 -mean: 0.0018733772449195385 - std: 0.0010759327560663223
+ * min 5.0127207941841334e-05, max: 0.0035494910553097725
+sum: 10.754104614257812 -mean: 6.72131500323303e-05 - std: 3.052976535400376e-05
+ * min 6.528846370201791e-06, max: 0.00014658435247838497
+sum: 0.5477669835090637 - mean: 0.00013694175868295133 - std: 0.0001151258111349307
+ * min 1.4549853403877933e-05, max: 0.00120787404011935
+sum eps on layers: tensor([1.9183, 0.0269, 0.0548], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.480, time 0.38
+ * Lower 1 Val Acc 99.574, time 0.38
+ * Upper 1 Val Acc 99.574, time 0.37
+validation split name: 2
+ *  Val Acc 9.843, time 0.42
+ * Lower 1 Val Acc 15.524, time 0.38
+ * Upper 1 Val Acc 15.524, time 0.37
+validation split name: 3
+ *  Val Acc 29.883, time 0.37
+ * Lower 1 Val Acc 33.671, time 0.36
+ * Upper 1 Val Acc 33.671, time 0.34
+====================== 4 =======================
+Incremental class: Old valid output dimension: 6
+Incremental class: New Valid output dimension: 8
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 12.624, Loss 2.461
+ * , robust loss: 2.192 robust error: 0.55421687
+ *  Val Acc 13.998, time 0.36
+Epoch:1
+LR: 0.001
+ * Train Acc 12.353, Loss 2.145
+ * , robust loss: 1.531 robust error: 0.26506024
+ *  Val Acc 12.437, time 0.40
+Epoch:2
+LR: 0.001
+ * Train Acc 11.418, Loss 1.910
+ * , robust loss: 1.063 robust error: 0.24096386
+ *  Val Acc 11.682, time 0.39
+Epoch:3
+LR: 0.001
+ * Train Acc 10.580, Loss 1.719
+ * , robust loss: 0.639 robust error: 0.09638554
+ *  Val Acc 10.725, time 0.35
+Epoch:4
+LR: 0.001
+ * Train Acc 9.718, Loss 1.584
+ * , robust loss: 0.323 robust error: 0.03614458
+ *  Val Acc 10.171, time 0.34
+Epoch:5
+LR: 0.001
+ * Train Acc 9.242, Loss 1.497
+ * , robust loss: 0.249 robust error: 0.02409639
+ *  Val Acc 9.668, time 0.38
+Epoch:6
+LR: 0.001
+ * Train Acc 8.775, Loss 1.447
+ * , robust loss: 0.185 robust error: 0.03614458
+ *  Val Acc 9.215, time 0.35
+Epoch:7
+LR: 0.001
+ * Train Acc 8.077, Loss 1.426
+ * , robust loss: 0.089 robust error: 0.01204819
+ *  Val Acc 8.459, time 0.35
+Epoch:8
+LR: 0.001
+ * Train Acc 7.281, Loss 1.428
+ * , robust loss: 0.124 robust error: 0.02409639
+ *  Val Acc 6.999, time 0.35
+Epoch:9
+LR: 0.001
+ * Train Acc 6.468, Loss 1.439
+ * , robust loss: 0.030 robust error: 0.00000000
+ *  Val Acc 6.143, time 0.36
+Epoch:10
+LR: 0.001
+ * Train Acc 5.499, Loss 1.460
+ * , robust loss: 0.014 robust error: 0.00000000
+ *  Val Acc 5.589, time 0.35
+Epoch:11
+LR: 0.001
+ * Train Acc 4.818, Loss 1.485
+ * , robust loss: 0.010 robust error: 0.00000000
+ *  Val Acc 4.985, time 0.35
+after batch eps: 2.000000000000022, kappa: 0.5
+sum: 792.3607177734375 -mean: 0.0019344743341207504 - std: 0.0013942932710051537
+ * min 1.0074030797113664e-05, max: 0.0043899258598685265
+sum: 2.5917136669158936 -mean: 1.6198209777940065e-05 - std: 8.419899131695274e-06
+ * min 1.0084951327371527e-06, max: 4.454666850506328e-05
+sum: 0.12618951499462128 - mean: 3.154738078592345e-05 - std: 4.10773245675955e-05
+ * min 2.4636349280626746e-06, max: 0.0005427210126072168
+sum eps on layers: tensor([1.9809, 0.0065, 0.0126], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.338, time 0.41
+ * Lower 1 Val Acc 99.433, time 0.34
+ * Upper 1 Val Acc 99.433, time 0.36
+validation split name: 2
+ *  Val Acc 8.766, time 0.36
+ * Lower 1 Val Acc 13.712, time 0.39
+ * Upper 1 Val Acc 13.712, time 0.35
+validation split name: 3
+ *  Val Acc 33.565, time 0.36
+ * Lower 1 Val Acc 36.179, time 0.33
+ * Upper 1 Val Acc 36.179, time 0.33
+validation split name: 4
+ *  Val Acc 4.985, time 0.42
+ * Lower 1 Val Acc 5.237, time 0.36
+ * Upper 1 Val Acc 5.237, time 0.36
+====================== 5 =======================
+Incremental class: Old valid output dimension: 8
+Incremental class: New Valid output dimension: 10
+before batch eps: 0, kappa: 1
+Epoch:0
+LR: 0.001
+ * Train Acc 0.610, Loss 2.656
+ * , robust loss: 2.363 robust error: 0.82000000
+ *  Val Acc 1.513, time 0.36
+Epoch:1
+LR: 0.001
+ * Train Acc 0.949, Loss 2.476
+ * , robust loss: 2.072 robust error: 0.74000000
+ *  Val Acc 0.807, time 0.37
+Epoch:2
+LR: 0.001
+ * Train Acc 0.610, Loss 2.341
+ * , robust loss: 1.871 robust error: 0.41000000
+ *  Val Acc 0.656, time 0.38
+Epoch:3
+LR: 0.001
+ * Train Acc 0.500, Loss 2.209
+ * , robust loss: 1.603 robust error: 0.27000000
+ *  Val Acc 0.504, time 0.36
+Epoch:4
+LR: 0.001
+ * Train Acc 0.356, Loss 2.081
+ * , robust loss: 1.233 robust error: 0.16000000
+ *  Val Acc 0.303, time 0.37
+Epoch:5
+LR: 0.001
+ * Train Acc 0.288, Loss 1.963
+ * , robust loss: 0.975 robust error: 0.09000000
+ *  Val Acc 0.202, time 0.34
+Epoch:6
+LR: 0.001
+ * Train Acc 0.212, Loss 1.857
+ * , robust loss: 0.884 robust error: 0.10000000
+ *  Val Acc 0.101, time 0.36
+Epoch:7
+LR: 0.001
+ * Train Acc 0.178, Loss 1.765
+ * , robust loss: 0.777 robust error: 0.08000000
+ *  Val Acc 0.101, time 0.38
+Epoch:8
+LR: 0.001
+ * Train Acc 0.178, Loss 1.689
+ * , robust loss: 0.567 robust error: 0.08000000
+ *  Val Acc 0.101, time 0.38
+Epoch:9
+LR: 0.001
+ * Train Acc 0.186, Loss 1.628
+ * , robust loss: 0.312 robust error: 0.01000000
+ *  Val Acc 0.101, time 0.36
+Epoch:10
+LR: 0.001
+ * Train Acc 0.246, Loss 1.580
+ * , robust loss: 0.341 robust error: 0.03000000
+ *  Val Acc 0.050, time 0.37
+Epoch:11
+LR: 0.001
+ * Train Acc 0.280, Loss 1.542
+ * , robust loss: 0.232 robust error: 0.01000000
+ *  Val Acc 0.252, time 0.38
+after batch eps: 1.0000000000000182, kappa: 0.5
+sum: 398.6496887207031 -mean: 0.000973265792708844 - std: 0.0007535961922258139
+ * min 1.8262470575791667e-06, max: 0.0023984406143426895
+sum: 0.4703637361526489 -mean: 2.9397733669611625e-06 - std: 1.6047141571107204e-06
+ * min 1.587938669445066e-07, max: 8.443428669124842e-06
+sum: 0.021998465061187744 - mean: 5.4996166909404565e-06 - std: 1.2418767255439889e-05
+ * min 3.721304437931394e-07, max: 0.00042139404104091227
+sum eps on layers: tensor([0.9966, 0.0012, 0.0022], device='cuda:0', grad_fn=<DivBackward0>)
+validation split name: 1
+ *  Val Acc 99.007, time 0.39
+ * Lower 1 Val Acc 99.054, time 0.48
+ * Upper 1 Val Acc 99.054, time 0.40
+validation split name: 2
+ *  Val Acc 10.578, time 0.37
+ * Lower 1 Val Acc 13.565, time 0.39
+ * Upper 1 Val Acc 13.565, time 0.39
+validation split name: 3
+ *  Val Acc 40.608, time 0.35
+ * Lower 1 Val Acc 41.089, time 0.39
+ * Upper 1 Val Acc 41.089, time 0.39
+validation split name: 4
+ *  Val Acc 7.654, time 0.39
+ * Lower 1 Val Acc 8.006, time 0.36
+ * Upper 1 Val Acc 8.006, time 0.38
+validation split name: 5
+ *  Val Acc 0.252, time 0.38
+ * Lower 1 Val Acc 0.303, time 0.37
+ * Upper 1 Val Acc 0.303, time 0.41
+Task 1 average acc: 100.0
+Task 2 average acc: 57.78901924826863
+Task 3 average acc: 46.40193346137719
+Task 4 average acc: 36.663359815967716
+Task 5 average acc: 31.61979994384003
+===Summary of experiment repeats: 10 / 10 ===
+The regularization coefficient: 0.0
+The last avg acc of all repeats: [35.19887162 36.07594426 34.88260474 32.13046743 24.70860678 33.98253664
+ 29.07244735 34.15240106 31.04254667 31.61979994]
+mean: 32.286622647856944 std: 3.2513157042512617
+reg_coef: 0.0 mean: 32.286622647856944 std: 3.2513157042512617
+* kappa decrease from 1 to 0.5 in [1.0, 1.0, 1.0, 1.0, 1.0] epoch
+* eps increase by [7.0, 7.0, 2.0, 2.0, 1.0] every [12.0, 12.0, 12.0, 12.0, 12.0] epoch
+* maximal eps: [0.0, 0.0, 0.0, 0.0, 0.0]
+* tasks were trained [12, 12, 12, 12, 12] epoch with clipping
