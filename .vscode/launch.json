@@ -1,0 +1,61 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "IntervalNet (split MNIST, inc. domain)",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "program": "intervalBatchLearn.py",
+            "args": [
+                "--gpuid",
+                "0",
+                "--repeat",
+                "10",
+                "--optimizer",
+                "Adam",
+                "--force_out_dim",
+                "2",
+                "--first_split_size",
+                "2",
+                "--other_split_size",
+                "2",
+                "--model_name",
+                "interval_mlp400",
+                "--agent_type",
+                "interval",
+                "--agent_name",
+                "IntervalNet",
+                "--batch_size",
+                "100",
+                "--lr",
+                "0.001",
+                "--clipping",
+                "--eps_per_model",
+                "--eps_val",
+                "18",
+                "8",
+                "4",
+                "1",
+                "0.5",
+                "--eps_epoch",
+                "12",
+                "--eps_max",
+                "0",
+                "--kappa_epoch",
+                "1",
+                "--schedule",
+                "12"
+            ],
+            "env": {
+                // "CUDA_VISIBLE_DEVICES": "0",
+                "PYDEVD_WARN_EVALUATION_TIMEOUT": "120",
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
