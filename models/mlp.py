@@ -42,7 +42,7 @@ class IntervalMLP(nn.Module):
             if isinstance(c, LinearInterval):
                 c.rest_importance()
             elif isinstance(c, nn.ModuleDict) and "All" in c.keys():
-                    c["All"].rest_importance()
+                c["All"].rest_importance()
 
     def set_eps(self, eps, trainable=False, head="All"):
         if trainable:
@@ -76,6 +76,14 @@ class IntervalMLP(nn.Module):
 
 def interval_mlp400():
     return IntervalMLP(hidden_dim=400)
+
+
+def ablation_mlp():
+    return MLP(out_dim=2, in_channel=2, img_sz=1, hidden_dim=256)
+
+
+def ablation_interval_mlp():
+    return IntervalMLP(out_dim=2, in_channel=2, img_sz=1, hidden_dim=256)
 
 
 class MLP(nn.Module):

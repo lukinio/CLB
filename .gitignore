@@ -112,3 +112,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+.virtual_documents
+runs/
+notebooks/runs/
