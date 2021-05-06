@@ -1,16 +1,21 @@
+import gc
 import os
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
+import imageio
 import ipywidgets as widgets
 import matplotlib
 import numpy as np
 import plotly
+import plotly.colors
 import plotly.express as px
 import plotly.graph_objects as go
 import torch
+import torch.cuda
 import torch.nn as nn
+import torch.optim
 from agents.interval import IntervalNet
 from colour import Color
 from IPython.display import HTML, display
@@ -28,10 +33,31 @@ bgcolor = '#F0F4F7'
 bgcolor2 = '#D2D6D9'
 
 red = '#D81B60'
-red_bg = '#D1A3B4'
+red_bg = '#E6CFD7'
 blue = '#1E88E5'
-blue_bg = '#B7D3EB'
+blue_bg = '#D3E0EB'
 yellow = '#FFC107'
+yellow_bg = '#FFF9E6'
+green = '#008C0B'
+green_bg = '#CFE6D0'
+
+
+def cuda_mem(device: Optional[str] = None):
+    if device == 'cpu':
+        return
+    if device is None:
+        device = 'cuda:0'
+
+    alloc = torch.cuda.memory_allocated(device) / 2**20  # type: ignore
+    max_alloc = torch.cuda.max_memory_allocated(device) / 2**20  # type: ignore
+    reserved = torch.cuda.memory_reserved(device) / 2**20  # type: ignore
+
+    print(f'[bold white]'
+          f'Alloc: [yellow]{alloc:7.1f} MB[white]  '
+          f'MaxAlloc: [yellow]{max_alloc:7.1f} MB[white]  '
+          f'Reserved: [yellow]{reserved:7.1f} MB[white]  '
+          f'[red]\\[{device}][white] '
+          )
 
 
 def _hex_to_rgba(hex: str, a: float):
@@ -41,8 +67,9 @@ def _hex_to_rgba(hex: str, a: float):
 
 
 class Points2D(Dataset):
-    def __init__(self, n_points: int = 12, low: float = 0.05, high: float = 0.95, radius: float = 0.16, seed: int = 1, task_id: int = 0):
+    def __init__(self, n_points: int = 12, n_classes: int = 2, low: float = 0.05, high: float = 0.95, radius: float = 0.16, seed: int = 1, task_id: int = 0):
         self.n_points = n_points
+        self.n_classes = n_classes
         self.low = low
         self.high = high
         self.radius = radius
@@ -69,7 +96,7 @@ class Points2D(Dataset):
         self.epsilon = self.radius / 2
 
         coords = np.array(points, dtype=np.float32)
-        labels = np.array(np.round(self.rand.uniform(0, 1, size=self.n_points)), dtype=np.int64)
+        labels = np.array(self.rand.integers(0, self.n_classes, size=self.n_points))
 
         self.coords = torch.from_numpy(coords)
         self.labels = torch.from_numpy(labels)
@@ -81,17 +108,27 @@ class Points2D(Dataset):
         return len(self.coords)
 
 
-def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: float = 1.):
-    labels = np.array(points.labels).tolist()
+def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: float = 1., moves: List[float] = None):
+    labels = np.array(points.labels)
+    n_classes = len(np.unique(labels))
+    assert n_classes <= 4
+
+    labels = labels.tolist()
 
     fig = go.Figure()  # type: ignore
 
-    colors = [red, blue]
-    symbols = ['diamond', 'circle']
+    symbols = ['diamond', 'circle', 'hexagon', 'square']
+    colors = [blue, yellow, red, green]
+    colors_bg = [
+        [0 / (n_classes - 1), _hex_to_rgba(blue_bg, 1)],
+        [1 / (n_classes - 1), _hex_to_rgba(yellow_bg, 1)],
+        [2 / (n_classes - 1), _hex_to_rgba(red_bg, 1)],
+        [3 / (n_classes - 1), _hex_to_rgba(green_bg, 1)],
+    ][:n_classes]
 
     fig.add_trace(go.Scatter(  # type: ignore
-        x=points.coords[:, 0],
-        y=points.coords[:, 1],
+        x=points.coords[:, 0].numpy(),
+        y=points.coords[:, 1].numpy(),
         mode='markers',
         marker=dict(
             size=10,
@@ -103,7 +140,8 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
                 width=1,
                 color='rgba(0, 0, 0, 0.5)',
             )
-        )
+        ),
+        showlegend=False,
     ))
 
     fig.update_layout(
@@ -155,13 +193,14 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
     )
 
     if model is not None:
-        xrange = np.linspace(low, high, 400)
-        yrange = np.linspace(low, high, 400)
+        model.eval()
+        xrange = np.linspace(low, high, 600)
+        yrange = np.linspace(low, high, 600)
         xx, yy = np.meshgrid(xrange, yrange)
 
         inputs = torch.Tensor([xx.ravel(), yy.ravel()]).T
         if isinstance(model, IntervalNet):
-            zz = model(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+            zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
         else:
             zz = model(inputs).argmax(dim=1).view(xx.shape).detach().numpy()
 
@@ -169,23 +208,180 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
             x=xrange,
             y=yrange,
             z=zz,
-            colorscale=[
-                [0, _hex_to_rgba(red_bg, 1.0)],
-                [1, _hex_to_rgba(blue_bg, 1.0)]
-            ],
+            colorscale=colors_bg,
+            zmin=0,
+            zmax=n_classes - 1,
+            autocontour=False,
+            contours=dict(
+                type='levels',
+                start=0.5,
+                end=n_classes - 1.5,
+                size=1,
+                coloring='fill',
+                showlines=True,
+                showlabels=False,
+            ),
+            showlegend=False,
             showscale=False,
             opacity=1.0,
             line=dict(
-                color='rgba(0, 0, 0, 0.05)',
-                width=1.0,
-                dash='dot',
+                color='rgba(0.5, 0.5, 0.5, 1.0)',
+                width=1.5,
+                smoothing=0.0,
+                # dash='solid' if moves else 'dot',
+                dash='solid',
             )
         ))
+
+        if isinstance(model, IntervalNet) and moves is not None and n_classes == 2:
+            # scale = px.colors.diverging.Tealrose
+            scale = px.colors.diverging.Tropic
+            c_low, c_mid, c_high = scale[0], scale[len(scale) // 2], scale[-1]
+
+            lines = {}
+
+            for move in moves:
+                model.save_params()
+                model.move_weights(move)
+                zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+                model.restore_weights()
+
+                if move < 0:
+                    color = plotly.colors.find_intermediate_color(c_low, c_mid, intermed=1 + move, colortype='rgb')
+                else:
+                    color = plotly.colors.find_intermediate_color(c_mid, c_high, intermed=move, colortype='rgb')
+
+                # Class fill
+                fig.add_trace(go.Contour(  # type: ignore
+                    x=xrange,
+                    y=yrange,
+                    z=zz,
+                    colorscale=colors_bg,
+                    zmin=0,
+                    zmax=n_classes - 1,
+                    autocontour=False,
+                    contours=dict(
+                        type='levels',
+                        start=0.5,
+                        end=n_classes - 1.5,
+                        size=1,
+                        coloring='fill',
+                        showlines=False,
+                        showlabels=False,
+                    ),
+                    showscale=False,
+                    opacity=0.25,
+                ))
+
+                # Epsilon boundaries
+                eps = {
+                    '1.00': ' + ε',
+                    '0.50': ' + 0.5ε',
+                    '-0.50': ' - 0.5ε',
+                    '-1.00': ' - ε',
+                }[f'{move:.2f}']
+                name = f'<b>W<sub>k</sub>{eps}</b>'
+                fig.add_trace(go.Contour(  # type: ignore
+                    x=xrange,
+                    y=yrange,
+                    z=zz,
+                    colorscale=colors_bg,
+                    zmin=0,
+                    zmax=n_classes - 1,
+                    autocontour=False,
+                    contours=dict(
+                        start=0.5,
+                        end=n_classes - 1.5,
+                        size=1,
+                        coloring='none',
+                    ),
+                    name=name,
+                    legendgroup=name,
+                    showscale=False,
+                    opacity=1.0,
+                    line=dict(
+                        color=color,
+                        width=1.5,
+                        dash='dot',
+                    )
+                ))
+
+                lines[move] = (name, color)
+
+            # Strong border for mid prediction
+            zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+            fig.add_trace(go.Contour(  # type: ignore
+                x=xrange,
+                y=yrange,
+                z=zz,
+                colorscale=colors_bg,
+                zmin=0,
+                zmax=n_classes - 1,
+                autocontour=False,
+                contours=dict(
+                    start=0.5,
+                    end=n_classes - 1.5,
+                    size=1,
+                    coloring='none',
+                ),
+                name=f'<b>W<sub>k</sub></b>',
+                showscale=False,
+                opacity=1.0,
+                line=dict(
+                    color='rgba(0.5, 0.5, 0.5, 1.0)',
+                    width=1.5,
+                    dash='solid',
+                )
+            ))
+
+            # Custom legend
+            fig.update_layout(
+                showlegend=False,
+            )
+            # legend_x = 0.8
+            # legend_y = 0.03
+            # legend_w = 0.2
+            # legend_h = 0.25
+            # fig.add_shape(  # type: ignore
+            #     type='rect',
+            #     xref='x', yref='y',
+            #     x0=legend_x, y0=legend_y,
+            #     x1=legend_x + legend_w, y1=legend_y + legend_h,
+            #     fillcolor=bgcolor,
+            #     line_color=bgcolor2,
+            #     line_width=1,
+            # )
+
+            lines[0] = ('<b>W<sub>k</sub></b>', 'rgba(0.5, 0.5, 0.5, 1.0)')
+            moves.append(0)
+
+            for i, move in enumerate(sorted(moves)):
+                fig.add_annotation(  # type: ignore
+                    text=lines[move][0],
+                    font_size=11,
+                    x=0.86,
+                    y=0.27 - i * 0.05,
+                    xanchor='left',
+                    yanchor='middle',
+                    showarrow=False,
+                    textangle=0,
+                )
+
+                fig.add_trace(go.Scatter(  # type: ignore
+                    x=[0.82, 0.86],
+                    y=[0.27 - i * 0.05, 0.27 - i * 0.05],
+                    mode='lines',
+                    line=dict(
+                        color=lines[move][1],
+                        width=1.5,
+                        dash='dot' if move != 0 else 'solid',
+                    )
+                ))
 
     return fig
 
 
-@dataclass
+@ dataclass
 class Plot:
     start: int = 50
     end: int = 500
@@ -225,3 +421,117 @@ class Plot:
             self.select(epoch)
         else:
             self.update()
+
+
+def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500):
+    torch.manual_seed(1)
+
+    criterion = nn.CrossEntropyLoss()
+    opt = torch.optim.Adam(mlp.parameters(), lr=1e-3)
+
+    for epoch in (t := tqdm(range(1, max_epochs + 1))):
+        mlp.train()
+        out = mlp(points.coords)
+        loss = criterion(out, points.labels)
+
+        accuracy = (out.argmax(dim=1) == points.labels).sum().item() / len(points.coords)
+        t.set_description(desc=f'{epoch} --> {np.round(accuracy * 100, 2)}')
+
+        if epoch % mlp_plot.step == 0:
+            fig = plot(points, mlp, title=f'Vanilla MLP --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%')
+            mlp_plot.add(epoch, fig)
+
+            fig.write_image(f'figures/vanilla_{epoch}.png', width=600, height=600)
+
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+
+def train_interval(agent, dataloader, kappa_goal=1.0, kappa_goal_epoch=1, eps_goal=0, eps_goal_epoch=50):
+    iters_per_epoch = len(dataloader)
+
+    Schedule = namedtuple('Schedule', ['start', 'goal', 'goal_epoch'])
+
+    kappa = Schedule(
+        start=1.0,
+        goal=kappa_goal,
+        goal_epoch=kappa_goal_epoch,
+    )
+    eps = Schedule(
+        start=0,
+        goal=eps_goal,
+        goal_epoch=eps_goal_epoch,
+    )
+
+    agent.kappa_scheduler.set_end(kappa.goal)
+    agent.kappa_scheduler.calc_coefficient(kappa.goal - kappa.start, kappa.goal_epoch, iters_per_epoch)
+    agent.kappa_scheduler.current = kappa.start
+
+    agent.eps_scheduler.set_end(0)  # no limit
+    agent.eps_scheduler.calc_coefficient(eps.goal - eps.start, eps.goal_epoch, iters_per_epoch)
+    agent.eps_scheduler.current = eps.start
+
+    agent.learn_batch(dataloader)
+
+
+def plot_interval(agent, interval_plot, points, epoch=0, move: float = 0.0):
+    if move != 0.:
+        agent.save_params()
+        agent.move_weights(move)
+
+    out = agent(points.coords.cuda())['All'].cpu()
+    accuracy = (out.argmax(dim=1) == points.labels).sum().item() / len(points.coords)
+
+    fig = plot(
+        points, agent, title=f'Interval MLP ({move}) --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%'
+    )
+    interval_plot.add(epoch, fig)
+
+    fig.write_image(f'figures/interval_{epoch}_{move:.2f}.png', width=600, height=600)
+
+    if move != 0:
+        agent.restore_weights()
+
+
+def plot_interval_condensed(agent, interval_plot, points, epoch=500):
+    fig = plot(points, agent, title=f'Decision boundary of an interval multi-layer perceptron',
+               moves=[-1, -0.5, 0.5, 1])
+    interval_plot.add(epoch, fig)
+
+
+def plot_interval_animation(agent, points):
+    agent.save_params()
+
+    os.makedirs('figures/interval_animation', exist_ok=True)
+    with imageio.get_writer(
+        'figures/interval_animation/interval.gif',
+        mode='I',
+        duration=0.1,
+    ) as writer:
+
+        moves = np.hstack([np.linspace(-1, 0, 50)[:-1], np.linspace(0, 1, 50)])
+
+        for i, move in enumerate(tqdm(moves)):
+            agent.move_weights(move)
+
+            out = agent(points.coords.cuda())['All'].cpu()
+            accuracy = (out.argmax(dim=1) == points.labels).sum().item() / len(points.coords)
+
+            title = (
+                f'Interval MLP, base weights {"+" if move >= 0 else ""}{move:.2f}'
+                f' epsilon --> accuracy: {np.round(accuracy * 100, 2)}%'
+            )
+            fig = plot(points, agent, title=title)
+
+            filename = f'figures/interval_animation/{i}.png'
+            fig.write_image(filename, width=600, height=600)
+
+            image = imageio.imread(filename)
+            writer.append_data(image)
+
+            if move == 0 or move == -1 or move == 1:
+                for _ in range(10):
+                    writer.append_data(image)
+
+            agent.restore_weights()

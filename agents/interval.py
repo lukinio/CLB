@@ -1,18 +1,20 @@
-import torch
-import torch.optim as opt
-import torch.nn as nn
 from types import MethodType
+
 import models
-from utils.metric import accuracy, AverageMeter, Timer
-from interval.layers import LinearInterval, Conv2dInterval
-from interval.hyperparam_scheduler import LinearScheduler
+import torch
+import torch.nn as nn
+import torch.optim as opt
 from torch.utils.tensorboard import SummaryWriter
+from utils.metric import AverageMeter, Timer, accuracy
+
+from interval.hyperparam_scheduler import LinearScheduler
+from interval.layers import Conv2dInterval, LinearInterval
 
 
 class IntervalNet(nn.Module):
     def __init__(self, agent_config):
         """
-        :param agent_config (dict): lr=float,momentum=float,weight_decay=float,
+        :param agent_config (dict): lr=float,momentum=float,weight_decay=float,bias=bool,
                                     schedule=[int],  # The last number in the list is the end of epoch
                                     model_type=str,model_name=str,out_dim={task:dim},model_weights=str
                                     force_single_head=bool
@@ -26,6 +28,7 @@ class IntervalNet(nn.Module):
         # If out_dim is a dict, there is a list of tasks. The model will have a head for each task.
         # A convenience flag to indicate multi-head/task
         self.multihead = True if len(self.config['out_dim']) > 1 else False
+        self.bias = self.config.get('bias')
         self.model = self.create_model()
         self.criterion_fn = nn.CrossEntropyLoss()
         self.kappa_scheduler = LinearScheduler(start=1, end=0.5)
@@ -85,7 +88,7 @@ class IntervalNet(nn.Module):
         # For a single-headed model the output will be {'All':output}
         model.last = nn.ModuleDict()
         for task, out_dim in cfg['out_dim'].items():
-            model.last[task] = LinearInterval(n_feat, out_dim)
+            model.last[task] = LinearInterval(n_feat, out_dim, bias=self.bias)
 
         # Redefine the task-dependent function
         def new_logits(self, x):
@@ -194,7 +197,8 @@ class IntervalNet(nn.Module):
         loss, robust_loss, robust_err = 0, 0, 0
         if self.multihead:
             for t, t_preds in preds.items():
-                inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
+                # The index of inputs that matched specific task
+                inds = [i for i in range(len(tasks)) if tasks[i] == t]
                 if len(inds) > 0:
                     t_preds = t_preds[inds]
                     t_target = targets[inds]
@@ -298,8 +302,6 @@ class IntervalNet(nn.Module):
         # self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
         # self.tb.add_histogram("fc1/importance", self.model.fc1[0].importance, self.current_task)
 
-
-
         # self.tb.add_histogram('fc1/bias', self.model.fc1.bias, self.current_task)
 
         # self.tb.add_histogram('fc1/weight', self.model.fc1.weight, self.current_task)
@@ -357,12 +359,14 @@ class IntervalNet(nn.Module):
                 for layer in c.children():
                     if isinstance(layer, (Conv2dInterval, LinearInterval)):
                         layer.weight.data = self.clip_weights(i, layer.weight.data.detach())
-                        layer.eps, layer.weight.data = self.clip_intervals(i, layer.weight.data.detach(), layer.eps.detach())
+                        layer.eps, layer.weight.data = self.clip_intervals(
+                            i, layer.weight.data.detach(), layer.eps.detach())
                         i += 1
 
             elif isinstance(c, nn.ModuleDict) and not self.multihead:
                 c["All"].weight.data = self.clip_weights(i, c["All"].weight.data.detach())
-                c["All"].eps, c["All"].weight.data = self.clip_intervals(i, c["All"].weight.data.detach(), c["All"].eps.detach())
+                c["All"].eps, c["All"].weight.data = self.clip_intervals(
+                    i, c["All"].weight.data.detach(), c["All"].eps.detach())
                 i += 1
 
             elif isinstance(c, (Conv2dInterval, LinearInterval)):
