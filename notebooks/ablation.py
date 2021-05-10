@@ -14,6 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import torch
 import torch.cuda
+import torch.distributions
 import torch.nn as nn
 import torch.optim
 from agents.interval import IntervalNet
@@ -75,10 +76,11 @@ class Points2D(Dataset):
         self.radius = radius
         self.seed = seed
         self.task_id = task_id
-        self.rand: np.random.Generator = np.random.default_rng(seed=seed)
+        self.rand: np.random.RandomState = np.random.RandomState(seed=seed)
         self.epsilon: float
         self.coords: torch.Tensor
         self.labels: torch.Tensor
+        # np.random.seed(seed)
 
         self._generate_points()
 
@@ -96,7 +98,7 @@ class Points2D(Dataset):
         self.epsilon = self.radius / 2
 
         coords = np.array(points, dtype=np.float32)
-        labels = np.array(self.rand.integers(0, self.n_classes, size=self.n_points))
+        labels = np.array(self.rand.randint(0, self.n_classes, size=self.n_points))
 
         self.coords = torch.from_numpy(coords)
         self.labels = torch.from_numpy(labels)
@@ -108,7 +110,7 @@ class Points2D(Dataset):
         return len(self.coords)
 
 
-def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: float = 1., moves: List[float] = None):
+def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: float = 1., moves: List[float] = None, hires: bool = True):
     labels = np.array(points.labels)
     n_classes = len(np.unique(labels))
     assert n_classes <= 4
@@ -147,7 +149,7 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
     fig.update_layout(
         plot_bgcolor=bgcolor,
         xaxis=dict(
-            range=[0, 1],
+            range=[low, high],
             nticks=2,
             showticklabels=False,
             showline=True,
@@ -159,7 +161,7 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
             title=''
         ),
         yaxis=dict(
-            range=[0, 1],
+            range=[low, high],
             nticks=2,
             showticklabels=False,
             showline=True,
@@ -194,8 +196,8 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
 
     if model is not None:
         model.eval()
-        xrange = np.linspace(low, high, 600)
-        yrange = np.linspace(low, high, 600)
+        xrange = np.linspace(low, high, 600 if hires else 200)
+        yrange = np.linspace(low, high, 600 if hires else 200)
         xx, yy = np.meshgrid(xrange, yrange)
 
         inputs = torch.Tensor([xx.ravel(), yy.ravel()]).T
@@ -423,11 +425,47 @@ class Plot:
             self.update()
 
 
-def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500):
+# https://discuss.pytorch.org/t/implementing-truncated-normal-initializer/4778/20
+def parameterized_truncated_normal(uniform, mu, sigma, a, b):
+    normal = torch.distributions.normal.Normal(0, 1)
+
+    alpha = (a - mu) / sigma
+    beta = (b - mu) / sigma
+
+    alpha_normal_cdf = normal.cdf(alpha)
+    p = alpha_normal_cdf + (normal.cdf(beta) - alpha_normal_cdf) * uniform
+
+    p = p.numpy()
+    one = np.array(1, dtype=p.dtype)
+    epsilon = np.array(np.finfo(p.dtype).eps, dtype=p.dtype)
+    v = np.clip(2 * p - 1, -one + epsilon, one - epsilon)
+    x = mu + sigma * np.sqrt(2) * torch.erfinv(torch.from_numpy(v))
+    x = torch.clamp(x, a, b)
+
+    return x
+
+
+def truncated_normal(uniform):
+    return parameterized_truncated_normal(uniform, mu=0.0, sigma=1.0, a=-2, b=2)
+
+
+def sample_truncated_normal(shape=()):
+    return truncated_normal(torch.from_numpy(np.random.uniform(0, 1, shape)))
+
+
+def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500, low=0, high=1):
     torch.manual_seed(1)
+    # 1, 3, 42, 1024
+
+    # def init_weights(m):
+    #     if type(m) == nn.Linear:
+    #         nn.init.trunc_normal_(m.weight, std=2 / np.sqrt(m.in_features))
+
+    # mlp.linear.apply(init_weights)
 
     criterion = nn.CrossEntropyLoss()
     opt = torch.optim.Adam(mlp.parameters(), lr=1e-3)
+    # opt = torch.optim.SGD(mlp.parameters(), lr=0.01)
 
     for epoch in (t := tqdm(range(1, max_epochs + 1))):
         mlp.train()
@@ -438,7 +476,8 @@ def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500):
         t.set_description(desc=f'{epoch} --> {np.round(accuracy * 100, 2)}')
 
         if epoch % mlp_plot.step == 0:
-            fig = plot(points, mlp, title=f'Vanilla MLP --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%')
+            fig = plot(points, mlp, high=high, low=low,
+                       title=f'Vanilla MLP --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%')
             mlp_plot.add(epoch, fig)
 
             fig.write_image(f'figures/vanilla_{epoch}.png', width=600, height=600)
@@ -475,7 +514,7 @@ def train_interval(agent, dataloader, kappa_goal=1.0, kappa_goal_epoch=1, eps_go
     agent.learn_batch(dataloader)
 
 
-def plot_interval(agent, interval_plot, points, epoch=0, move: float = 0.0):
+def plot_interval(agent, interval_plot, points, epoch=0, move: float = 0.0, low=0, high=1):
     if move != 0.:
         agent.save_params()
         agent.move_weights(move)
@@ -484,7 +523,8 @@ def plot_interval(agent, interval_plot, points, epoch=0, move: float = 0.0):
     accuracy = (out.argmax(dim=1) == points.labels).sum().item() / len(points.coords)
 
     fig = plot(
-        points, agent, title=f'Interval MLP ({move}) --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%'
+        points, agent, title=f'Interval MLP ({move}) --> epoch: {epoch}, accuracy: {np.round(accuracy * 100, 2)}%',
+        low=low, high=high
     )
     interval_plot.add(epoch, fig)
 
@@ -494,13 +534,13 @@ def plot_interval(agent, interval_plot, points, epoch=0, move: float = 0.0):
         agent.restore_weights()
 
 
-def plot_interval_condensed(agent, interval_plot, points, epoch=500):
+def plot_interval_condensed(agent, interval_plot, points, epoch=500, low=0, high=1):
     fig = plot(points, agent, title=f'Decision boundary of an interval multi-layer perceptron',
-               moves=[-1, -0.5, 0.5, 1])
+               moves=[-1, -0.5, 0.5, 1], low=low, high=high)
     interval_plot.add(epoch, fig)
 
 
-def plot_interval_animation(agent, points):
+def plot_interval_animation(agent, points, low=0, high=1):
     agent.save_params()
 
     os.makedirs('figures/interval_animation', exist_ok=True)
@@ -522,7 +562,7 @@ def plot_interval_animation(agent, points):
                 f'Interval MLP, base weights {"+" if move >= 0 else ""}{move:.2f}'
                 f' epsilon --> accuracy: {np.round(accuracy * 100, 2)}%'
             )
-            fig = plot(points, agent, title=title)
+            fig = plot(points, agent, title=title, low=low, high=high)
 
             filename = f'figures/interval_animation/{i}.png'
             fig.write_image(filename, width=600, height=600)

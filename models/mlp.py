@@ -78,14 +78,6 @@ def interval_mlp400():
     return IntervalMLP(hidden_dim=400)
 
 
-def points_mlp(n_classes=2):
-    return MLP(out_dim=n_classes, in_channel=2, img_sz=1, hidden_dim=256)
-
-
-def points_interval_mlp(n_classes=2):
-    return IntervalMLP(out_dim=n_classes, in_channel=2, img_sz=1, hidden_dim=256, bias=True)
-
-
 class MLP(nn.Module):
 
     def __init__(self, out_dim=10, in_channel=1, img_sz=32, hidden_dim=256):
@@ -133,3 +125,51 @@ def MLP2000():
 
 def MLP5000():
     return MLP(hidden_dim=5000)
+
+
+class PointsMLP(MLP):
+    def __init__(self, out_dim=2, in_channel=2, img_sz=1, hidden_dim=100):
+        super().__init__()
+        self.in_dim = in_channel*img_sz*img_sz
+        self.linear = nn.Sequential(
+            nn.Linear(self.in_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+        self.last = nn.Linear(hidden_dim, out_dim)  # Subject to be replaced dependent on task
+
+
+class PointsIntervalMLP(IntervalMLP):
+    def __init__(self, out_dim=2, in_channel=2, img_sz=1, hidden_dim=100, bias=True):
+        super().__init__()
+        self.in_dim = in_channel*img_sz*img_sz
+        self.fc1 = LinearInterval(self.in_dim, hidden_dim, bias=bias, input_layer=True)
+        self.fc2 = LinearInterval(hidden_dim, hidden_dim, bias=bias)
+        self.fc3 = LinearInterval(hidden_dim, hidden_dim, bias=bias)
+        self.fc4 = LinearInterval(hidden_dim, hidden_dim, bias=bias)
+        # Subject to be replaced dependent on task
+        self.last = LinearInterval(hidden_dim, out_dim, bias=bias)
+        self.a = nn.Parameter(torch.Tensor([0, 0, 0, 0, 0]), requires_grad=True)
+        self.e = torch.zeros(5)
+        self.bounds = None
+
+    def features(self, x):
+        x = x.view(-1, self.in_dim)
+        x = f.relu(self.fc1(x))
+        x = f.relu(self.fc2(x))
+        x = f.relu(self.fc3(x))
+        x = f.relu(self.fc4(x))
+        self.save_bounds(x)
+        return x
+
+
+def points_interval_mlp(n_classes=2):
+    return PointsIntervalMLP(out_dim=n_classes)
