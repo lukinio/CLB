@@ -28,7 +28,8 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from tqdm.notebook import tqdm
 
-FONT_FAMILY = 'Nunito'
+# FONT_FAMILY = 'Nunito'
+FONT_FAMILY = 'Roboto Condensed'
 
 bgcolor = '#F0F4F7'
 bgcolor2 = '#D2D6D9'
@@ -467,7 +468,8 @@ def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500, low=0, high=1):
     opt = torch.optim.Adam(mlp.parameters(), lr=1e-3)
     # opt = torch.optim.SGD(mlp.parameters(), lr=0.01)
 
-    for epoch in (t := tqdm(range(1, max_epochs + 1))):
+    t = tqdm(range(1, max_epochs + 1))
+    for epoch in t:
         mlp.train()
         out = mlp(points.coords)
         loss = criterion(out, points.labels)
