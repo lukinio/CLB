@@ -102,19 +102,6 @@ class LinearInterval(nn.Linear):
         lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg #+ self.bias
         upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg #+ self.bias
 
-        # w_lower = (self.weight - self.eps).t()
-        # w_upper = (self.weight + self.eps).t()
-        #
-        # low_low = x_lower @ w_lower
-        # low_upp = x_lower @ w_upper
-        # upp_low = x_upper @ w_lower
-        # upp_upp = x_upper @ w_upper
-        #
-        # min1, min2 = torch.min(low_low, low_upp), torch.min(upp_low, upp_upp)
-        # max1, max2 = torch.max(low_low, low_upp), torch.max(upp_low, upp_upp)
-        # lower = torch.min(min1, min2)  # + self.bias
-        # upper = torch.max(max1, max2)  # + self.bias
-
         return torch.cat((middle, lower, upper), dim=1)
 
 class Conv2dInterval(nn.Conv2d):

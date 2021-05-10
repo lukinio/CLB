@@ -340,13 +340,14 @@ class IntervalNet(nn.Module):
         upp = torch.min(upp_old, upp_new)
         assert (low <= upp).all()
 
-        weight_new = (low + upp) / 2
-        eps_new = torch.abs(low - upp) / 2
+        weight_new = (low + upp) / torch.Tensor([2]).cuda()
+        eps_new = torch.abs(low - upp) / torch.Tensor([2]).cuda()
+        eps_new = torch.where(eps_new > eps_old, eps_old, eps_new)
         # eps_new = torch.where(eps_old < eps_new, eps_old, eps_new)
         # calc = (eps_old < eps_new)
         # if calc.any():
         #     print(f"ile złych: {calc.sum()}, wszystkich: {(eps_old >= 0).sum()}")
-        # assert (eps_old >= eps_new).all(), print(f"eps assert i: {i}, ile złych: {(eps_old < eps_new).sum()}, wszystkich: {(eps_new >= 0).sum()}")
+        assert (eps_old >= eps_new).all(), print(f"eps assert i: {i}, ile złych: {(eps_old < eps_new).sum()}, wszystkich: {(eps_new >= 0).sum()}")
 
         return eps_new, weight_new
 
@@ -378,12 +379,13 @@ class IntervalNet(nn.Module):
         # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()
-        if self.clipping and self.prev_eps:
-            self.clip_params()
+
 
         self.kappa_scheduler.step()
         self.eps_scheduler.step()
         self.model.set_eps(self.eps_scheduler.current, trainable=self.config['eps_per_model'], head=self.current_head)
+        if self.clipping and self.prev_eps:
+            self.clip_params()
         return loss.item(), robust_err, robust_loss, out
 
     def learn_batch(self, train_loader, val_loader=None):
@@ -431,7 +433,7 @@ class IntervalNet(nn.Module):
                 data_timer.toc()
 
             self.log(' * Train Acc {acc.avg:.3f}, Loss {loss.avg:.3f}'.format(loss=losses, acc=acc))
-            self.log(f" * robust loss: {robust_loss:.3f} robust error: {robust_err:.8f}")
+            self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
 
             # Evaluate the performance of current task
             if val_loader is not None:

@@ -122,7 +122,7 @@ def get_args(argv):
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--schedule', nargs="+", type=int, default=[2],
                         help="The list of epoch numbers to reduce learning rate by factor of 0.1. Last number is the end epoch")
-    parser.add_argument('--print_freq', type=float, default=0, help="Print the log at every x iteration")
+    parser.add_argument('--print_freq', type=float, default=100, help="Print the log at every x iteration")
     parser.add_argument('--model_weights', type=str, default=None,
                         help="The path to the file for the model weights (*.pth).")
     parser.add_argument('--reg_coef', nargs="+", type=float, default=[0.], help="The coefficient for regularization. Larger means less plasilicity. Give a list for hyperparameter search.")

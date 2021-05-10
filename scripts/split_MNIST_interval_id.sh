@@ -1,99 +1,95 @@
 GPUID=$1
-OUTDIR=outputs/split_MNIST_interval_id
+OUTDIR=outputs/split_MNIST_interval_id_per_weight
 REPEAT=10
 mkdir -p $OUTDIR
 
-# good to do on 10 reps
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam \
-#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 --schedule 16 \
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 --schedule 12 \
 #       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --batch_size 100 --lr 0.001 --kappa_epoch 8 --eps_epoch 16 --eps_val 0.1 \
-#       --eps_max 0.1 | tee ${OUTDIR}/Adam_tr_eps01.log
+#       --batch_size 100 --lr 0.001 --kappa_epoch 4 --eps_epoch 12 --eps_val 10 3.3 1.1 0.36 0.12 \
+#       --eps_max 0 --clipping | tee ${OUTDIR}/in_pw_random.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 10 --eps_epoch 8 --eps_max 0 \
+#       --kappa_epoch 4 --schedule 8 \
+#       | tee ${OUTDIR}/in_pw_random2.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 6 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 4 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw_random3.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 16 4 3 1 0.5 --eps_epoch 12 10 10 10 8 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 10 10 10 8 \
+#       | tee ${OUTDIR}/in_pw_random4.log
+
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 16 8 8 3 2 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw.log
+
+# --eps_val 20 8 4 2 1
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 18 8 4 1 0.5 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pwd.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 18 8 4 1 0.5 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pwd1.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 60 40 20 10 5 --eps_epoch 20 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 20 \
+#       | tee ${OUTDIR}/in_pwd2.log
+
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 18 8 4 1 0.5 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw1.log
 #
 
-
-python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam \
-       --force_out_dim 2 --first_split_size 2 --other_split_size 2 --schedule 16 \
+python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+       --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
        --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-       --batch_size 100 --lr 0.001 --kappa_epoch 12 --eps_epoch 16 --eps_val 0.6 \
-       --eps_max 0.6 | tee ${OUTDIR}/Adam_tr_eps_12.log
+       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+       --eps_val 20 8 5 3 1 --eps_epoch 12 --eps_max 0 \
+       --kappa_epoch 1 --schedule 12 \
+       | tee ${OUTDIR}/in_pw1_test.log
 
 
 
 
-
-# Incremental Domain
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 16 --batch_size 128 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 8 --eps_epoch 16 --eps_val 0.2 --eps_max 0.2 \
-#       | tee ${OUTDIR}/test1.log
-#
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 16 --batch_size 128 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet --clipping \
-#       --lr 0.001 --kappa_epoch 8 --eps_epoch 16 --eps_val 0.2 --eps_max 0.2 \
-#       | tee ${OUTDIR}/test1_clipping.log
-#
-
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 8 --batch_size 128 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 4 --eps_epoch 8 --eps_val 0.1 --eps_max 0.1 | tee ${OUTDIR}/IN_Adam_01.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 16 --batch_size 128 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 8 --eps_epoch 16 --eps_val 0.2 --eps_max 0.2 | tee ${OUTDIR}/IN_Adam_02.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 24 --batch_size 128 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 10 --eps_epoch 24 --eps_val 0.3 --eps_max 0.3 | tee ${OUTDIR}/IN_Adam_03.log
-#
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 8 --batch_size 128 --clipping \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 4 --eps_epoch 8 --eps_val 0.1 --eps_max 0.1 | tee ${OUTDIR}/IN_Adam_01_clipping.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 16 --batch_size 128 --clipping \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 8 --eps_epoch 16 --eps_val 0.2 --eps_max 0.2 | tee ${OUTDIR}/IN_Adam_02_clipping.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 24 --batch_size 128 --clipping \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 10 --eps_epoch 24 --eps_val 0.3 --eps_max 0.3 | tee ${OUTDIR}/IN_Adam_03_clipping.log
-#
-#
-
-
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 10 --batch_size 128 --interval_epoch 5 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 10 --eps_epoch 10 --eps_max 0.1 | tee ${OUTDIR}/Adam_exp1.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 20 --batch_size 128 --interval_epoch 5 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 10 --eps_epoch 20 --eps_max 0.1 | tee ${OUTDIR}/Adam_exp2.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 10 --batch_size 128 --interval_epoch 5 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.01 --kappa_epoch 10 --eps_epoch 10 --eps_max 0.1 | tee ${OUTDIR}/Adam_exp3.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 20 --batch_size 128 --interval_epoch 5 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.01 --kappa_epoch 10 --eps_epoch 20 --eps_max 0.05 | tee ${OUTDIR}/Adam_exp4.log
-#
-#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --optimizer Adam --force_out_dim 2 \
-#       --first_split_size 2 --other_split_size 2 --schedule 30 --batch_size 128 --interval_epoch 5 \
-#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-#       --lr 0.001 --kappa_epoch 10 --eps_epoch 10 --eps_max 0.1 | tee ${OUTDIR}/Adam_exp5.log
+# 16 4 3 1 0.5 - 80%
+# 16 4 3 1 1
+# --eps_val 15 4 3 1 1 81% - z exp.sum(dim=1)[:, None] BT i --eps_per_model
+# --eps_val 100 10 1 0.1 0.01 acc 75% - z exp.sum(dim=1)[:, None] BT
+# --eps_val 6000 2000 666 222 111

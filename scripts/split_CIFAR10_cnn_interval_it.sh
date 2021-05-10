@@ -1,6 +1,6 @@
 GPUID=$1
 OUTDIR=outputs/split_CIFAR10_cnn_interval_it_test
-REPEAT=2
+REPEAT=10
 mkdir -p $OUTDIR
 
 
@@ -113,12 +113,27 @@ mkdir -p $OUTDIR
 #       --kappa_epoch 50 --schedule 50 \
 #       | tee ${OUTDIR}/tn2_test7.log
 
+# BEST
+#python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
+#       --repeat "${REPEAT}" --optimizer Adam --force_out_dim 0 --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
+#       --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 2.5 0.9 0.3 0.2 0.1 --eps_epoch 50 --eps_max 0 \
+#       --kappa_epoch 30 --schedule 50 \
+#       | tee ${OUTDIR}/tn2_test8.log
+
+#python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
+#       --repeat "${REPEAT}" --optimizer Adam --force_out_dim 0 --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
+#       --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 2.5 0.9 0.3 0.2 0.1 --eps_epoch 50 --eps_max 0 \
+#       --kappa_epoch 30 --schedule 50 \
+#       | tee ${OUTDIR}/in_pw_78.log
 
 python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
        --repeat "${REPEAT}" --optimizer Adam --force_out_dim 0 --first_split_size 2 \
        --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
        --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
-       --eps_val 20 12 4 1.2 0.4 --eps_epoch 50 --eps_max 0 \
-       --kappa_epoch 50 --schedule 50 \
-       | tee ${OUTDIR}/tn2_test8.log
-
+       --eps_val 3 2 1 0.5 0.1 --eps_epoch 60 --eps_max 0 \
+       --kappa_epoch 20 --schedule 60 \
+       | tee ${OUTDIR}/in_pw_81.log
