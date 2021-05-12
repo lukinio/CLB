@@ -74,19 +74,19 @@ mkdir -p $OUTDIR
 #       | tee ${OUTDIR}/tn52.log
 
 
-#python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
-#       --repeat "${REPEAT}" --optimizer Adam --force_out_dim 2 --first_split_size 2 \
-#       --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
-#       --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
-#       --eps_val 2.5 0.9 0.3 0.2 0.1 --eps_epoch 50 --eps_max 0 \
-#       --kappa_epoch 40 --schedule 50 \
-#       | tee ${OUTDIR}/in_pw_75.log
-
-
 python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
-       --repeat "${REPEAT}" --optimizer Adam --force_out_dim 2 --first_split_size 2 \
-       --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
-       --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
-       --eps_val 2.5 1 0.5 0.1 0.1 --eps_epoch 60 --eps_max 0 \
-       --kappa_epoch 20 --schedule 60 \
-       | tee ${OUTDIR}/in_pw_test.log
+      --repeat "${REPEAT}" --optimizer Adam --force_out_dim 2 --first_split_size 2 \
+      --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
+      --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+      --eps_val 2.5 0.9 0.3 0.2 0.1 --eps_epoch 50 --eps_max 0 \
+      --kappa_epoch 40 --schedule 50 \
+      | tee ${OUTDIR}/in_pw_75_with_biases.log
+
+
+# python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}" \
+#        --repeat "${REPEAT}" --optimizer Adam --force_out_dim 2 --first_split_size 2 \
+#        --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
+#        --agent_name IntervalNet --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#        --eps_val 2.5 1 0.5 0.1 0.1 --eps_epoch 60 --eps_max 0 \
+#        --kappa_epoch 20 --schedule 60 \
+#        | tee ${OUTDIR}/in_pw_test.log

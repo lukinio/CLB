@@ -1,12 +1,14 @@
-import torch
-import torch.optim as opt
-import torch.nn as nn
 from types import MethodType
+
 import models
-from utils.metric import accuracy, AverageMeter, Timer
-from interval.layers import LinearInterval, Conv2dInterval
-from interval.hyperparam_scheduler import LinearScheduler
+import torch
+import torch.nn as nn
+import torch.optim as opt
 from torch.utils.tensorboard import SummaryWriter
+from utils.metric import AverageMeter, Timer, accuracy
+
+from interval.hyperparam_scheduler import LinearScheduler
+from interval.layers import Conv2dInterval, IntervalBias, LinearInterval
 
 
 class IntervalNet(nn.Module):
@@ -56,9 +58,11 @@ class IntervalNet(nn.Module):
             self.C[y0][y0, :] += 1
 
     def init_optimizer(self):
-        optimizer_arg = {'params': (p for p in self.model.parameters() if p.requires_grad),
-                         'lr': self.config['lr'],
-                         'weight_decay': self.config['weight_decay']}
+        optimizer_arg = {
+            'params': (p for p in self.model.parameters() if p.requires_grad),
+            'lr': self.config['lr'],
+            'weight_decay': self.config['weight_decay']
+        }
         if self.config['optimizer'] in ['SGD', 'RMSprop']:
             optimizer_arg['momentum'] = self.config['momentum']
         elif self.config['optimizer'] in ['Rprop']:
@@ -68,8 +72,7 @@ class IntervalNet(nn.Module):
             self.config['optimizer'] = 'Adam'
 
         self.optimizer = opt.__dict__[self.config['optimizer']](**optimizer_arg)
-        self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'],
-                                                      gamma=0.1)
+        self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'], gamma=0.1)
 
     def create_model(self):
         cfg = self.config
@@ -79,13 +82,13 @@ class IntervalNet(nn.Module):
 
         # Apply network surgery to the backbone
         # Create the heads for tasks (It can be single task or multi-task)
-        n_feat = model.last.in_features
+        n_feat = model.last[0].in_features
 
         # The output of the model will be a dict: {task_name1:output1, task_name2:output2 ...}
         # For a single-headed model the output will be {'All':output}
         model.last = nn.ModuleDict()
         for task, out_dim in cfg['out_dim'].items():
-            model.last[task] = LinearInterval(n_feat, out_dim)
+            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), IntervalBias(out_dim))
 
         # Redefine the task-dependent function
         def new_logits(self, x):
@@ -99,8 +102,7 @@ class IntervalNet(nn.Module):
         # Load pre-trained weights
         if cfg['model_weights'] is not None:
             print('=> Load model weights:', cfg['model_weights'])
-            model_state = torch.load(cfg['model_weights'],
-                                     map_location=lambda storage, loc: storage)  # Load to CPU.
+            model_state = torch.load(cfg['model_weights'], map_location=lambda storage, loc: storage)  # Load to CPU.
             model.load_state_dict(model_state)
             print('=> Load Done')
         return model
@@ -117,29 +119,15 @@ class IntervalNet(nn.Module):
 
     def restore_weights(self):
         i = 0
-        for c in self.model.children():
-            if isinstance(c, nn.Sequential):
-                for layer in c.children():
-                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
-                        layer.weight.data = self.prev_weight[i].clone()
-                        i += 1
-            elif isinstance(c, nn.ModuleDict) and not self.multihead:
-                c["All"].weight.data = self.prev_weight[i].clone()
-                i += 1
-            elif isinstance(c, (Conv2dInterval, LinearInterval)):
-                c.weight.data = self.prev_weight[i].clone()
+        for m in self.model.modules():
+            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+                m.weight.data = self.prev_weight[i].clone()
                 i += 1
 
     def move_weights(self, sign):
-        for c in self.model.children():
-            if isinstance(c, nn.Sequential):
-                for layer in c.children():
-                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
-                        layer.weight.data += sign * layer.eps
-            elif isinstance(c, nn.ModuleDict) and not self.multihead:
-                c["All"].weight.data += sign * c["All"].eps
-            elif isinstance(c, (Conv2dInterval, LinearInterval)):
-                c.weight.data += sign * c.eps
+        for m in self.model.modules():
+            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+                m.weight.data += sign * m.eps
 
     def validation_with_move_weights(self, dataloader):
         # moves = (0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
@@ -181,11 +169,11 @@ class IntervalNet(nn.Module):
     def _interval_based_bound(self, y0, idx, key):
         # requires last layer to be linear
         C = self.C[y0].t()
-        cW = C @ (self.model.last[key].weight - self.model.last[key].eps)
-        # cb = C @ self.model.last[key].bias
+        cW = C @ (self.model.last[key][0].weight - self.model.last[key][0].eps)
+        cb = C @ (self.model.last[key][1].weight - self.model.last[key][1].eps)
         l, u = self.model.bounds
-        # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
-        return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
+        return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
+        # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
 
     def criterion(self, preds, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
@@ -205,8 +193,8 @@ class IntervalNet(nn.Module):
                             if (t_target == y0).sum().item() > 0:
                                 lower_bound = self._interval_based_bound(y0, t_target == y0, key=t)
                                 # robust_loss += self.criterion_fn(-lower_bound, t_target[t_target == y0])
-                                robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
-                                                                                    t_target[t_target == y0]) / t_target.size(0)
+                                robust_loss += nn.CrossEntropyLoss(reduction='sum')(
+                                    -lower_bound, t_target[t_target == y0]) / t_target.size(0)
 
                                 # increment when true label is not winning
                                 robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
@@ -248,20 +236,8 @@ class IntervalNet(nn.Module):
     def save_params(self):
         self.prev_weight, self.prev_eps = {}, {}
         i = 0
-        for block in self.model.children():
-            if isinstance(block, nn.Sequential):
-                for layer in block.children():
-                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
-                        self.prev_weight[i] = layer.weight.data.detach().clone()
-                        self.prev_eps[i] = layer.eps.detach().clone()
-                        i += 1
-
-            elif isinstance(block, nn.ModuleDict) and not self.multihead:
-                self.prev_weight[i] = block["All"].weight.data.detach().clone()
-                self.prev_eps[i] = block["All"].eps.detach().clone()
-                i += 1
-
-            elif isinstance(block, (Conv2dInterval, LinearInterval)):
+        for block in self.model.modules():
+            if isinstance(block, (Conv2dInterval, LinearInterval, IntervalBias)):
                 self.prev_weight[i] = block.weight.data.detach().clone()
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
@@ -297,8 +273,6 @@ class IntervalNet(nn.Module):
         # self.tb.add_histogram('fc1/weight', self.model.fc1[0].weight, self.current_task)
         # self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
         # self.tb.add_histogram("fc1/importance", self.model.fc1[0].importance, self.current_task)
-
-
 
         # self.tb.add_histogram('fc1/bias', self.model.fc1.bias, self.current_task)
 
@@ -347,28 +321,17 @@ class IntervalNet(nn.Module):
         # calc = (eps_old < eps_new)
         # if calc.any():
         #     print(f"ile złych: {calc.sum()}, wszystkich: {(eps_old >= 0).sum()}")
-        assert (eps_old >= eps_new).all(), print(f"eps assert i: {i}, ile złych: {(eps_old < eps_new).sum()}, wszystkich: {(eps_new >= 0).sum()}")
+        assert (eps_old >= eps_new).all(), print(
+            f"eps assert i: {i}, ile złych: {(eps_old < eps_new).sum()}, wszystkich: {(eps_new >= 0).sum()}")
 
         return eps_new, weight_new
 
     def clip_params(self):
         i = 0
-        for c in self.model.children():
-            if isinstance(c, nn.Sequential):
-                for layer in c.children():
-                    if isinstance(layer, (Conv2dInterval, LinearInterval)):
-                        layer.weight.data = self.clip_weights(i, layer.weight.data.detach())
-                        layer.eps, layer.weight.data = self.clip_intervals(i, layer.weight.data.detach(), layer.eps.detach())
-                        i += 1
-
-            elif isinstance(c, nn.ModuleDict) and not self.multihead:
-                c["All"].weight.data = self.clip_weights(i, c["All"].weight.data.detach())
-                c["All"].eps, c["All"].weight.data = self.clip_intervals(i, c["All"].weight.data.detach(), c["All"].eps.detach())
-                i += 1
-
-            elif isinstance(c, (Conv2dInterval, LinearInterval)):
-                c.weight.data = self.clip_weights(i, c.weight.data.detach())
-                c.eps, c.weight.data = self.clip_intervals(i, c.weight.data.detach(), c.eps.detach())
+        for m in self.model.modules():
+            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+                m.weight.data = self.clip_weights(i, m.weight.data.detach())
+                m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
@@ -379,7 +342,6 @@ class IntervalNet(nn.Module):
         # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()
-
 
         self.kappa_scheduler.step()
         self.eps_scheduler.step()
@@ -471,7 +433,8 @@ class IntervalNet(nn.Module):
         self.criterion_fn = self.criterion_fn.cuda()
         # Multi-GPU
         if len(self.config['gpuid']) > 1:
-            self.model = torch.nn.DataParallel(self.model, device_ids=self.config['gpuid'],
+            self.model = torch.nn.DataParallel(self.model,
+                                               device_ids=self.config['gpuid'],
                                                output_device=self.config['gpuid'][0])
         return self
 

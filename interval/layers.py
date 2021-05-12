@@ -17,7 +17,13 @@ def retrieve_elements_from_indices(tensor, indices):
 
 
 class AvgPool2dInterval(nn.AvgPool2d):
-    def __init__(self, kernel_size, stride=None, padding=0, ceil_mode=False, count_include_pad=True, divisor_override=None):
+    def __init__(self,
+                 kernel_size,
+                 stride=None,
+                 padding=0,
+                 ceil_mode=False,
+                 count_include_pad=True,
+                 divisor_override=None):
         super().__init__(kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override)
 
     def forward(self, x):
@@ -45,7 +51,6 @@ class MaxPool2dInterval(nn.MaxPool2d):
 
 
 class IntervalDropout(nn.Module):
-
     def __init__(self, p=0.5):
         super().__init__()
         self.p = p
@@ -99,16 +104,24 @@ class LinearInterval(nn.Linear):
         w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
         w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
 
-        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg #+ self.bias
-        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg #+ self.bias
+        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg  #+ self.bias
+        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg  #+ self.bias
 
         return torch.cat((middle, lower, upper), dim=1)
 
+
 class Conv2dInterval(nn.Conv2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
-                 padding=0, dilation=1, groups=1, bias=False, input_layer=False):
-        super().__init__(in_channels, out_channels, kernel_size, stride,
-                         padding, dilation, groups, bias)
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=False,
+                 input_layer=False):
+        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
         self.importance = nn.Parameter(torch.zeros(self.weight.data.size()), requires_grad=True)
         self.eps = 0
         self.input_layer = input_layer
@@ -139,18 +152,45 @@ class Conv2dInterval(nn.Conv2d):
         w_upper_pos = (self.weight + self.eps).clamp(min=0)
         w_upper_neg = (self.weight + self.eps).clamp(max=0)
 
-        lower = (f.conv2d(x_lower, w_lower_pos, None, self.stride,
-                          self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_upper, w_lower_neg, None, self.stride,
-                          self.padding, self.dilation, self.groups)) #+
-                 # self.bias[None, :, None, None])
+        lower = (f.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups) +
+                 f.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups))  #+
+        # self.bias[None, :, None, None])
 
-        upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride,
-                          self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_lower, w_upper_neg, None, self.stride,
-                          self.padding, self.dilation, self.groups)) # +
-                 # self.bias[None, :, None, None])
+        upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups) +
+                 f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups))  # +
+        # self.bias[None, :, None, None])
 
+        return torch.cat((middle, lower, upper), dim=1)
+
+
+class IntervalBias(nn.Module):
+    def __init__(self, bias_size):
+        super().__init__()
+        self.weight = nn.Parameter(torch.zeros(bias_size), requires_grad=True)
+        self.importance = nn.Parameter(torch.zeros(self.weight.data.size()), requires_grad=True)
+        self.eps = 0
+
+    def calc_eps(self, r):
+        exp = self.importance.exp()
+        # self.eps = r * exp / exp.sum()
+        self.eps = r * exp / exp.sum(dim=-1).sum(dim=-1)
+
+    def rest_importance(self):
+        pass
+
+    def forward(self, x):
+        x_mid, x_low, x_upp = split_activation(x.clone())
+        if x.dim() == 4:
+            b_lower = (self.weight - self.eps).view(1, -1, 1, 1)
+            b_middle = (self.weight).view(1, -1, 1, 1)
+            b_upper = (self.weight + self.eps).view(1, -1, 1, 1)
+        elif x.dim() == 2:
+            b_lower = (self.weight - self.eps).view(1, -1)
+            b_middle = (self.weight).view(1, -1)
+            b_upper = (self.weight + self.eps).view(1, -1)
+        lower = x_low + b_lower
+        middle = x_mid + b_middle
+        upper = x_upp + b_upper
         return torch.cat((middle, lower, upper), dim=1)
 
 
