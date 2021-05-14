@@ -8,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
-from interval.layers import Conv2dInterval, IntervalBias, LinearInterval
+from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval,
+                             split_activation)
 
 
 class IntervalNet(nn.Module):
@@ -179,15 +180,14 @@ class IntervalNet(nn.Module):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
-        loss, robust_loss, robust_err = 0, 0, 0
         if self.multihead:
+            loss, robust_loss, robust_err = 0, 0, 0
             for t, t_preds in preds.items():
                 inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
                 if len(inds) > 0:
                     t_preds = t_preds[inds]
                     t_target = targets[inds]
                     loss += self.criterion_fn(t_preds, t_target) * len(inds)
-
                     if self.eps_scheduler.current:
                         for y0 in range(len(self.C)):
                             if (t_target == y0).sum().item() > 0:
@@ -204,33 +204,44 @@ class IntervalNet(nn.Module):
             if self.eps_scheduler.current:
                 loss *= self.kappa_scheduler.current
                 loss += (1 - self.kappa_scheduler.current) * robust_loss
-
         else:
-            pred = preds['All']
+            key = 'All'
+            pred = preds[key]
             # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
             if isinstance(self.valid_out_dim, int):
-                pred = preds['All'][:, :self.valid_out_dim]
-            loss = self.criterion_fn(pred, targets)
+                pred = preds[key][:, :self.valid_out_dim]
+            standard_loss = self.criterion_fn(pred, targets)
             if self.eps_scheduler.current:
-                robust_loss, robust_err = 0, 0
-                for y0 in range(len(self.C)):
-                    if (targets == y0).sum().item() > 0:
-                        lower_bound = self._interval_based_bound(y0, targets == y0, key="All")
-                        # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
-                        if isinstance(self.valid_out_dim, int):
-                            lower_bound = lower_bound[:, :self.valid_out_dim]
+                # simpler implementation
+                logits = self.model.last[key](self.model.bounds)
+                m_logits, l_logits, u_logits = split_activation(logits)
+                targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
+                z_logits = torch.where(targets_oh.bool(), u_logits, l_logits)
+                robust_loss = nn.CrossEntropyLoss(reduction='sum')(z_logits, targets)
+                kappa = self.kappa_scheduler.current
+                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                robust_err = 0.0  # TODO
+                #
+                # for y0 in range(len(self.C)):
+                #     if (targets == y0).sum().item() > 0:
 
-                        # robust_loss += self.criterion_fn(-lower_bound, targets[targets == y0])
-                        robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
-                                                                            targets[targets == y0]) / targets.size(0)
+                #         lower_bound = self._interval_based_bound(y0, targets == y0, key=key)
+                #         # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
+                #         if isinstance(self.valid_out_dim, int):
+                #             lower_bound = lower_bound[:, :self.valid_out_dim]
 
-                        # increment when true label is not winning
-                        robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
+                #         # robust_loss += self.criterion_fn(-lower_bound, targets[targets == y0])
+                #         robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
+                #                                                             targets[targets == y0]) / targets.size(0)
 
-                loss *= self.kappa_scheduler.current
-                loss += (1 - self.kappa_scheduler.current) * robust_loss
-                robust_err /= len(targets)
+                #         # increment when true label is not winning
+                #         robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
 
+                # loss *= self.kappa_scheduler.current
+                # loss += (1 - self.kappa_scheduler.current) * robust_loss
+                # robust_err /= len(targets)
+            else:
+                loss, robust_err, robust_loss = standard_loss, 0.0, 0.0
         return loss, robust_err, robust_loss
 
     def save_params(self):
@@ -385,7 +396,9 @@ class IntervalNet(nn.Module):
                 inputs = inputs.detach()
                 target = target.detach()
                 self.tb.add_scalar(f"Loss/train - task {self.current_task}", loss, epoch)
+                self.tb.add_scalar(f"Robust loss/train - task {self.current_task}", robust_loss, epoch)
                 self.tb.add_scalar(f"Robust error/train - task {self.current_task}", robust_err, epoch)
+                self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, epoch)
 
                 # measure accuracy and record loss
                 acc = accumulate_acc(output, target, task, acc)

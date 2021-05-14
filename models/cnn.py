@@ -1,45 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias,
-                             IntervalDropout, LinearInterval,
+from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias, IntervalDropout, LinearInterval,
                              MaxPool2dInterval)
 
 
 class CNN(nn.Module):
-
     def __init__(self, in_channel=3, out_dim=10, pooling=nn.MaxPool2d):
         super().__init__()
 
         self.input = nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1)
-        self.c1 = nn.Sequential(
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            nn.Dropout(0.25)
-        )
-        self.c2 = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            nn.Dropout(0.25)
-        )
-        self.c3 = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=1),
-            nn.Dropout(0.25)
-        )
-        self.fc1 = nn.Sequential(
-            nn.Linear(128*5*5, 256),
-            nn.ReLU()
-        )
+        self.c1 = nn.Sequential(nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=0), nn.Dropout(0.25))
+        self.c2 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=0), nn.Dropout(0.25))
+        self.c3 = nn.Sequential(nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=1), nn.Dropout(0.25))
+        self.fc1 = nn.Sequential(nn.Linear(128 * 5 * 5, 256), nn.ReLU())
         self.last = nn.Linear(256, out_dim)
 
     def features(self, x):
@@ -69,7 +49,6 @@ def cnn_avg():
 
 
 class IntervalCNN(nn.Module):
-
     def __init__(self, in_channel=3, out_dim=10, pooling=MaxPool2dInterval):
         super(IntervalCNN, self).__init__()
 
@@ -77,41 +56,16 @@ class IntervalCNN(nn.Module):
             Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True),
             IntervalBias(32),
         )
-        self.c1 = nn.Sequential(
-            Conv2dInterval(32, 32, kernel_size=3, stride=1, padding=1),
-            IntervalBias(32),
-            nn.ReLU(),
-            Conv2dInterval(32, 64, kernel_size=3, stride=1, padding=1),
-            IntervalBias(64),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            IntervalDropout(0.25)
-        )
-        self.c2 = nn.Sequential(
-            Conv2dInterval(64, 64, kernel_size=3, stride=1, padding=1),
-            IntervalBias(64),
-            nn.ReLU(),
-            Conv2dInterval(64, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            IntervalDropout(0.25)
-        )
-        self.c3 = nn.Sequential(
-            Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
-            nn.ReLU(),
-            Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=1),
-            IntervalDropout(0.25)
-        )
-        self.fc1 = nn.Sequential(
-            LinearInterval(128 * 5 * 5, 256),
-            IntervalBias(256),
-            nn.ReLU()
-        )
+        self.c1 = nn.Sequential(Conv2dInterval(32, 32, kernel_size=3, stride=1, padding=1), IntervalBias(32), nn.ReLU(),
+                                Conv2dInterval(32, 64, kernel_size=3, stride=1, padding=1), IntervalBias(64), nn.ReLU(),
+                                pooling(2, stride=2, padding=0), IntervalDropout(0.25))
+        self.c2 = nn.Sequential(Conv2dInterval(64, 64, kernel_size=3, stride=1, padding=1), IntervalBias(64), nn.ReLU(),
+                                Conv2dInterval(64, 128, kernel_size=3, stride=1, padding=1), IntervalBias(128),
+                                nn.ReLU(), pooling(2, stride=2, padding=0), IntervalDropout(0.25))
+        self.c3 = nn.Sequential(Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1), IntervalBias(128),
+                                nn.ReLU(), Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
+                                IntervalBias(128), nn.ReLU(), pooling(2, stride=2, padding=1), IntervalDropout(0.25))
+        self.fc1 = nn.Sequential(LinearInterval(128 * 5 * 5, 256), IntervalBias(256), nn.ReLU())
         self.last = nn.Sequential(
             LinearInterval(256, out_dim),
             IntervalBias(out_dim),
@@ -122,8 +76,7 @@ class IntervalCNN(nn.Module):
         self.bounds = None
 
     def save_bounds(self, x):
-        s = x.size(1) // 3
-        self.bounds = x[:, s:2*s], x[:, 2*s:]
+        self.bounds = x
 
     def calc_eps(self, r):
         exp = self.a.exp()
@@ -160,16 +113,14 @@ class IntervalCNN(nn.Module):
         x = self.c3(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
+        # TODO remove statefulness
         self.save_bounds(x)
         return x
 
-    def logits(self, x):
-        return self.last(x)
-
     def forward(self, x):
         x = self.features(x)
-        x = self.logits(x)
-        return {k: v[:, :v.size(1)//3] for k, v in x.items()}
+        answers = {k: self.last[k](x) for k, v in self.last.items()}
+        return {k: v[:, :v.size(1) // 3] for k, v in answers.items()}
 
 
 def interval_cnn():

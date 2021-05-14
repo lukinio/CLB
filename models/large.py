@@ -23,8 +23,7 @@ class Large(nn.Module):
         self.bounds = None
 
     def save_bounds(self, x):
-        s = x.size(1) // 3
-        self.bounds = x[:, s:2 * s], x[:, 2 * s:]
+        self.bounds = x
 
     def calc_eps(self, r):
         exp = self.a.exp()
