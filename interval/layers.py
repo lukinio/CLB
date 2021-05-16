@@ -16,6 +16,22 @@ def retrieve_elements_from_indices(tensor, indices):
     return flattened_tensor.gather(dim=2, index=indices.flatten(start_dim=2)).view_as(indices)
 
 
+def interval_vmp(inputs_l, inputs_u, matrix_l, matrix_u):
+    inputs_l = inputs_l.unsqueeze(-1)
+    inputs_u = inputs_u.unsqueeze(-1)
+    matrix_l = matrix_l.unsqueeze(0)
+    matrix_u = matrix_u.unsqueeze(0)
+    ll_prods = inputs_l * matrix_l
+    lu_prods = inputs_l * matrix_u
+    ul_prods = inputs_u * matrix_l
+    uu_prods = inputs_u * matrix_u
+    prods_lower, _ = torch.min(torch.stack([ll_prods, lu_prods, ul_prods, uu_prods], dim=1), dim=1)
+    prods_upper, _ = torch.max(torch.stack([ll_prods, lu_prods, ul_prods, uu_prods], dim=1), dim=1)
+    lower = prods_lower.sum(dim=-2)
+    upper = prods_upper.sum(dim=-2)
+    return lower, upper
+
+
 class AvgPool2dInterval(nn.AvgPool2d):
     def __init__(self,
                  kernel_size,
@@ -92,21 +108,24 @@ class LinearInterval(nn.Linear):
         # self.importance.data = torch.randn(self.weight.size()).cuda()
 
     def forward(self, x):
+        assert (x >= 0.0).all(), f'x: {x}'
         if self.input_layer:
-            x = torch.cat((x, x, x), dim=1)
-
+            x_middle, x_lower, x_upper = x, x, x
+        else:
+            x_middle, x_lower, x_upper = split_activation(x)
         x_middle, x_lower, x_upper = split_activation(x)
-
-        middle = super().forward(x_middle)
 
         w_lower_pos = (self.weight - self.eps).clamp(min=0).t()
         w_lower_neg = (self.weight - self.eps).clamp(max=0).t()
         w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
         w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
 
-        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg  #+ self.bias
-        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg  #+ self.bias
+        middle = super().forward(x_middle)
 
+        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg
+        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg
+        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -140,10 +159,11 @@ class Conv2dInterval(nn.Conv2d):
         # self.importance.data = torch.randn(self.weight.size()).cuda()
 
     def forward(self, x):
+        assert (x >= 0.0).all(), f'x: {x}'
         if self.input_layer:
-            x = torch.cat((x, x, x), dim=1)
-
-        x_middle, x_lower, x_upper = split_activation(x)
+            x_middle, x_lower, x_upper = x, x, x
+        else:
+            x_middle, x_lower, x_upper = split_activation(x)
 
         middle = super().forward(x_middle)
 
@@ -153,13 +173,13 @@ class Conv2dInterval(nn.Conv2d):
         w_upper_neg = (self.weight + self.eps).clamp(max=0)
 
         lower = (f.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups))  #+
-        # self.bias[None, :, None, None])
+                 f.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups))
 
         upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups))  # +
-        # self.bias[None, :, None, None])
+                 f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups))
 
+        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -191,6 +211,8 @@ class IntervalBias(nn.Module):
         lower = x_low + b_lower
         middle = x_mid + b_middle
         upper = x_upp + b_upper
+        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
         return torch.cat((middle, lower, upper), dim=1)
 
 

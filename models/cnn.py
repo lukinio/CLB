@@ -54,7 +54,7 @@ class IntervalCNN(nn.Module):
 
         self.input = nn.Sequential(
             Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True),
-            IntervalBias(32),
+            IntervalBias(32), nn.ReLU(),
         )
         self.c1 = nn.Sequential(Conv2dInterval(32, 32, kernel_size=3, stride=1, padding=1), IntervalBias(32), nn.ReLU(),
                                 Conv2dInterval(32, 64, kernel_size=3, stride=1, padding=1), IntervalBias(64), nn.ReLU(),
@@ -73,10 +73,6 @@ class IntervalCNN(nn.Module):
         # self.a = nn.Parameter(torch.Tensor([0, 0, 0, 0, 0, 0, 0, 10, 0]), requires_grad=True)
         self.a = nn.Parameter(torch.zeros(18), requires_grad=True)
         self.e = torch.zeros(18)
-        self.bounds = None
-
-    def save_bounds(self, x):
-        self.bounds = x
 
     def calc_eps(self, r):
         exp = self.a.exp()
@@ -113,14 +109,13 @@ class IntervalCNN(nn.Module):
         x = self.c3(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
-        # TODO remove statefulness
-        self.save_bounds(x)
         return x
 
     def forward(self, x):
         x = self.features(x)
         answers = {k: self.last[k](x) for k, v in self.last.items()}
-        return {k: v[:, :v.size(1) // 3] for k, v in answers.items()}
+        # return {k: v[:, :v.size(1) // 3] for k, v in answers.items()}
+        return {k: v for k, v in answers.items()}
 
 
 def interval_cnn():

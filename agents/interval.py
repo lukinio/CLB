@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import MethodType
 
 import models
@@ -8,8 +9,14 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
-from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval,
-                             split_activation)
+from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval, split_activation)
+
+
+def free_exp_name(runs_dir: Path, run_name: str):
+    try_index = 0
+    while (runs_dir / f'{run_name}#{try_index}').exists():
+        try_index += 1
+    return Path(runs_dir / f'{run_name}#{try_index}')
 
 
 class IntervalNet(nn.Module):
@@ -38,7 +45,9 @@ class IntervalNet(nn.Module):
         self.current_head = "All"
         self.current_task = 1
         self.schedule_stack = []
-        self.tb = SummaryWriter(log_dir=f"runs/{self.config['dataset_name']}_experiment/")
+        runs_path = Path('runs')
+        log_dir = str(free_exp_name(runs_path, f"{self.config['dataset_name']}_experiment"))
+        self.tb = SummaryWriter(log_dir=log_dir)
         for s in self.config["schedule"][::-1]:
             self.schedule_stack.append(s)
 
@@ -115,6 +124,7 @@ class IntervalNet(nn.Module):
         self.model.eval()
         out = self.forward(inputs)
         for t in out.keys():
+            out[t], _, _ = split_activation(out[t])
             out[t] = out[t].detach()
         return out
 
@@ -176,18 +186,18 @@ class IntervalNet(nn.Module):
         return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
         # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
 
-    def criterion(self, preds, targets, tasks, **kwargs):
+    def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
             loss, robust_loss, robust_err = 0, 0, 0
-            for t, t_preds in preds.items():
+            for t, t_logits in logits.items():
                 inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
                 if len(inds) > 0:
-                    t_preds = t_preds[inds]
+                    t_logits = t_logits[inds]
                     t_target = targets[inds]
-                    loss += self.criterion_fn(t_preds, t_target) * len(inds)
+                    loss += self.criterion_fn(t_logits, t_target) * len(inds)
                     if self.eps_scheduler.current:
                         for y0 in range(len(self.C)):
                             if (t_target == y0).sum().item() > 0:
@@ -206,20 +216,19 @@ class IntervalNet(nn.Module):
                 loss += (1 - self.kappa_scheduler.current) * robust_loss
         else:
             key = 'All'
-            pred = preds[key]
+            logits = logits[key]
             # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
             if isinstance(self.valid_out_dim, int):
-                pred = preds[key][:, :self.valid_out_dim]
-            standard_loss = self.criterion_fn(pred, targets)
+                logits = logits[key][:, :self.valid_out_dim]
+            m_logits, l_logits, u_logits = split_activation(logits)
+            standard_loss = self.criterion_fn(m_logits, targets)
             if self.eps_scheduler.current:
                 # simpler implementation
-                logits = self.model.last[key](self.model.bounds)
-                m_logits, l_logits, u_logits = split_activation(logits)
                 targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                z_logits = torch.where(targets_oh.bool(), u_logits, l_logits)
-                robust_loss = nn.CrossEntropyLoss(reduction='sum')(z_logits, targets)
+                z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
-                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                loss = kappa * standard_loss + 0.1 * (1 - kappa) * robust_loss
                 robust_err = 0.0  # TODO
                 #
                 # for y0 in range(len(self.C)):
@@ -241,8 +250,8 @@ class IntervalNet(nn.Module):
                 # loss += (1 - self.kappa_scheduler.current) * robust_loss
                 # robust_err /= len(targets)
             else:
-                loss, robust_err, robust_loss = standard_loss, 0.0, 0.0
-        return loss, robust_err, robust_loss
+                loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
+        return loss, robust_err, robust_loss, standard_loss
 
     def save_params(self):
         self.prev_weight, self.prev_eps = {}, {}
@@ -347,19 +356,22 @@ class IntervalNet(nn.Module):
 
     def update_model(self, inputs, targets, tasks):
         out = self.forward(inputs)
-        loss, robust_err, robust_loss = self.criterion(out, targets, tasks)
+        loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.optimizer.zero_grad()
         loss.backward()
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
+        # TODO add cmd argument for norm type
+        nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+        # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()
 
         self.kappa_scheduler.step()
         self.eps_scheduler.step()
+        self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
+        self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)
         self.model.set_eps(self.eps_scheduler.current, trainable=self.config['eps_per_model'], head=self.current_head)
         if self.clipping and self.prev_eps:
             self.clip_params()
-        return loss.item(), robust_err, robust_loss, out
+        return loss.item(), robust_err, robust_loss.item(), ce_loss.item(), out
 
     def learn_batch(self, train_loader, val_loader=None):
         if self.reset_optimizer:  # Reset optimizer before learning each task
@@ -367,6 +379,7 @@ class IntervalNet(nn.Module):
             self.init_optimizer()
 
         schedule = self.schedule_stack.pop()
+        self.current_batch = 0
         for epoch in range(schedule):
             data_timer = Timer()
             batch_timer = Timer()
@@ -392,17 +405,17 @@ class IntervalNet(nn.Module):
                     inputs = inputs.cuda()
                     target = target.cuda()
 
-                loss, robust_err, robust_loss, output = self.update_model(inputs, target, task)
+                loss, robust_err, robust_loss, ce_loss, output = self.update_model(inputs, target, task)
                 inputs = inputs.detach()
                 target = target.detach()
-                self.tb.add_scalar(f"Loss/train - task {self.current_task}", loss, epoch)
-                self.tb.add_scalar(f"Robust loss/train - task {self.current_task}", robust_loss, epoch)
-                self.tb.add_scalar(f"Robust error/train - task {self.current_task}", robust_err, epoch)
-                self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, epoch)
-
+                self.tb.add_scalar(f"Loss/train - task {self.current_task}", loss, self.current_batch)
+                self.tb.add_scalar(f"CE Loss/train - task {self.current_task}", ce_loss, self.current_batch)
+                self.tb.add_scalar(f"Robust loss/train - task {self.current_task}", robust_loss, self.current_batch)
+                self.tb.add_scalar(f"Robust error/train - task {self.current_task}", robust_err, self.current_batch)
                 # measure accuracy and record loss
                 acc = accumulate_acc(output, target, task, acc)
                 losses.update(loss, inputs.size(0))
+                self.current_batch += 1
 
                 batch_time.update(batch_timer.toc())  # measure elapsed time
                 data_timer.toc()

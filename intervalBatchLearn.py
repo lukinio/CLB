@@ -14,7 +14,7 @@ import gc
 
 def run(args):
     # Prepare dataloaders
-    train_dataset, val_dataset = dataloaders.base.__dict__[args.dataset](args.dataroot, args.train_aug)
+    train_dataset, val_dataset = dataloaders.base.__dict__[args.dataset](args.dataroot, args.train_aug, normalize=False)
     if args.n_permutation > 0:
         train_dataset_splits, val_dataset_splits, task_output_space = PermutedGen(train_dataset, val_dataset,
                                                                              args.n_permutation,
@@ -92,6 +92,7 @@ def run(args):
                 agent.add_valid_output_dim(task_output_space[train_name])
 
             if args.eps_max:
+                print(f'settings max epsilon: {args.eps_max[i]}')
                 agent.eps_scheduler.set_end(args.eps_max[i])
 
             agent.kappa_scheduler.end = args.kappa_min
