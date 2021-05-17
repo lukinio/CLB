@@ -9,8 +9,9 @@ class CNN(nn.Module):
     def __init__(self, in_channel=3, out_dim=10, pooling=nn.MaxPool2d):
         super().__init__()
 
-        self.input = nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1)
         self.c1 = nn.Sequential(
+            nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
@@ -41,7 +42,6 @@ class CNN(nn.Module):
         self.last = nn.Linear(256, out_dim)
 
     def features(self, x):
-        x = self.input(x)
         x = self.c1(x)
         x = self.c2(x)
         x = self.c3(x)
@@ -71,8 +71,10 @@ class IntervalCNN(nn.Module):
     def __init__(self, in_channel=3, out_dim=10, pooling=MaxPool2dInterval):
         super(IntervalCNN, self).__init__()
 
-        self.input = Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True)
+        # self.input = Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True)
         self.c1 = nn.Sequential(
+            Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True),
+            nn.ReLU(),
             Conv2dInterval(32, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             Conv2dInterval(32, 64, kernel_size=3, stride=1, padding=1),
@@ -101,7 +103,7 @@ class IntervalCNN(nn.Module):
             nn.ReLU()
         )
         self.last = LinearInterval(256, out_dim)
-        # self.a = nn.Parameter(torch.Tensor([0, 0, 0, 0, 0, 0, 0, 10, 0]), requires_grad=True)
+        self.a = nn.Parameter(torch.Tensor([1, 1, 1, 1, 1, 1, 1, 2, 0]), requires_grad=True)
         self.a = nn.Parameter(torch.zeros(9), requires_grad=True)
         self.e = torch.zeros(9)
         self.bounds = None
@@ -133,6 +135,7 @@ class IntervalCNN(nn.Module):
         print(f"eps: {self.e}")
 
     def reset_importance(self):
+        self.a = nn.Parameter(torch.Tensor([1, 1, 1, 1, 1, 1, 1, 2, 0]), requires_grad=True)
         for c in self.children():
             if isinstance(c, nn.Sequential):
                 for layer in c.children():
@@ -163,7 +166,7 @@ class IntervalCNN(nn.Module):
                 i += 1
 
     def features(self, x):
-        x = self.input(x)
+        # x = self.input(x)
         x = self.c1(x)
         x = self.c2(x)
         x = self.c3(x)
@@ -191,5 +194,8 @@ def interval_cnn_avg():
 
 if __name__ == '__main__':
     cnn = IntervalCNN()
+
     x = torch.randn(12, 3, 32, 32)
+    print(f"before: {cnn.features_loss_term}")
     cnn(x)
+    print(f"after: {cnn.features_loss_term}")

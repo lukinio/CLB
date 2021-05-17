@@ -89,19 +89,56 @@ class LinearInterval(nn.Linear):
     def forward(self, x):
         if self.input_layer:
             x = torch.cat((x, x, x), dim=1)
-
+        #     assert (x >= 0).all(), f"{x >= 0}"
+        #     assert (x <= 1).all(), f"{x <= 1}"
+        #
+        # assert (x >= 0).all(), f"{x >= 0}" # ReLU
         x_middle, x_lower, x_upper = split_activation(x)
 
         middle = super().forward(x_middle)
 
-        w_lower_pos = (self.weight - self.eps).clamp(min=0).t()
-        w_lower_neg = (self.weight - self.eps).clamp(max=0).t()
-        w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
-        w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
+        w_lower = (self.weight - self.eps).t()
+        w_upper = (self.weight + self.eps).t()
 
-        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg #+ self.bias
-        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg #+ self.bias
+        x_low_w_low = x_lower @ w_lower
+        x_low_w_upp = x_lower @ w_upper
+        x_upp_w_low = x_upper @ w_lower
+        x_upp_w_upp = x_upper @ w_upper
 
+        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
+        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
+        lower = torch.min(low_min1, low_min2)
+
+        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
+        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
+        upper = torch.max(upp_max1, upp_max2)
+
+
+
+        # w_lower_pos = (self.weight - self.eps).clamp(min=0).t()
+        # w_lower_neg = (self.weight - self.eps).clamp(max=0).t()
+        # w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
+        # w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
+        #
+        # x_lower_pos = x_lower.clamp(min=0)
+        # x_lower_neg = x_lower.clamp(max=0)
+        # x_upper_pos = x_upper.clamp(min=0)
+        # x_upper_neg = x_upper.clamp(max=0)
+        #
+        # lower = x_lower_pos @ w_lower_pos + x_lower_neg @ w_lower_neg + x_upper_neg @ w_lower_pos + x_upper_pos @ w_lower_neg  # + self.bias
+        # upper = x_upper_pos @ w_upper_pos + x_upper_neg @ w_upper_neg + x_lower_neg @ w_upper_pos + x_lower_pos @ w_upper_neg # + self.bias
+
+
+        # w_lower_pos = (self.weight - self.eps).clamp(min=0).t()
+        # w_lower_neg = (self.weight - self.eps).clamp(max=0).t()
+        # w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
+        # w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
+        #
+        # lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg #+ self.bias
+        # upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg #+ self.bias
+
+        # assert (lower <= middle).all() or torch.allclose(lower, middle, atol=1e-3, rtol=1e-3), f'diff:\n{lower - middle}'
+        # assert (middle <= upper).all() or torch.allclose(middle, upper, atol=1e-3, rtol=1e-3), f'diff:\n{middle - upper}'
         return torch.cat((middle, lower, upper), dim=1)
 
 class Conv2dInterval(nn.Conv2d):
@@ -129,28 +166,28 @@ class Conv2dInterval(nn.Conv2d):
     def forward(self, x):
         if self.input_layer:
             x = torch.cat((x, x, x), dim=1)
-
         x_middle, x_lower, x_upper = split_activation(x)
 
         middle = super().forward(x_middle)
 
-        w_lower_pos = (self.weight - self.eps).clamp(min=0)
-        w_lower_neg = (self.weight - self.eps).clamp(max=0)
-        w_upper_pos = (self.weight + self.eps).clamp(min=0)
-        w_upper_neg = (self.weight + self.eps).clamp(max=0)
+        w_lower = self.weight - self.eps
+        w_upper = self.weight + self.eps
 
-        lower = (f.conv2d(x_lower, w_lower_pos, None, self.stride,
-                          self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_upper, w_lower_neg, None, self.stride,
-                          self.padding, self.dilation, self.groups)) #+
-                 # self.bias[None, :, None, None])
+        x_low_w_low = f.conv2d(x_lower, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
+        x_low_w_upp = f.conv2d(x_lower, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
+        x_upp_w_low = f.conv2d(x_upper, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
+        x_upp_w_upp = f.conv2d(x_upper, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
 
-        upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride,
-                          self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_lower, w_upper_neg, None, self.stride,
-                          self.padding, self.dilation, self.groups)) # +
-                 # self.bias[None, :, None, None])
+        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
+        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
+        lower = torch.min(low_min1, low_min2)
 
+        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
+        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
+        upper = torch.max(upp_max1, upp_max2)
+
+        # assert (lower <= middle).all() or torch.allclose(lower, middle, atol=1e-3, rtol=1e-3)#, f'diff:\n{lower - middle}'
+        # assert (middle <= upper).all() or torch.allclose(middle, upper, atol=1e-3, rtol=1e-3)#, f'diff:\n{middle - upper}'
         return torch.cat((middle, lower, upper), dim=1)
 
 

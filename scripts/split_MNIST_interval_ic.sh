@@ -39,11 +39,61 @@ mkdir -p $OUTDIR
 #       --kappa_epoch 1 --eps_epoch 12 --eps_val 7 7 2 2 1 --eps_max 0 --clipping \
 #       | tee ${OUTDIR}/in_pw2.log
 
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval \
+#       --agent_name IntervalNet --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 7 7 2 2 1 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw3.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval \
+#       --agent_name IntervalNet --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 500 500 450 400 400 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw4.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval \
+#       --agent_name IntervalNet --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 500 420 390 380 370 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw4.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --weight_decay 5e-2 --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 500 420 390 380 370 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw5.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 7 7 2 2 1 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw6.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 6 3 1 1 0.5 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw8.log
+
+#python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
+#       --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
+#       --other_split_size 2 --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
+#       --kappa_epoch 1 --eps_epoch 12 --eps_val 6 3 1 1 0.5 --eps_max 0 --clipping \
+#       | tee ${OUTDIR}/in_pw9.log
+
+
 python -u intervalBatchLearn.py --gpuid $GPUID --repeat $REPEAT --incremental_class \
        --optimizer Adam --force_out_dim 10 --no_class_remap --first_split_size 2 \
-       --other_split_size 2 --model_name interval_mlp400 --agent_type interval \
-       --agent_name IntervalNet --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model \
-       --kappa_epoch 1 --eps_epoch 12 --eps_val 7 7 2 2 1 --eps_max 0 --clipping \
-       | tee ${OUTDIR}/in_pw3.log
+       --other_split_size 2 --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+       --schedule 12 --batch_size 100 --lr 0.001 --eps_per_model --kappa_min 0 \
+       --kappa_epoch 1 --eps_epoch 12 --eps_val 6 3 1 1 0.5 --eps_max 0 --clipping \
+       | tee ${OUTDIR}/in_pw10.log
 
 # --eps_val 5 3 3 3 3 acc 31%

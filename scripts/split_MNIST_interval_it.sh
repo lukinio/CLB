@@ -29,13 +29,42 @@ mkdir -p $OUTDIR
 #       | tee ${OUTDIR}/in_pw.log
 
 
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 0 --first_split_size 2 --other_split_size 2 --model_name MLP400 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 8 4 4 1.5 1 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw1.log
+
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 0 --first_split_size 2 --other_split_size 2 --model_name MLP400 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 500 200 100 50 12 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw2.log
+
+#good
+#python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
+#       --force_out_dim 0 --first_split_size 2 --other_split_size 2 --model_name MLP400 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 100 --lr 0.001 --clipping --eps_per_model \
+#       --eps_val 15 12 8 6 4 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 1 --schedule 12 \
+#       | tee ${OUTDIR}/in_pw3.log
+
 python -u intervalBatchLearn.py --gpuid "${GPUID}" --repeat "${REPEAT}" --optimizer Adam \
        --force_out_dim 0 --first_split_size 2 --other_split_size 2 --model_name MLP400 \
        --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
        --batch_size 100 --lr 0.001 --clipping --eps_per_model \
-       --eps_val 8 4 4 1.5 1 --eps_epoch 12 --eps_max 0 \
+       --eps_val 14 9 7 5 3 --eps_epoch 12 --eps_max 0 \
        --kappa_epoch 1 --schedule 12 \
-       | tee ${OUTDIR}/in_pw1.log
+       | tee ${OUTDIR}/in_pw4.log
+
+
+
+
 
 # --eps_val 10 3.3 1.1 0.36 0.12 acc 98%
 # --eps_val 15 5.4 1.5 0.6 0.3  acc 97%

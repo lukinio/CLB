@@ -13,7 +13,7 @@ class IntervalMLP(nn.Module):
         self.fc2 = LinearInterval(hidden_dim, hidden_dim)
         # Subject to be replaced dependent on task
         self.last = LinearInterval(hidden_dim, out_dim)
-        self.a = nn.Parameter(torch.Tensor([0, 0, 0]), requires_grad=True)
+        self.a = nn.Parameter(torch.Tensor([2, 1, 0]), requires_grad=True)
         self.e = torch.zeros(3)
         self.bounds = None
 
@@ -38,6 +38,7 @@ class IntervalMLP(nn.Module):
         print(f"sum eps on layers: {self.e}")
 
     def reset_importance(self):
+        self.a = nn.Parameter(torch.Tensor([2, 1, 0]), requires_grad=True)
         for c in self.children():
             if isinstance(c, LinearInterval):
                 c.rest_importance()

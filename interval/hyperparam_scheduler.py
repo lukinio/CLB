@@ -9,15 +9,18 @@ class LinearScheduler:
         self.coefficient = coefficient
         self.current = start
         self.iteration = 0
-        self.warm = None
+        self.warm = 0
 
     def step(self):
         assert self.coefficient is not None, "coefficient is None"
 
-        if self.warm is not None:
+        if self.warm:
             self.iteration += 1
             if self.iteration < self.warm:
                 return self.current
+
+        if self.iteration == self.warm and self.warm:
+            print(f"=============== End of warm epochs =============")
 
         if self.end is None:
             self.current += self.coefficient
@@ -33,6 +36,7 @@ class LinearScheduler:
         self.coefficient = param_val / (epoch * iter_on_epoch)
 
     def warm_epoch(self, epoch, iter_on_epoch):
+        self.iteration = 0
         self.warm = epoch * iter_on_epoch
 
     def set_end(self, end):
