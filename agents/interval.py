@@ -228,7 +228,12 @@ class IntervalNet(nn.Module):
                 z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
                 robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
-                loss = kappa * standard_loss + 0.1 * (1 - kappa) * robust_loss
+                # max_robust_frac = (1 - kappa)
+                # if robust_loss.item() > standard_loss.item() * max_robust_frac:
+                #     diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
+                #     robust_loss = robust_loss * diminish_factor
+                # loss = standard_loss + robust_loss
+                loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 robust_err = 0.0  # TODO
                 #
                 # for y0 in range(len(self.C)):
@@ -359,9 +364,9 @@ class IntervalNet(nn.Module):
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.optimizer.zero_grad()
         loss.backward()
-        # TODO add cmd argument for norm type
-        nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
+        # TODO add cmd argument for norm type?
+        # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+        nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()
 
         self.kappa_scheduler.step()

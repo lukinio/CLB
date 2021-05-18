@@ -124,8 +124,13 @@ class LinearInterval(nn.Linear):
 
         lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg
         upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg
-        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        # for numerical errors:
+        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        lower_gt_mask = lower > middle
+        lower[lower_gt_mask] = middle[lower_gt_mask]
+        upper_lt_mask = upper < middle
+        upper[upper_lt_mask] = middle[upper_lt_mask]
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -178,8 +183,13 @@ class Conv2dInterval(nn.Conv2d):
         upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups) +
                  f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups))
 
-        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        # for numerical errors:
+        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        lower_gt_mask = lower > middle
+        lower[lower_gt_mask] = middle[lower_gt_mask]
+        upper_lt_mask = upper < middle
+        upper[upper_lt_mask] = middle[upper_lt_mask]
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -211,8 +221,13 @@ class IntervalBias(nn.Module):
         lower = x_low + b_lower
         middle = x_mid + b_middle
         upper = x_upp + b_upper
-        assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        # for numerical errors:
+        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
+        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
+        lower_gt_mask = lower > middle
+        lower[lower_gt_mask] = middle[lower_gt_mask]
+        upper_lt_mask = upper < middle
+        upper[upper_lt_mask] = middle[upper_lt_mask]
         return torch.cat((middle, lower, upper), dim=1)
 
 

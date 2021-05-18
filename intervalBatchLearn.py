@@ -35,6 +35,10 @@ def run(args):
         args.eps_epoch = [args.eps_epoch[0]] * len(task_names)
     if len(args.kappa_epoch) == 1:
         args.kappa_epoch = [args.kappa_epoch[0]] * len(task_names)
+    if len(args.kappa_min) == 1:
+        args.kappa_min = [args.kappa_min[0]] * len(task_names)
+    if len(args.warm_epoch) == 1:
+        args.warm_epoch = [args.warm_epoch[0]] * len(task_names)
     if len(args.schedule) == 1:
         args.schedule = [args.schedule[0]] * len(task_names)
 
@@ -92,21 +96,21 @@ def run(args):
                 agent.add_valid_output_dim(task_output_space[train_name])
 
             if args.eps_max:
-                print(f'settings max epsilon: {args.eps_max[i]}')
                 agent.eps_scheduler.set_end(args.eps_max[i])
 
-            agent.kappa_scheduler.end = args.kappa_min
+            agent.kappa_scheduler.end = args.kappa_min[i]
             iter_on_batch = len(train_loader)
-            agent.kappa_scheduler.calc_coefficient(args.kappa_min-1, args.kappa_epoch[i], iter_on_batch)
+            agent.kappa_scheduler.calc_coefficient(args.kappa_min[i]-1, args.kappa_epoch[i], iter_on_batch)
             agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
+            agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
             agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
+            if i > 0:
+                agent.kappa_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
 
             if agent.multihead:
                 agent.current_head = str(train_name)
 
-            print(f"before batch eps: {agent.eps_scheduler.current}, kappa: {agent.kappa_scheduler.current}")
             agent.learn_batch(train_loader, val_loader)  # Learn
-            print(f"after batch eps: {agent.eps_scheduler.current}, kappa: {agent.kappa_scheduler.current}")
 
             if args.clipping:
                 agent.save_params()
@@ -161,7 +165,8 @@ def get_args(argv):
     parser.add_argument('--momentum', type=float, default=0)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--kappa_epoch', nargs="+", type=float, default=[1])
-    parser.add_argument('--kappa_min', type=float, default=0.5)
+    parser.add_argument('--kappa_min', nargs="+", type=float, default=[0.5])
+    parser.add_argument('--warm_epoch', nargs="+", type=float, default=[0])
     parser.add_argument('--eps_epoch', nargs="+", type=float, default=[1])
     parser.add_argument('--eps_max', nargs="+", type=float, default=[0])
     parser.add_argument('--milestones', nargs="+", type=float, default=[])
