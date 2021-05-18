@@ -182,7 +182,9 @@ class IntervalNet(nn.Module):
         C = self.C[y0].t()
         cW = C @ (self.model.last[key][0].weight - self.model.last[key][0].eps)
         cb = C @ (self.model.last[key][1].weight - self.model.last[key][1].eps)
-        l, u = self.model.bounds
+        l_, u_ = self.model.bounds
+        l = torch.min(l_, u_)
+        u = torch.max(l_, u_)
         return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
         # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
 
@@ -202,10 +204,7 @@ class IntervalNet(nn.Module):
                         for y0 in range(len(self.C)):
                             if (t_target == y0).sum().item() > 0:
                                 lower_bound = self._interval_based_bound(y0, t_target == y0, key=t)
-                                # robust_loss += self.criterion_fn(-lower_bound, t_target[t_target == y0])
-                                robust_loss += nn.CrossEntropyLoss(reduction='sum')(
-                                    -lower_bound, t_target[t_target == y0]) / t_target.size(0)
-
+                                robust_loss += self.criterion_fn(-lower_bound, t_target[t_target == y0])
                                 # increment when true label is not winning
                                 robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
                         robust_err /= len(t_target)
@@ -235,25 +234,6 @@ class IntervalNet(nn.Module):
                 # loss = standard_loss + robust_loss
                 loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 robust_err = 0.0  # TODO
-                #
-                # for y0 in range(len(self.C)):
-                #     if (targets == y0).sum().item() > 0:
-
-                #         lower_bound = self._interval_based_bound(y0, targets == y0, key=key)
-                #         # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
-                #         if isinstance(self.valid_out_dim, int):
-                #             lower_bound = lower_bound[:, :self.valid_out_dim]
-
-                #         # robust_loss += self.criterion_fn(-lower_bound, targets[targets == y0])
-                #         robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
-                #                                                             targets[targets == y0]) / targets.size(0)
-
-                #         # increment when true label is not winning
-                #         robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
-
-                # loss *= self.kappa_scheduler.current
-                # loss += (1 - self.kappa_scheduler.current) * robust_loss
-                # robust_err /= len(targets)
             else:
                 loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
         return loss, robust_err, robust_loss, standard_loss
@@ -356,7 +336,7 @@ class IntervalNet(nn.Module):
         for m in self.model.modules():
             if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
                 m.weight.data = self.clip_weights(i, m.weight.data.detach())
-                m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
+                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
@@ -427,6 +407,7 @@ class IntervalNet(nn.Module):
 
             self.log(' * Train Acc {acc.avg:.3f}, Loss {loss.avg:.3f}'.format(loss=losses, acc=acc))
             self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
+            # self.log(f"  * model: {self.model.features_loss_term}")
 
             # Evaluate the performance of current task
             if val_loader is not None:

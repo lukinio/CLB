@@ -113,17 +113,25 @@ class LinearInterval(nn.Linear):
             x_middle, x_lower, x_upper = x, x, x
         else:
             x_middle, x_lower, x_upper = split_activation(x)
-        x_middle, x_lower, x_upper = split_activation(x)
-
-        w_lower_pos = (self.weight - self.eps).clamp(min=0).t()
-        w_lower_neg = (self.weight - self.eps).clamp(max=0).t()
-        w_upper_pos = (self.weight + self.eps).clamp(min=0).t()
-        w_upper_neg = (self.weight + self.eps).clamp(max=0).t()
 
         middle = super().forward(x_middle)
 
-        lower = x_lower @ w_lower_pos + x_upper @ w_lower_neg
-        upper = x_upper @ w_upper_pos + x_lower @ w_upper_neg
+        w_lower = (self.weight - self.eps).t()
+        w_upper = (self.weight + self.eps).t()
+
+        x_low_w_low = x_lower @ w_lower
+        x_low_w_upp = x_lower @ w_upper
+        x_upp_w_low = x_upper @ w_lower
+        x_upp_w_upp = x_upper @ w_upper
+
+        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
+        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
+        lower = torch.min(low_min1, low_min2)
+
+        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
+        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
+        upper = torch.max(upp_max1, upp_max2)
+
         # for numerical errors:
         # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
         # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
@@ -172,16 +180,21 @@ class Conv2dInterval(nn.Conv2d):
 
         middle = super().forward(x_middle)
 
-        w_lower_pos = (self.weight - self.eps).clamp(min=0)
-        w_lower_neg = (self.weight - self.eps).clamp(max=0)
-        w_upper_pos = (self.weight + self.eps).clamp(min=0)
-        w_upper_neg = (self.weight + self.eps).clamp(max=0)
+        w_lower = self.weight - self.eps
+        w_upper = self.weight + self.eps
 
-        lower = (f.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups))
+        x_low_w_low = f.conv2d(x_lower, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
+        x_low_w_upp = f.conv2d(x_lower, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
+        x_upp_w_low = f.conv2d(x_upper, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
+        x_upp_w_upp = f.conv2d(x_upper, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
 
-        upper = (f.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups) +
-                 f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups))
+        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
+        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
+        lower = torch.min(low_min1, low_min2)
+
+        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
+        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
+        upper = torch.max(upp_max1, upp_max2)
 
         # for numerical errors:
         # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
