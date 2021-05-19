@@ -1,21 +1,3 @@
-# class Schedule:
-
-#     def __init__(self, start_batch, end_batch, start_value, end_value):
-#         assert start_batch < end_batch
-#         self.start_batch = start_batch
-#         self.end_batch = end_batch
-#         self.start_value = start_value
-#         self.end_value = end_value
-#         self.step = (self.end_value - self.start_value) / (self.end_batch - self.start_batch)
-#         self.current_batch = 0
-#         self.current_value = self.start_value
-
-#     def step(self):
-#         if self.current_batch >= self.start_batch and self.current_batch < self.end_batch and self.current_value < self.end_value:
-#             self.current_value += self.step
-#         self.current_batch += 1
-
-
 class LinearScheduler:
     """
     class represent Linear Scheduler y = a * x

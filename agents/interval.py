@@ -98,7 +98,8 @@ class IntervalNet(nn.Module):
         # For a single-headed model the output will be {'All':output}
         model.last = nn.ModuleDict()
         for task, out_dim in cfg['out_dim'].items():
-            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), IntervalBias(out_dim))
+            # model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), IntervalBias(out_dim))
+            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim),)
 
         # Redefine the task-dependent function
         def new_logits(self, x):
@@ -181,12 +182,12 @@ class IntervalNet(nn.Module):
         # requires last layer to be linear
         C = self.C[y0].t()
         cW = C @ (self.model.last[key][0].weight - self.model.last[key][0].eps)
-        cb = C @ (self.model.last[key][1].weight - self.model.last[key][1].eps)
+        # cb = C @ (self.model.last[key][1].weight - self.model.last[key][1].eps)
         l_, u_ = self.model.bounds
         l = torch.min(l_, u_)
         u = torch.max(l_, u_)
-        return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
-        # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
+        # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
+        return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
@@ -222,6 +223,25 @@ class IntervalNet(nn.Module):
             m_logits, l_logits, u_logits = split_activation(logits)
             standard_loss = self.criterion_fn(m_logits, targets)
             if self.eps_scheduler.current:
+                #============================================================
+                # former robust_loss code
+                # robust_loss, robust_err = 0, 0
+                # for y0 in range(len(self.C)):
+                #     if (targets == y0).sum().item() > 0:
+                #         lower_bound = self._interval_based_bound(y0, targets == y0, key="All")
+                #         # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
+                #         if isinstance(self.valid_out_dim, int):
+                #             lower_bound = lower_bound[:, :self.valid_out_dim]
+
+                #         robust_loss += self.criterion_fn(-lower_bound, targets[targets == y0])
+                #         # robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
+                #         #                                                     targets[targets == y0]) / targets.size(0)
+                #         # increment when true label is not winning
+                #         robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
+                #         robust_err /= len(targets)
+                # kappa = self.kappa_scheduler.current
+                # loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                #============================================================
                 # simpler implementation
                 targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
                 z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
@@ -230,8 +250,8 @@ class IntervalNet(nn.Module):
                 # max_robust_frac = (1 - kappa)
                 # if robust_loss.item() > standard_loss.item() * max_robust_frac:
                 #     diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
-                #     robust_loss = robust_loss * diminish_factor
-                # loss = standard_loss + robust_loss
+                #     diminished_robust_loss = robust_loss * diminish_factor
+                # loss = standard_loss
                 loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 robust_err = 0.0  # TODO
             else:
@@ -322,12 +342,8 @@ class IntervalNet(nn.Module):
         weight_new = (low + upp) / torch.Tensor([2]).cuda()
         eps_new = torch.abs(low - upp) / torch.Tensor([2]).cuda()
         eps_new = torch.where(eps_new > eps_old, eps_old, eps_new)
-        # eps_new = torch.where(eps_old < eps_new, eps_old, eps_new)
-        # calc = (eps_old < eps_new)
-        # if calc.any():
-        #     print(f"ile złych: {calc.sum()}, wszystkich: {(eps_old >= 0).sum()}")
         assert (eps_old >= eps_new).all(), print(
-            f"eps assert i: {i}, ile złych: {(eps_old < eps_new).sum()}, wszystkich: {(eps_new >= 0).sum()}")
+            f'eps assert i: {i}, bad: {(eps_old < eps_new).sum()}, all: {(eps_new >= 0).sum()}')
 
         return eps_new, weight_new
 

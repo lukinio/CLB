@@ -72,44 +72,55 @@ class IntervalCNN(nn.Module):
 
         self.c1 = nn.Sequential(
             Conv2dInterval(in_channel, 32, kernel_size=3, stride=1, padding=1, input_layer=True),
-            IntervalBias(32),
+            # IntervalBias(32),
             nn.ReLU(),
             Conv2dInterval(32, 32, kernel_size=3, stride=1, padding=1),
-            IntervalBias(32),
+            # IntervalBias(32),
             nn.ReLU(),
             Conv2dInterval(32, 64, kernel_size=3, stride=1, padding=1),
-            IntervalBias(64),
+            # IntervalBias(64),
             nn.ReLU(),
             pooling(2, stride=2, padding=0),
             IntervalDropout(0.25)
         )
         self.c2 = nn.Sequential(
             Conv2dInterval(64, 64, kernel_size=3, stride=1, padding=1),
-            IntervalBias(64),
+            # IntervalBias(64),
             nn.ReLU(),
             Conv2dInterval(64, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
+            # IntervalBias(128),
             nn.ReLU(),
             pooling(2, stride=2, padding=0),
             IntervalDropout(0.25)
         )
         self.c3 = nn.Sequential(
             Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
+            # IntervalBias(128),
             nn.ReLU(),
             Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
-            IntervalBias(128),
+            # IntervalBias(128),
             nn.ReLU(),
             pooling(2, stride=2, padding=1),
             IntervalDropout(0.25)
         )
-        self.fc1 = nn.Sequential(LinearInterval(128 * 5 * 5, 256), IntervalBias(256), nn.ReLU())
+        self.fc1 = nn.Sequential(
+            LinearInterval(128 * 5 * 5, 256),
+            # IntervalBias(256),
+            nn.ReLU()
+        )
         self.last = nn.Sequential(
             LinearInterval(256, out_dim),
-            IntervalBias(out_dim),
+            # IntervalBias(out_dim),
         )
-        self.a = nn.Parameter(torch.zeros(18), requires_grad=True)
-        self.e = torch.zeros(18)
+        self.a = nn.Parameter(torch.zeros(9), requires_grad=True)
+        self.e = torch.zeros(9)
+        # self.a = nn.Parameter(torch.zeros(18), requires_grad=True)
+        # self.e = torch.zeros(18)
+        self.bounds = None
+
+    def save_bounds(self, x):
+        s = x.size(1) // 3
+        self.bounds = x[:, s:2*s], x[:, 2*s:]
 
     def calc_eps(self, r):
         exp = self.a.exp()
@@ -145,6 +156,7 @@ class IntervalCNN(nn.Module):
         x = self.c3(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
+        self.save_bounds(x)
         return x
 
     def forward(self, x):

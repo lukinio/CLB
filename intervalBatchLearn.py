@@ -102,7 +102,7 @@ def run(args):
             iter_on_batch = len(train_loader)
             agent.kappa_scheduler.calc_coefficient(args.kappa_min[i]-1, args.kappa_epoch[i], iter_on_batch)
             agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
-            agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
+            # agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
             agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
             if i > 0:
                 agent.kappa_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
