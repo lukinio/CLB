@@ -16,22 +16,6 @@ def retrieve_elements_from_indices(tensor, indices):
     return flattened_tensor.gather(dim=2, index=indices.flatten(start_dim=2)).view_as(indices)
 
 
-def interval_vmp(inputs_l, inputs_u, matrix_l, matrix_u):
-    inputs_l = inputs_l.unsqueeze(-1)
-    inputs_u = inputs_u.unsqueeze(-1)
-    matrix_l = matrix_l.unsqueeze(0)
-    matrix_u = matrix_u.unsqueeze(0)
-    ll_prods = inputs_l * matrix_l
-    lu_prods = inputs_l * matrix_u
-    ul_prods = inputs_u * matrix_l
-    uu_prods = inputs_u * matrix_u
-    prods_lower, _ = torch.min(torch.stack([ll_prods, lu_prods, ul_prods, uu_prods], dim=1), dim=1)
-    prods_upper, _ = torch.max(torch.stack([ll_prods, lu_prods, ul_prods, uu_prods], dim=1), dim=1)
-    lower = prods_lower.sum(dim=-2)
-    upper = prods_upper.sum(dim=-2)
-    return lower, upper
-
-
 class AvgPool2dInterval(nn.AvgPool2d):
     def __init__(self,
                  kernel_size,

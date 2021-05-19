@@ -372,6 +372,9 @@ class IntervalNet(nn.Module):
         self.model.set_eps(self.eps_scheduler.current, trainable=self.config['eps_per_model'], head=self.current_head)
         if self.clipping and self.prev_eps:
             self.clip_params()
+        for t in out.keys():
+            out[t], _, _ = split_activation(out[t])
+            out[t] = out[t].detach()
         return loss.item(), robust_err, robust_loss.item(), ce_loss.item(), out
 
     def learn_batch(self, train_loader, val_loader=None):
@@ -477,5 +480,4 @@ def accumulate_acc(output, target, task, meter):
                 t_out = t_out[inds]
                 t_target = target[inds]
                 meter.update(accuracy(t_out, t_target), len(inds))
-
     return meter
