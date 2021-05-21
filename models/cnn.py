@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias, IntervalDropout, LinearInterval,
+from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias,
+                             IntervalDropout, LinearInterval,
                              MaxPool2dInterval)
 
 
@@ -9,36 +10,17 @@ class CNN(nn.Module):
     def __init__(self, in_channel=3, out_dim=10, pooling=nn.MaxPool2d):
         super().__init__()
 
-        self.c1 = nn.Sequential(
-            nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            nn.Dropout(0.25)
-        )
-        self.c2 = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=0),
-            nn.Dropout(0.25)
-        )
-        self.c3 = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            pooling(2, stride=2, padding=1),
-            nn.Dropout(0.25)
-        )
-        self.fc1 = nn.Sequential(
-            nn.Linear(128*5*5, 256),
-            nn.ReLU()
-        )
+        self.c1 = nn.Sequential(nn.Conv2d(in_channel, 32, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=0), nn.Dropout(0.25))
+        self.c2 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=0), nn.Dropout(0.25))
+        self.c3 = nn.Sequential(nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1), nn.ReLU(),
+                                pooling(2, stride=2, padding=1), nn.Dropout(0.25))
+        self.fc1 = nn.Sequential(nn.Linear(128 * 5 * 5, 256), nn.ReLU())
         self.last = nn.Linear(256, out_dim)
 
     def features(self, x):
@@ -67,7 +49,7 @@ def cnn_avg():
 
 
 class IntervalCNN(nn.Module):
-    def __init__(self, in_channel=3, out_dim=10, pooling=MaxPool2dInterval):
+    def __init__(self, in_channel=3, out_dim=2, pooling=MaxPool2dInterval):
         super(IntervalCNN, self).__init__()
 
         self.c1 = nn.Sequential(
@@ -81,8 +63,7 @@ class IntervalCNN(nn.Module):
             # IntervalBias(64),
             nn.ReLU(),
             pooling(2, stride=2, padding=0),
-            IntervalDropout(0.25)
-        )
+            IntervalDropout(0.25))
         self.c2 = nn.Sequential(
             Conv2dInterval(64, 64, kernel_size=3, stride=1, padding=1),
             # IntervalBias(64),
@@ -91,8 +72,7 @@ class IntervalCNN(nn.Module):
             # IntervalBias(128),
             nn.ReLU(),
             pooling(2, stride=2, padding=0),
-            IntervalDropout(0.25)
-        )
+            IntervalDropout(0.25))
         self.c3 = nn.Sequential(
             Conv2dInterval(128, 128, kernel_size=3, stride=1, padding=1),
             # IntervalBias(128),
@@ -101,54 +81,44 @@ class IntervalCNN(nn.Module):
             # IntervalBias(128),
             nn.ReLU(),
             pooling(2, stride=2, padding=1),
-            IntervalDropout(0.25)
-        )
+            IntervalDropout(0.25))
         self.fc1 = nn.Sequential(
             LinearInterval(128 * 5 * 5, 256),
             # IntervalBias(256),
-            nn.ReLU()
-        )
-        self.last = nn.Sequential(
-            LinearInterval(256, out_dim),
-            # IntervalBias(out_dim),
-        )
-        self.a = nn.Parameter(torch.zeros(9), requires_grad=True)
-        self.e = torch.zeros(9)
-        # self.a = nn.Parameter(torch.zeros(18), requires_grad=True)
-        # self.e = torch.zeros(18)
-        self.bounds = None
+            nn.ReLU())
+        self.last = nn.Sequential(LinearInterval(256, out_dim),
+                                  # IntervalBias(out_dim),
+                                  )
 
-    def save_bounds(self, x):
-        s = x.size(1) // 3
-        self.bounds = x[:, s:2*s], x[:, 2*s:]
-
-    def calc_eps(self, r):
-        exp = self.a.exp()
-        self.e = r * exp / exp.sum()
-
-    def print_eps(self, head="All"):
+        sum_numel = 0
+        self.numels = []
         for m in self.modules():
             if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
-                e = m.eps.detach()
-                print(f"sum: {e.sum()} - mean: {e.mean()} - std: {e.std()}")
-                print(f" * min {e.min()}, max: {e.max()}")
-        print(f"eps: {self.e}")
+                numwei = m.weight.numel()
+                # print(f'type(m): {type(m)} numwei: {numwei}')
+                sum_numel += numwei
+                self.numels.append(numwei)
+        self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=True, device=self.fc1[0].weight.device))
 
-    def reset_importance(self):
-        for m in self.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
-                m.rest_importance()
-
-    def set_eps(self, eps, trainable=False, head="All"):
-        if trainable:
-            self.calc_eps(eps)
-        else:
-            self.e[:] = eps
+    def importances_to_eps(self, eps_scaler):
+        base_eps = torch.softmax(self.importances, dim=0)
+        split_eps = torch.split(eps_scaler * base_eps, self.numels)
         i = 0
         for m in self.modules():
             if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
-                m.calc_eps(self.e[i])
+                m.eps = split_eps[i].view_as(m.weight)
                 i += 1
+
+    def print_eps_stats(self, head="All"):
+        for i, m in enumerate(self.modules()):
+            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+                eps = m.eps.detach()
+                print(f'module {i}: {type(m)}')
+                print(f"  sum: {eps.sum()} mean: {eps.mean()} std: {eps.std()}")
+                print(f"  min: {eps.min()} max: {eps.max()} numel: {eps.numel()}")
+
+    def reset_importances(self):
+        self.importances = nn.Parameter(torch.zeros_like(self.importances))
 
     def features(self, x):
         x = self.c1(x)
@@ -156,13 +126,11 @@ class IntervalCNN(nn.Module):
         x = self.c3(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
-        self.save_bounds(x)
         return x
 
     def forward(self, x):
         x = self.features(x)
         answers = {k: self.last[k](x) for k, v in self.last.items()}
-        # return {k: v[:, :v.size(1) // 3] for k, v in answers.items()}
         return {k: v for k, v in answers.items()}
 
 

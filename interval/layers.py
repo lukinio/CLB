@@ -16,6 +16,9 @@ def retrieve_elements_from_indices(tensor, indices):
     return flattened_tensor.gather(dim=2, index=indices.flatten(start_dim=2)).view_as(indices)
 
 
+ATOL = 1e-10
+
+
 class AvgPool2dInterval(nn.AvgPool2d):
     def __init__(self,
                  kernel_size,
@@ -68,28 +71,21 @@ class IntervalDropout(nn.Module):
             return x
 
 
+def check_intervals(middle, lower, upper):
+    # assert torch.logical_or(lower <= upper, torch.isclose(lower, upper, atol=ATOL)).all(), f'diff:\n{lower - upper} '
+    # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=ATOL)).all(), f'diff:\n{lower - middle}'
+    # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=ATOL)).all(), f'diff:\n{middle - upper}'
+    assert (lower <= upper).all(), f'diff:\n{lower - upper} '
+    assert (lower <= middle).all(), f'diff:\n{lower - middle}'
+    assert (middle <= upper).all(), f'diff:\n{middle - upper}'
+
+
 class LinearInterval(nn.Linear):
     def __init__(self, in_features, out_features, bias=False, input_layer=False):
         super().__init__(in_features, out_features, bias)
-        self.importance = nn.Parameter(torch.zeros(self.weight.size()), requires_grad=True)
-        # self.importance = nn.Parameter(torch.randn(self.weight.size()), requires_grad=True)
+        # self.eps = torch.zeros_like(self.weight.data, requires_grad=True)
         self.eps = 0
         self.input_layer = input_layer
-
-    def calc_eps(self, r):
-        exp = self.importance.exp()
-        # self.eps = r * exp / exp.sum()
-        self.eps = r * exp / exp.sum(dim=1)[:, None]
-        # self.eps = r * exp / exp.sum(dim=0)[None, :]
-
-    def rest_importance(self):
-        pass
-        # w1 = torch.abs(1 / self.eps)
-        # self.importance.data = w1 / w1.sum()
-        # self.importance.data = w1 / w1.sum(dim=1)[:, None]
-        # self.importance.data = w1 / w1.sum(dim=1)[:, None]
-        # self.importance.data = torch.zeros(self.weight.size()).cuda()
-        # self.importance.data = torch.randn(self.weight.size()).cuda()
 
     def forward(self, x):
         assert (x >= 0.0).all(), f'x: {x}'
@@ -98,31 +94,49 @@ class LinearInterval(nn.Linear):
         else:
             x_middle, x_lower, x_upper = split_activation(x)
 
-        middle = super().forward(x_middle)
+        w_middle = self.weight
+        w_lower = w_middle - self.eps
+        w_upper = w_middle + self.eps
 
-        w_lower = (self.weight - self.eps).t()
-        w_upper = (self.weight + self.eps).t()
+        w_lower_pos = (w_lower).clamp(min=0).t()
+        w_lower_neg = (w_lower).clamp(max=0).t()
+        w_upper_pos = (w_upper).clamp(min=0).t()
+        w_upper_neg = (w_upper).clamp(max=0).t()
 
-        x_low_w_low = x_lower @ w_lower
-        x_low_w_upp = x_lower @ w_upper
-        x_upp_w_low = x_upper @ w_lower
-        x_upp_w_upp = x_upper @ w_upper
+        l_lp = x_lower @ w_lower_pos
+        u_ln = x_upper @ w_lower_neg
+        u_up = x_upper @ w_upper_pos
+        l_un = x_lower @ w_upper_neg
 
-        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
-        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
-        lower = torch.min(low_min1, low_min2)
+        lower = l_lp + u_ln
+        upper = u_up + l_un
 
-        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
-        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
-        upper = torch.max(upp_max1, upp_max2)
+        w_middle_pos = (w_middle).clamp(min=0).t()
+        w_middle_neg = (w_middle).clamp(max=0).t()
+        m_mp = x_middle @ w_middle_pos
+        m_mn = x_middle @ w_middle_neg
+        middle = m_mp + m_mn
+        # middle = super().forward(x_middle)
+        # alt_middle = (lower + upper) / 2
+        # middle = alt_middle
 
-        # for numerical errors:
-        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
-        lower_gt_mask = lower > middle
-        lower[lower_gt_mask] = middle[lower_gt_mask]
-        upper_lt_mask = upper < middle
-        upper[upper_lt_mask] = middle[upper_lt_mask]
+        # if (lower > upper).any() or (lower > middle).any() or (middle > upper).any():
+        #     if isinstance(self.eps, int):
+        #         print(f'eps: {self.eps}')
+        #     else:
+        #         print(f'max(eps): {self.eps.max()}')
+        #     max_w_diff = (w_lower - w_upper).max()
+        #     print(f'max_w_diff: {max_w_diff}')
+        #     print(f'maxabs(lower - upper): {(lower - upper).abs().max()}')
+        #     print(f'maxabs(lower - middle): {(lower - middle).abs().max()}')
+        #     print(f'maxabs(middle - upper): {(middle - upper).abs().max()}')
+        #     print(f'maxabs(middle - alt_middle): {(middle - alt_middle).abs().max()}')
+        #     print(f'maxabs(lower - alt_middle): {(lower - alt_middle).abs().max()}')
+        #     print(f'maxabs(alt_middle - upper): {(alt_middle - upper).abs().max()}')
+        #     print(f'maxabs(w_lower - w_middle): {(w_lower - w_middle).abs().max()}')
+        #     print(f'maxabs(w_middle - w_upper): {(w_middle - w_upper).abs().max()}')
+        #     assert False
+        check_intervals(middle, lower, upper)
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -138,22 +152,9 @@ class Conv2dInterval(nn.Conv2d):
                  bias=False,
                  input_layer=False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-        self.importance = nn.Parameter(torch.zeros(self.weight.data.size()), requires_grad=True)
+        # self.eps = torch.zeros_like(self.weight, requires_grad=True)
         self.eps = 0
         self.input_layer = input_layer
-
-    def calc_eps(self, r):
-        exp = self.importance.exp()
-        # self.eps = r * exp / exp.sum()
-        self.eps = r * exp / exp.sum(dim=-1).sum(dim=-1)[:, :, None, None]
-
-    def rest_importance(self):
-        pass
-        # w1 = torch.abs(1 / self.weight)
-        # self.importance.data = w1 / w1.sum()
-        # self.importance.data = w1 / w1.sum(dim=-1).sum(dim=-1)[:, :, None, None]
-        # self.importance.data = torch.zeros(self.weight.size()).cuda()
-        # self.importance.data = torch.randn(self.weight.size()).cuda()
 
     def forward(self, x):
         assert (x >= 0.0).all(), f'x: {x}'
@@ -162,31 +163,33 @@ class Conv2dInterval(nn.Conv2d):
         else:
             x_middle, x_lower, x_upper = split_activation(x)
 
-        middle = super().forward(x_middle)
+        w_middle = self.weight
+        w_lower = w_middle - self.eps
+        w_upper = w_middle + self.eps
 
-        w_lower = self.weight - self.eps
-        w_upper = self.weight + self.eps
+        w_lower_pos = (w_lower).clamp(min=0)
+        w_lower_neg = (w_lower).clamp(max=0)
+        w_upper_pos = (w_upper).clamp(min=0)
+        w_upper_neg = (w_upper).clamp(max=0)
 
-        x_low_w_low = f.conv2d(x_lower, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
-        x_low_w_upp = f.conv2d(x_lower, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
-        x_upp_w_low = f.conv2d(x_upper, w_lower, None, self.stride, self.padding, self.dilation, self.groups)
-        x_upp_w_upp = f.conv2d(x_upper, w_upper, None, self.stride, self.padding, self.dilation, self.groups)
+        l_lp = f.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups)
+        u_ln = f.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups)
+        u_up = f.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups)
+        l_un = f.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups)
 
-        low_min1 = torch.min(x_low_w_low, x_low_w_upp)
-        low_min2 = torch.min(x_upp_w_low, x_upp_w_upp)
-        lower = torch.min(low_min1, low_min2)
+        lower = l_lp + u_ln
+        upper = u_up + l_un
 
-        upp_max1 = torch.max(x_low_w_low, x_low_w_upp)
-        upp_max2 = torch.max(x_upp_w_low, x_upp_w_upp)
-        upper = torch.max(upp_max1, upp_max2)
+        w_middle_pos = w_middle.clamp(min=0)
+        w_middle_neg = w_middle.clamp(max=0)
+        m_mp = f.conv2d(x_middle, w_middle_pos, None, self.stride, self.padding, self.dilation, self.groups)
+        m_mn = f.conv2d(x_middle, w_middle_neg, None, self.stride, self.padding, self.dilation, self.groups)
+        middle = m_mp + m_mn
+        # middle = super().forward(x_middle)
+        # alt_middle = (lower + upper) / 2
+        # middle = alt_middle
 
-        # for numerical errors:
-        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
-        lower_gt_mask = lower > middle
-        lower[lower_gt_mask] = middle[lower_gt_mask]
-        upper_lt_mask = upper < middle
-        upper[upper_lt_mask] = middle[upper_lt_mask]
+        check_intervals(middle, lower, upper)
         return torch.cat((middle, lower, upper), dim=1)
 
 
@@ -194,16 +197,7 @@ class IntervalBias(nn.Module):
     def __init__(self, bias_size):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(bias_size), requires_grad=True)
-        self.importance = nn.Parameter(torch.zeros(self.weight.data.size()), requires_grad=True)
-        self.eps = 0
-
-    def calc_eps(self, r):
-        exp = self.importance.exp()
-        # self.eps = r * exp / exp.sum()
-        self.eps = r * exp / exp.sum(dim=-1).sum(dim=-1)
-
-    def rest_importance(self):
-        pass
+        self.eps = torch.zeros_like(self.weight.data, requires_grad=True)
 
     def forward(self, x):
         x_mid, x_low, x_upp = split_activation(x.clone())
@@ -218,13 +212,8 @@ class IntervalBias(nn.Module):
         lower = x_low + b_lower
         middle = x_mid + b_middle
         upper = x_upp + b_upper
-        # for numerical errors:
-        # assert torch.logical_or(lower <= middle, torch.isclose(lower, middle, atol=1e-4)).all(), f'diff:\n{lower - middle}'
-        # assert torch.logical_or(middle <= upper, torch.isclose(middle, upper, atol=1e-4)).all(), f'diff:\n{middle - upper}'
-        lower_gt_mask = lower > middle
-        lower[lower_gt_mask] = middle[lower_gt_mask]
-        upper_lt_mask = upper < middle
-        upper[upper_lt_mask] = middle[upper_lt_mask]
+
+        check_intervals(middle, lower, upper)
         return torch.cat((middle, lower, upper), dim=1)
 
 

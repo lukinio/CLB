@@ -115,8 +115,8 @@ def run(args):
             if args.clipping:
                 agent.save_params()
 
-            agent.model.print_eps(agent.current_head)
-            agent.model.reset_importance()
+            agent.model.print_eps_stats(agent.current_head)
+            agent.model.reset_importances()
 
             # Evaluate
             acc_table[train_name] = OrderedDict()
@@ -194,6 +194,13 @@ if __name__ == '__main__':
     args = get_args(sys.argv[1:])
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpuid[0])
+    # torch.use_deterministic_algorithms(True)
+    # torch.set_deterministic(True)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.enabled = False
+    torch.autograd.set_detect_anomaly(True)
     if not os.path.exists('outputs'):
         os.mkdir('outputs')
 

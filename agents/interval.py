@@ -9,7 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
-from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval, split_activation)
+from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval,
+                             split_activation)
 
 
 def free_exp_name(runs_dir: Path, run_name: str):
@@ -99,7 +100,8 @@ class IntervalNet(nn.Module):
         model.last = nn.ModuleDict()
         for task, out_dim in cfg['out_dim'].items():
             # model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), IntervalBias(out_dim))
-            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim),)
+            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), )
+
 
         # Redefine the task-dependent function
         def new_logits(self, x):
@@ -179,41 +181,14 @@ class IntervalNet(nn.Module):
         return acc.avg
 
     def _interval_based_bound(self, y0, idx, key):
-        # requires last layer to be linear
-        C = self.C[y0].t()
-        cW = C @ (self.model.last[key][0].weight - self.model.last[key][0].eps)
-        # cb = C @ (self.model.last[key][1].weight - self.model.last[key][1].eps)
-        l_, u_ = self.model.bounds
-        l = torch.min(l_, u_)
-        u = torch.max(l_, u_)
-        # return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t() + cb[:, None]).t()
-        return (cW.clamp(min=0) @ l[idx].t() + cW.clamp(max=0) @ u[idx].t()).t()
+        raise NotImplementedError()
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
-            loss, robust_loss, robust_err = 0, 0, 0
-            for t, t_logits in logits.items():
-                inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
-                if len(inds) > 0:
-                    t_logits = t_logits[inds]
-                    t_target = targets[inds]
-                    loss += self.criterion_fn(t_logits, t_target) * len(inds)
-                    if self.eps_scheduler.current:
-                        for y0 in range(len(self.C)):
-                            if (t_target == y0).sum().item() > 0:
-                                lower_bound = self._interval_based_bound(y0, t_target == y0, key=t)
-                                robust_loss += self.criterion_fn(-lower_bound, t_target[t_target == y0])
-                                # increment when true label is not winning
-                                robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
-                        robust_err /= len(t_target)
-
-            loss /= len(targets)  # Average the total loss by the mini-batch size
-            if self.eps_scheduler.current:
-                loss *= self.kappa_scheduler.current
-                loss += (1 - self.kappa_scheduler.current) * robust_loss
+            raise NotImplementedError()
         else:
             key = 'All'
             logits = logits[key]
@@ -247,13 +222,26 @@ class IntervalNet(nn.Module):
                 z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
                 robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
+                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                robust_err = torch.tensor(0.0)  # TODO
+                #============================================================
+                # another variant
+                # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
+                # z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                # robust_loss = self.criterion_fn(z_logits, targets)
+                # kappa = self.kappa_scheduler.current
                 # max_robust_frac = (1 - kappa)
                 # if robust_loss.item() > standard_loss.item() * max_robust_frac:
                 #     diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
                 #     diminished_robust_loss = robust_loss * diminish_factor
+                # else:
+                #     diminished_robust_loss = robust_loss
+                # loss = kappa * standard_loss + diminished_robust_loss
+                # # print(f'loss: {loss.item()} standard_loss: {standard_loss.item()} diminished_robust_loss: {diminished_robust_loss.item()}')
+                # robust_err = torch.tensor(0.0)  # TODO
+                #============================================================
+                # robust_loss, robust_err = torch.tensor(0.0), torch.tensor(0.0)
                 # loss = standard_loss
-                loss = kappa * standard_loss + (1 - kappa) * robust_loss
-                robust_err = 0.0  # TODO
             else:
                 loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
         return loss, robust_err, robust_loss, standard_loss
@@ -267,53 +255,31 @@ class IntervalNet(nn.Module):
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
 
-        # self.tb.add_histogram("input/weight", self.model.input.weight, self.current_task)
-        # self.tb.add_histogram("input/eps", self.model.input.eps, self.current_task)
-        # self.tb.add_histogram("input/importance", self.model.input.importance, self.current_task)
-        #
+        self.tb.add_histogram("importances", self.model.importances, self.current_task)
+
         # self.tb.add_histogram("c1/0/weight", self.model.c1[0].weight, self.current_task)
-        # self.tb.add_histogram("c1/0/eps", self.model.c1[0].eps, self.current_task)
-        # self.tb.add_histogram("c1/0/importance", self.model.c1[0].importance, self.current_task)
-        #
+        self.tb.add_histogram("c1/0/eps", self.model.c1[0].eps, self.current_task)
+
         # self.tb.add_histogram("c1/2/weight", self.model.c1[2].weight, self.current_task)
-        # self.tb.add_histogram("c1/2/eps", self.model.c1[2].eps, self.current_task)
-        # self.tb.add_histogram("c1/2/importance", self.model.c1[2].importance, self.current_task)
-        #
+        self.tb.add_histogram("c1/2/eps", self.model.c1[2].eps, self.current_task)
+
         # self.tb.add_histogram("c2/0/weight", self.model.c2[0].weight, self.current_task)
-        # self.tb.add_histogram("c2/0/eps", self.model.c2[0].eps, self.current_task)
-        # self.tb.add_histogram("c2/0/importance", self.model.c2[0].importance, self.current_task)
-        #
+        self.tb.add_histogram("c2/0/eps", self.model.c2[0].eps, self.current_task)
+
         # self.tb.add_histogram("c2/2/weight", self.model.c2[2].weight, self.current_task)
-        # self.tb.add_histogram("c2/2/eps", self.model.c2[2].eps, self.current_task)
-        # self.tb.add_histogram("c2/2/importance", self.model.c2[2].importance, self.current_task)
-        #
+        self.tb.add_histogram("c2/2/eps", self.model.c2[2].eps, self.current_task)
+
         # self.tb.add_histogram("c3/0/weight", self.model.c3[0].weight, self.current_task)
-        # self.tb.add_histogram("c3/0/eps", self.model.c3[0].eps, self.current_task)
-        # self.tb.add_histogram("c3/0/importance", self.model.c3[0].importance, self.current_task)
-        #
+        self.tb.add_histogram("c3/0/eps", self.model.c3[0].eps, self.current_task)
+
         # self.tb.add_histogram("c3/2/weight", self.model.c3[2].weight, self.current_task)
-        # self.tb.add_histogram("c3/2/eps", self.model.c3[2].eps, self.current_task)
-        # self.tb.add_histogram("c3/2/importance", self.model.c3[2].importance, self.current_task)
-        #
+        self.tb.add_histogram("c3/2/eps", self.model.c3[2].eps, self.current_task)
+
         # self.tb.add_histogram('fc1/weight', self.model.fc1[0].weight, self.current_task)
-        # self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
-        # self.tb.add_histogram("fc1/importance", self.model.fc1[0].importance, self.current_task)
+        self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
 
-        # self.tb.add_histogram('fc1/bias', self.model.fc1.bias, self.current_task)
-
-        # self.tb.add_histogram('fc1/weight', self.model.fc1.weight, self.current_task)
-        # self.tb.add_histogram("fc1/eps", self.model.fc1.eps, self.current_task)
-        # self.tb.add_histogram("fc1/importance", self.model.fc1.importance, self.current_task)
-        #
-        # # self.tb.add_histogram('fc2/bias', self.model.fc2.bias, self.current_task)
-        # self.tb.add_histogram('fc2/weight', self.model.fc2.weight, self.current_task)
-        # self.tb.add_histogram("fc2/eps", self.model.fc2.eps, self.current_task)
-        # self.tb.add_histogram("fc2/importance", self.model.fc2.importance, self.current_task)
-
-        # self.tb.add_histogram('last/bias', self.model.last[self.current_head].weight, self.current_task)
         # self.tb.add_histogram('last/weight', self.model.last[self.current_head].weight, self.current_task)
-        # self.tb.add_histogram("last/eps", self.model.last[self.current_head].eps, self.current_task)
-        # self.tb.add_histogram("last/importance", self.model.last[self.current_head].importance, self.current_task)
+        self.tb.add_histogram("last/eps", self.model.last[self.current_head][0].eps, self.current_task)
         # self.tb.flush()
 
     def clip_weights(self, i, weights):
@@ -339,11 +305,11 @@ class IntervalNet(nn.Module):
         upp = torch.min(upp_old, upp_new)
         assert (low <= upp).all()
 
-        weight_new = (low + upp) / torch.Tensor([2]).cuda()
-        eps_new = torch.abs(low - upp) / torch.Tensor([2]).cuda()
+        weight_new = (low + upp) / 2
+        eps_new = torch.abs(low - upp) / 2
         eps_new = torch.where(eps_new > eps_old, eps_old, eps_new)
-        assert (eps_old >= eps_new).all(), print(
-            f'eps assert i: {i}, bad: {(eps_old < eps_new).sum()}, all: {(eps_new >= 0).sum()}')
+        assert (eps_old >= eps_new
+                ).all(), print(f'eps assert i: {i}, bad: {(eps_old < eps_new).sum()}, all: {(eps_new >= 0).sum()}')
 
         return eps_new, weight_new
 
@@ -356,20 +322,20 @@ class IntervalNet(nn.Module):
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
+        self.model.importances_to_eps(self.eps_scheduler.current)
         out = self.forward(inputs)
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
-        self.optimizer.zero_grad()
+        self.zero_grad()
         loss.backward()
         # TODO add cmd argument for norm type?
         # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
+        # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()
 
         self.kappa_scheduler.step()
         self.eps_scheduler.step()
         self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
         self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)
-        self.model.set_eps(self.eps_scheduler.current, trainable=self.config['eps_per_model'], head=self.current_head)
         if self.clipping and self.prev_eps:
             self.clip_params()
         for t in out.keys():
