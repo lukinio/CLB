@@ -89,6 +89,8 @@ class LinearInterval(nn.Linear):
 
     def forward(self, x):
         assert (x >= 0.0).all(), f'x: {x}'
+        if isinstance(self.eps, torch.Tensor):
+            assert (self.eps >= 0.0).all()
         if self.input_layer:
             x_middle, x_lower, x_upper = x, x, x
         else:
@@ -158,6 +160,8 @@ class Conv2dInterval(nn.Conv2d):
 
     def forward(self, x):
         assert (x >= 0.0).all(), f'x: {x}'
+        if isinstance(self.eps, torch.Tensor):
+            assert (self.eps >= 0.0).all()
         if self.input_layer:
             x_middle, x_lower, x_upper = x, x, x
         else:
@@ -200,6 +204,8 @@ class IntervalBias(nn.Module):
         self.eps = torch.zeros_like(self.weight.data, requires_grad=True)
 
     def forward(self, x):
+        if isinstance(self.eps, torch.Tensor):
+            assert (self.eps >= 0.0).all()
         x_mid, x_low, x_upp = split_activation(x.clone())
         if x.dim() == 4:
             b_lower = (self.weight - self.eps).view(1, -1, 1, 1)

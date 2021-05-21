@@ -110,12 +110,16 @@ class IntervalCNN(nn.Module):
                 i += 1
 
     def print_eps_stats(self, head="All"):
+        eps_sum = 0
         for i, m in enumerate(self.modules()):
             if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
                 eps = m.eps.detach()
                 print(f'module {i}: {type(m)}')
-                print(f"  sum: {eps.sum()} mean: {eps.mean()} std: {eps.std()}")
-                print(f"  min: {eps.min()} max: {eps.max()} numel: {eps.numel()}")
+                print(f'  sum: {eps.sum()} mean: {eps.mean()} std: {eps.std()}')
+                print(f'  min: {eps.min()} max: {eps.max()} numel: {eps.numel()}')
+                eps_sum += eps.sum().item()
+        print(f'Total eps sum: {eps_sum}')
+        
 
     def reset_importances(self):
         self.importances = nn.Parameter(torch.zeros_like(self.importances))
