@@ -218,11 +218,30 @@ class IntervalNet(nn.Module):
                 # loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 #============================================================
                 # simpler implementation
+                # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
+                # z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                # robust_loss = self.criterion_fn(z_logits, targets)
+                # kappa = self.kappa_scheduler.current
+                # loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                # robust_err = torch.tensor(0.0)  # TODO
+                #============================================================
+                # "soft" implementation
+                gamma = 0.75
                 targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                target_gammas = torch.ones_like(m_logits) * gamma
+                wrong_gammas = 1 - torch.ones_like(m_logits) * gamma
+                bernoulli_mask = torch.where(targets_oh.bool(), target_gammas, wrong_gammas)
+                interval_selection_mask = torch.bernoulli(bernoulli_mask).bool()
+                z_logits = torch.where(interval_selection_mask, l_logits, u_logits)
                 robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
-                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                max_robust_frac = (1 - kappa)
+                if robust_loss.item() > standard_loss.item() * max_robust_frac:
+                    diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
+                    diminished_robust_loss = robust_loss * diminish_factor
+                else:
+                    diminished_robust_loss = robust_loss
+                loss = kappa * standard_loss + diminished_robust_loss
                 robust_err = torch.tensor(0.0)  # TODO
                 #============================================================
                 # another variant
