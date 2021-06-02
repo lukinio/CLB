@@ -198,24 +198,7 @@ class IntervalNet(nn.Module):
             m_logits, l_logits, u_logits = split_activation(logits)
             standard_loss = self.criterion_fn(m_logits, targets)
             if self.eps_scheduler.current:
-                #============================================================
-                # former robust_loss code
-                # robust_loss, robust_err = 0, 0
-                # for y0 in range(len(self.C)):
-                #     if (targets == y0).sum().item() > 0:
-                #         lower_bound = self._interval_based_bound(y0, targets == y0, key="All")
-                #         # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
-                #         if isinstance(self.valid_out_dim, int):
-                #             lower_bound = lower_bound[:, :self.valid_out_dim]
 
-                #         robust_loss += self.criterion_fn(-lower_bound, targets[targets == y0])
-                #         # robust_loss += nn.CrossEntropyLoss(reduction='sum')(-lower_bound,
-                #         #                                                     targets[targets == y0]) / targets.size(0)
-                #         # increment when true label is not winning
-                #         robust_err += (lower_bound.min(dim=1)[0] < 0).sum().item()
-                #         robust_err /= len(targets)
-                # kappa = self.kappa_scheduler.current
-                # loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 #============================================================
                 # simpler implementation
                 # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
@@ -227,26 +210,12 @@ class IntervalNet(nn.Module):
                 #============================================================
                 # "soft" implementation
                 gamma = 0.75
-                targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                target_gammas = torch.ones_like(m_logits) * gamma
-                wrong_gammas = 1 - torch.ones_like(m_logits) * gamma
-                bernoulli_mask = torch.where(targets_oh.bool(), target_gammas, wrong_gammas)
-                interval_selection_mask = torch.bernoulli(bernoulli_mask).bool()
-                z_logits = torch.where(interval_selection_mask, l_logits, u_logits)
-                robust_loss = self.criterion_fn(z_logits, targets)
-                kappa = self.kappa_scheduler.current
-                max_robust_frac = (1 - kappa)
-                if robust_loss.item() > standard_loss.item() * max_robust_frac:
-                    diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
-                    diminished_robust_loss = robust_loss * diminish_factor
-                else:
-                    diminished_robust_loss = robust_loss
-                loss = kappa * standard_loss + diminished_robust_loss
-                robust_err = torch.tensor(0.0)  # TODO
-                #============================================================
-                # another variant
                 # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                # z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                # target_gammas = torch.ones_like(m_logits) * gamma
+                # wrong_gammas = 1 - torch.ones_like(m_logits) * gamma
+                # bernoulli_mask = torch.where(targets_oh.bool(), target_gammas, wrong_gammas)
+                # interval_selection_mask = torch.bernoulli(bernoulli_mask).bool()
+                # z_logits = torch.where(interval_selection_mask, l_logits, u_logits)
                 # robust_loss = self.criterion_fn(z_logits, targets)
                 # kappa = self.kappa_scheduler.current
                 # max_robust_frac = (1 - kappa)
@@ -256,8 +225,22 @@ class IntervalNet(nn.Module):
                 # else:
                 #     diminished_robust_loss = robust_loss
                 # loss = kappa * standard_loss + diminished_robust_loss
-                # # print(f'loss: {loss.item()} standard_loss: {standard_loss.item()} diminished_robust_loss: {diminished_robust_loss.item()}')
                 # robust_err = torch.tensor(0.0)  # TODO
+                #============================================================
+                # another variant
+                targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
+                z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                robust_loss = self.criterion_fn(z_logits, targets)
+                kappa = self.kappa_scheduler.current
+                max_robust_frac = (1 - kappa)
+                if robust_loss.item() > standard_loss.item() * max_robust_frac:
+                    diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
+                    diminished_robust_loss = robust_loss * diminish_factor
+                else:
+                    diminished_robust_loss = robust_loss
+                loss = kappa * standard_loss + diminished_robust_loss
+                # print(f'loss: {loss.item()} standard_loss: {standard_loss.item()} diminished_robust_loss: {diminished_robust_loss.item()}')
+                robust_err = torch.tensor(0.0)  # TODO
                 #============================================================
                 # robust_loss, robust_err = torch.tensor(0.0), torch.tensor(0.0)
                 # loss = standard_loss
@@ -346,7 +329,7 @@ class IntervalNet(nn.Module):
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
         loss.backward()
-        # TODO add cmd argument for norm type?
+        # TODO add cmd argument for gradient clipping?
         # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
         self.optimizer.step()

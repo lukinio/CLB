@@ -102,7 +102,8 @@ class IntervalCNN(nn.Module):
 
     def importances_to_eps(self, eps_scaler):
         base_eps = torch.softmax(self.importances, dim=0)
-        split_eps = torch.split(eps_scaler * base_eps, self.numels)
+        eps = base_eps * eps_scaler
+        split_eps = torch.split(eps, self.numels)
         i = 0
         for m in self.modules():
             if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
