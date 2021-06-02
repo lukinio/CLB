@@ -9,8 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
-from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval,
-                             split_activation)
+from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval, split_activation)
 
 
 def free_exp_name(runs_dir: Path, run_name: str):
@@ -63,11 +62,6 @@ class IntervalNet(nn.Module):
         # Default: 'ALL' means all output nodes are active
         # Set a interger here for the incremental class scenario
 
-        t = agent_config['force_out_dim'] if agent_config['force_out_dim'] else self.model.last["1"].out_features
-        self.C = [-torch.eye(t).cuda() for _ in range(t)]
-        for y0 in range(t):
-            self.C[y0][y0, :] += 1
-
     def init_optimizer(self):
         optimizer_arg = {
             'params': (p for p in self.model.parameters() if p.requires_grad),
@@ -87,31 +81,11 @@ class IntervalNet(nn.Module):
 
     def create_model(self):
         cfg = self.config
+        task_output_space = cfg['out_dim']
 
         # Define the backbone (MLP, LeNet, VGG, ResNet ... etc) of model
-        model = models.__dict__[cfg['model_type']].__dict__[cfg['model_name']]()
+        model = models.__dict__[cfg['model_type']].__dict__[cfg['model_name']](task_output_space=task_output_space)
 
-        # Apply network surgery to the backbone
-        # Create the heads for tasks (It can be single task or multi-task)
-        n_feat = model.last[0].in_features
-
-        # The output of the model will be a dict: {task_name1:output1, task_name2:output2 ...}
-        # For a single-headed model the output will be {'All':output}
-        model.last = nn.ModuleDict()
-        for task, out_dim in cfg['out_dim'].items():
-            # model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), IntervalBias(out_dim))
-            model.last[task] = nn.Sequential(LinearInterval(n_feat, out_dim), )
-
-
-        # Redefine the task-dependent function
-        def new_logits(self, x):
-            outputs = {}
-            for task, func in self.last.items():
-                outputs[task] = func(x)
-            return outputs
-
-        # Replace the task-dependent function
-        model.logits = MethodType(new_logits, model)
         # Load pre-trained weights
         if cfg['model_weights'] is not None:
             print('=> Load model weights:', cfg['model_weights'])
@@ -180,70 +154,50 @@ class IntervalNet(nn.Module):
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
         return acc.avg
 
-    def _interval_based_bound(self, y0, idx, key):
-        raise NotImplementedError()
-
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
-            raise NotImplementedError()
+            standard_loss, robust_loss = torch.tensor(0.0, device=targets.device), torch.tensor(0.0, device=targets.device)
+            robust_err = torch.tensor(0.0)  # TODO
+            # TODO this seems to be unnecessary? we always get one task for entire batch from the loader
+            for t, t_logits in logits.items():
+                inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
+                print(f'tasks: {tasks} inds: {inds}')
+                if len(inds) > 0:
+                    t_logits = t_logits[inds]
+                    t_target = targets[inds]
+                    m_logits, l_logits, u_logits = split_activation(t_logits)
+                    standard_loss += self.criterion_fn(m_logits, t_target) * len(inds)
+                    if self.eps_scheduler.current:
+                        targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
+                        z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
+                        robust_loss += self.criterion_fn(z_logits, targets) * len(inds)
+            standard_loss /= len(targets)
+            robust_loss /= len(targets)
+            if self.eps_scheduler.current:
+                kappa = self.kappa_scheduler.current
+                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+            else:
+                loss = standard_loss
         else:
             key = 'All'
             logits = logits[key]
             # (Not 'ALL') Mask out the outputs of unseen classes for incremental class scenario
-            if isinstance(self.valid_out_dim, int):
-                logits = logits[key][:, :self.valid_out_dim]
             m_logits, l_logits, u_logits = split_activation(logits)
+            if isinstance(self.valid_out_dim, int):
+                m_logits = m_logits[:, :self.valid_out_dim]
+                l_logits = l_logits[:, :self.valid_out_dim]
+                u_logits = u_logits[:, :self.valid_out_dim]
             standard_loss = self.criterion_fn(m_logits, targets)
             if self.eps_scheduler.current:
-
-                #============================================================
-                # simpler implementation
-                # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                # z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
-                # robust_loss = self.criterion_fn(z_logits, targets)
-                # kappa = self.kappa_scheduler.current
-                # loss = kappa * standard_loss + (1 - kappa) * robust_loss
-                # robust_err = torch.tensor(0.0)  # TODO
-                #============================================================
-                # "soft" implementation
-                gamma = 0.75
-                # targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
-                # target_gammas = torch.ones_like(m_logits) * gamma
-                # wrong_gammas = 1 - torch.ones_like(m_logits) * gamma
-                # bernoulli_mask = torch.where(targets_oh.bool(), target_gammas, wrong_gammas)
-                # interval_selection_mask = torch.bernoulli(bernoulli_mask).bool()
-                # z_logits = torch.where(interval_selection_mask, l_logits, u_logits)
-                # robust_loss = self.criterion_fn(z_logits, targets)
-                # kappa = self.kappa_scheduler.current
-                # max_robust_frac = (1 - kappa)
-                # if robust_loss.item() > standard_loss.item() * max_robust_frac:
-                #     diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
-                #     diminished_robust_loss = robust_loss * diminish_factor
-                # else:
-                #     diminished_robust_loss = robust_loss
-                # loss = kappa * standard_loss + diminished_robust_loss
-                # robust_err = torch.tensor(0.0)  # TODO
-                #============================================================
-                # another variant
                 targets_oh = nn.functional.one_hot(targets, m_logits.size(-1))
                 z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
                 robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
-                max_robust_frac = (1 - kappa)
-                if robust_loss.item() > standard_loss.item() * max_robust_frac:
-                    diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
-                    diminished_robust_loss = robust_loss * diminish_factor
-                else:
-                    diminished_robust_loss = robust_loss
-                loss = kappa * standard_loss + diminished_robust_loss
-                # print(f'loss: {loss.item()} standard_loss: {standard_loss.item()} diminished_robust_loss: {diminished_robust_loss.item()}')
+                loss = kappa * standard_loss + (1 - kappa) * robust_loss
                 robust_err = torch.tensor(0.0)  # TODO
-                #============================================================
-                # robust_loss, robust_err = torch.tensor(0.0), torch.tensor(0.0)
-                # loss = standard_loss
             else:
                 loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
         return loss, robust_err, robust_loss, standard_loss

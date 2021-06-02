@@ -118,26 +118,7 @@ class LinearInterval(nn.Linear):
         m_mp = x_middle @ w_middle_pos
         m_mn = x_middle @ w_middle_neg
         middle = m_mp + m_mn
-        # middle = super().forward(x_middle)
-        # alt_middle = (lower + upper) / 2
-        # middle = alt_middle
 
-        # if (lower > upper).any() or (lower > middle).any() or (middle > upper).any():
-        #     if isinstance(self.eps, int):
-        #         print(f'eps: {self.eps}')
-        #     else:
-        #         print(f'max(eps): {self.eps.max()}')
-        #     max_w_diff = (w_lower - w_upper).max()
-        #     print(f'max_w_diff: {max_w_diff}')
-        #     print(f'maxabs(lower - upper): {(lower - upper).abs().max()}')
-        #     print(f'maxabs(lower - middle): {(lower - middle).abs().max()}')
-        #     print(f'maxabs(middle - upper): {(middle - upper).abs().max()}')
-        #     print(f'maxabs(middle - alt_middle): {(middle - alt_middle).abs().max()}')
-        #     print(f'maxabs(lower - alt_middle): {(lower - alt_middle).abs().max()}')
-        #     print(f'maxabs(alt_middle - upper): {(alt_middle - upper).abs().max()}')
-        #     print(f'maxabs(w_lower - w_middle): {(w_lower - w_middle).abs().max()}')
-        #     print(f'maxabs(w_middle - w_upper): {(w_middle - w_upper).abs().max()}')
-        #     assert False
         check_intervals(middle, lower, upper)
         return torch.cat((middle, lower, upper), dim=1)
 
@@ -154,7 +135,6 @@ class Conv2dInterval(nn.Conv2d):
                  bias=False,
                  input_layer=False):
         super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-        # self.eps = torch.zeros_like(self.weight, requires_grad=True)
         self.eps = 0
         self.input_layer = input_layer
 
@@ -189,9 +169,6 @@ class Conv2dInterval(nn.Conv2d):
         m_mp = f.conv2d(x_middle, w_middle_pos, None, self.stride, self.padding, self.dilation, self.groups)
         m_mn = f.conv2d(x_middle, w_middle_neg, None, self.stride, self.padding, self.dilation, self.groups)
         middle = m_mp + m_mn
-        # middle = super().forward(x_middle)
-        # alt_middle = (lower + upper) / 2
-        # middle = alt_middle
 
         check_intervals(middle, lower, upper)
         return torch.cat((middle, lower, upper), dim=1)

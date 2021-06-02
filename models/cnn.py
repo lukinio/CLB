@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias,
-                             IntervalDropout, LinearInterval,
+from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias, IntervalDropout, LinearInterval,
                              MaxPool2dInterval)
 
 
@@ -49,7 +48,7 @@ def cnn_avg():
 
 
 class IntervalCNN(nn.Module):
-    def __init__(self, in_channel=3, out_dim=2, pooling=MaxPool2dInterval):
+    def __init__(self, in_channel=3, task_output_space=None, pooling=MaxPool2dInterval):
         super(IntervalCNN, self).__init__()
 
         self.c1 = nn.Sequential(
@@ -82,14 +81,25 @@ class IntervalCNN(nn.Module):
             nn.ReLU(),
             pooling(2, stride=2, padding=1),
             IntervalDropout(0.25))
+        self.n_feat = 256
         self.fc1 = nn.Sequential(
-            LinearInterval(128 * 5 * 5, 256),
-            # IntervalBias(256),
+            LinearInterval(128 * 5 * 5, self.n_feat),
+            # IntervalBias(self.n_feat),
             nn.ReLU())
-        self.last = nn.Sequential(LinearInterval(256, out_dim),
-                                  # IntervalBias(out_dim),
-                                  )
+        self.last = None
 
+        self.reset_heads(task_output_space)
+        self.reset_importances()
+        
+
+    def reset_heads(self, task_output_space):
+        self.last = nn.ModuleDict()
+        for task, out_dim in task_output_space.items():
+            # self.last[task] = nn.Sequential(LinearInterval(self.n_feat, out_dim), IntervalBias(out_dim))
+            self.last[task] = nn.Sequential(LinearInterval(self.n_feat, out_dim), )
+
+
+    def reset_importances(self):
         sum_numel = 0
         self.numels = []
         for m in self.modules():
@@ -99,6 +109,7 @@ class IntervalCNN(nn.Module):
                 sum_numel += numwei
                 self.numels.append(numwei)
         self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=True, device=self.fc1[0].weight.device))
+
 
     def importances_to_eps(self, eps_scaler):
         base_eps = torch.softmax(self.importances, dim=0)
@@ -120,10 +131,6 @@ class IntervalCNN(nn.Module):
                 print(f'  min: {eps.min()} max: {eps.max()} numel: {eps.numel()}')
                 eps_sum += eps.sum().item()
         print(f'Total eps sum: {eps_sum}')
-        
-
-    def reset_importances(self):
-        self.importances = nn.Parameter(torch.zeros_like(self.importances))
 
     def features(self, x):
         x = self.c1(x)
@@ -139,12 +146,12 @@ class IntervalCNN(nn.Module):
         return {k: v for k, v in answers.items()}
 
 
-def interval_cnn():
-    return IntervalCNN()
+def interval_cnn(task_output_space):
+    return IntervalCNN(task_output_space=task_output_space)
 
 
-def interval_cnn_avg():
-    return IntervalCNN(pooling=AvgPool2dInterval)
+def interval_cnn_avg(task_output_space):
+    return IntervalCNN(task_output_space=task_output_space, pooling=AvgPool2dInterval)
 
 
 if __name__ == '__main__':
