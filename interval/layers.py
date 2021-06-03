@@ -1,3 +1,5 @@
+from abc import ABC
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
@@ -17,6 +19,10 @@ def retrieve_elements_from_indices(tensor, indices):
 
 
 ATOL = 1e-10
+
+
+class IntervalLayerWithParameters(ABC):
+    pass
 
 
 class AvgPool2dInterval(nn.AvgPool2d):
@@ -80,7 +86,7 @@ def check_intervals(middle, lower, upper):
     assert (middle <= upper).all(), f'diff:\n{middle - upper}'
 
 
-class LinearInterval(nn.Linear):
+class LinearInterval(nn.Linear, IntervalLayerWithParameters):
     def __init__(self, in_features, out_features, bias=False, input_layer=False):
         super().__init__(in_features, out_features, bias)
         # self.eps = torch.zeros_like(self.weight.data, requires_grad=True)
@@ -123,7 +129,7 @@ class LinearInterval(nn.Linear):
         return torch.cat((middle, lower, upper), dim=1)
 
 
-class Conv2dInterval(nn.Conv2d):
+class Conv2dInterval(nn.Conv2d, IntervalLayerWithParameters):
     def __init__(self,
                  in_channels,
                  out_channels,
@@ -174,7 +180,7 @@ class Conv2dInterval(nn.Conv2d):
         return torch.cat((middle, lower, upper), dim=1)
 
 
-class IntervalBias(nn.Module):
+class IntervalBias(nn.Module, IntervalLayerWithParameters):
     def __init__(self, bias_size):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(bias_size), requires_grad=True)

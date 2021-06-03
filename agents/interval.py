@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
-from interval.layers import (Conv2dInterval, IntervalBias, LinearInterval, split_activation)
+from interval.layers import IntervalLayerWithParameters, split_activation
 
 
 def free_exp_name(runs_dir: Path, run_name: str):
@@ -84,7 +84,7 @@ class IntervalNet(nn.Module):
         task_output_space = cfg['out_dim']
 
         # Define the backbone (MLP, LeNet, VGG, ResNet ... etc) of model
-        model = models.__dict__[cfg['model_type']].__dict__[cfg['model_name']](task_output_space=task_output_space)
+        model = models.__dict__[cfg['model_type']].__dict__[cfg['model_name']](task_output_space)
 
         # Load pre-trained weights
         if cfg['model_weights'] is not None:
@@ -108,13 +108,13 @@ class IntervalNet(nn.Module):
     def restore_weights(self):
         i = 0
         for m in self.model.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data = self.prev_weight[i].clone()
                 i += 1
 
     def move_weights(self, sign):
         for m in self.model.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data += sign * m.eps
 
     def validation_with_move_weights(self, dataloader):
@@ -164,7 +164,7 @@ class IntervalNet(nn.Module):
             # TODO this seems to be unnecessary? we always get one task for entire batch from the loader
             for t, t_logits in logits.items():
                 inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
-                print(f'tasks: {tasks} inds: {inds}')
+                # print(f'tasks: {tasks} inds: {inds}')
                 if len(inds) > 0:
                     t_logits = t_logits[inds]
                     t_target = targets[inds]
@@ -206,7 +206,7 @@ class IntervalNet(nn.Module):
         self.prev_weight, self.prev_eps = {}, {}
         i = 0
         for block in self.model.modules():
-            if isinstance(block, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(block, IntervalLayerWithParameters):
                 self.prev_weight[i] = block.weight.data.detach().clone()
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
@@ -272,7 +272,7 @@ class IntervalNet(nn.Module):
     def clip_params(self):
         i = 0
         for m in self.model.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data = self.clip_weights(i, m.weight.data.detach())
                 # m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
                 i += 1

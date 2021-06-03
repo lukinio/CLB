@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from interval.layers import (AvgPool2dInterval, Conv2dInterval, IntervalBias, IntervalDropout, LinearInterval,
-                             MaxPool2dInterval)
+from interval.layers import AvgPool2dInterval, Conv2dInterval, IntervalBias, IntervalDropout, IntervalLayerWithParameters, LinearInterval, MaxPool2dInterval
 
 
 class CNN(nn.Module):
@@ -103,7 +102,7 @@ class IntervalCNN(nn.Module):
         sum_numel = 0
         self.numels = []
         for m in self.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 numwei = m.weight.numel()
                 # print(f'type(m): {type(m)} numwei: {numwei}')
                 sum_numel += numwei
@@ -117,14 +116,14 @@ class IntervalCNN(nn.Module):
         split_eps = torch.split(eps, self.numels)
         i = 0
         for m in self.modules():
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 m.eps = split_eps[i].view_as(m.weight)
                 i += 1
 
     def print_eps_stats(self, head="All"):
         eps_sum = 0
         for i, m in enumerate(self.modules()):
-            if isinstance(m, (Conv2dInterval, LinearInterval, IntervalBias)):
+            if isinstance(m, IntervalLayerWithParameters):
                 eps = m.eps.detach()
                 print(f'module {i}: {type(m)}')
                 print(f'  sum: {eps.sum()} mean: {eps.mean()} std: {eps.std()}')
