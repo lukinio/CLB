@@ -214,28 +214,28 @@ class IntervalNet(nn.Module):
         self.tb.add_histogram("importances", self.model.importances, self.current_task)
 
         # self.tb.add_histogram("c1/0/weight", self.model.c1[0].weight, self.current_task)
-        self.tb.add_histogram("c1/0/eps", self.model.c1[0].eps, self.current_task)
+        # self.tb.add_histogram("c1/0/eps", self.model.c1[0].eps, self.current_task)
 
         # self.tb.add_histogram("c1/2/weight", self.model.c1[2].weight, self.current_task)
-        self.tb.add_histogram("c1/2/eps", self.model.c1[2].eps, self.current_task)
+        # self.tb.add_histogram("c1/2/eps", self.model.c1[2].eps, self.current_task)
 
         # self.tb.add_histogram("c2/0/weight", self.model.c2[0].weight, self.current_task)
-        self.tb.add_histogram("c2/0/eps", self.model.c2[0].eps, self.current_task)
+        # self.tb.add_histogram("c2/0/eps", self.model.c2[0].eps, self.current_task)
 
         # self.tb.add_histogram("c2/2/weight", self.model.c2[2].weight, self.current_task)
-        self.tb.add_histogram("c2/2/eps", self.model.c2[2].eps, self.current_task)
+        # self.tb.add_histogram("c2/2/eps", self.model.c2[2].eps, self.current_task)
 
         # self.tb.add_histogram("c3/0/weight", self.model.c3[0].weight, self.current_task)
-        self.tb.add_histogram("c3/0/eps", self.model.c3[0].eps, self.current_task)
+        # self.tb.add_histogram("c3/0/eps", self.model.c3[0].eps, self.current_task)
 
         # self.tb.add_histogram("c3/2/weight", self.model.c3[2].weight, self.current_task)
-        self.tb.add_histogram("c3/2/eps", self.model.c3[2].eps, self.current_task)
+        # self.tb.add_histogram("c3/2/eps", self.model.c3[2].eps, self.current_task)
 
         # self.tb.add_histogram('fc1/weight', self.model.fc1[0].weight, self.current_task)
-        self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
+        # self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
 
         # self.tb.add_histogram('last/weight', self.model.last[self.current_head].weight, self.current_task)
-        self.tb.add_histogram("last/eps", self.model.last[self.current_head][0].eps, self.current_task)
+        # self.tb.add_histogram("last/eps", self.model.last[self.current_head][0].eps, self.current_task)
         # self.tb.flush()
 
     def clip_weights(self, i, weights):
