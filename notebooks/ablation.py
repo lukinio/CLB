@@ -28,8 +28,8 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from tqdm.notebook import tqdm
 
-# FONT_FAMILY = 'Nunito'
-FONT_FAMILY = 'Roboto Condensed'
+FONT_FAMILY = 'Nunito'
+# FONT_FAMILY = 'Roboto Condensed'
 
 bgcolor = '#F0F4F7'
 bgcolor2 = '#D2D6D9'
@@ -112,10 +112,10 @@ class Points2D(Dataset):
 
 
 def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: float = 1., moves: List[float] = None, hires: bool = True):
-    labels = np.array(points.labels)
-    n_classes = len(np.unique(labels))
+    n_classes = points.n_classes
     assert n_classes <= 4
 
+    labels = np.array(points.labels)
     labels = labels.tolist()
 
     fig = go.Figure()  # type: ignore
@@ -203,7 +203,10 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
 
         inputs = torch.Tensor([xx.ravel(), yy.ravel()]).T
         if isinstance(model, IntervalNet):
-            zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+            zz = model.predict(inputs.cuda())['All']
+            if isinstance(model.valid_out_dim, int):
+                zz = zz[:, :model.valid_out_dim]
+            zz = zz.argmax(dim=1).view(xx.shape).detach().cpu().numpy()
         else:
             zz = model(inputs).argmax(dim=1).view(xx.shape).detach().numpy()
 
@@ -236,7 +239,7 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
             )
         ))
 
-        if isinstance(model, IntervalNet) and moves is not None and n_classes == 2:
+        if isinstance(model, IntervalNet) and moves is not None:
             # scale = px.colors.diverging.Tealrose
             scale = px.colors.diverging.Tropic
             c_low, c_mid, c_high = scale[0], scale[len(scale) // 2], scale[-1]
@@ -246,7 +249,10 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
             for move in moves:
                 model.save_params()
                 model.move_weights(move)
-                zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+                zz = model.predict(inputs.cuda())['All']
+                if isinstance(model.valid_out_dim, int):
+                    zz = zz[:, :model.valid_out_dim]
+                zz = zz.argmax(dim=1).view(xx.shape).detach().cpu().numpy()
                 model.restore_weights()
 
                 if move < 0:
@@ -312,7 +318,10 @@ def plot(points: Points2D, model=None, title: str = '', low: float = 0., high: f
                 lines[move] = (name, color)
 
             # Strong border for mid prediction
-            zz = model.predict(inputs.cuda())['All'].argmax(dim=1).view(xx.shape).detach().cpu().numpy()
+            zz = model.predict(inputs.cuda())['All']
+            if isinstance(model.valid_out_dim, int):
+                zz = zz[:, :model.valid_out_dim]
+            zz = zz.argmax(dim=1).view(xx.shape).detach().cpu().numpy()
             fig.add_trace(go.Contour(  # type: ignore
                 x=xrange,
                 y=yrange,
@@ -455,7 +464,7 @@ def sample_truncated_normal(shape=()):
 
 
 def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500, low=0, high=1):
-    torch.manual_seed(1)
+    torch.manual_seed(42)
     # 1, 3, 42, 1024
 
     # def init_weights(m):
@@ -468,14 +477,14 @@ def train_plot_mlp(mlp, mlp_plot, points, max_epochs=500, low=0, high=1):
     opt = torch.optim.Adam(mlp.parameters(), lr=1e-3)
     # opt = torch.optim.SGD(mlp.parameters(), lr=0.01)
 
-    t = tqdm(range(1, max_epochs + 1))
-    for epoch in t:
+    pbar = tqdm(range(1, max_epochs + 1))
+    for epoch in pbar:
         mlp.train()
         out = mlp(points.coords)
         loss = criterion(out, points.labels)
 
         accuracy = (out.argmax(dim=1) == points.labels).sum().item() / len(points.coords)
-        t.set_description(desc=f'{epoch} --> {np.round(accuracy * 100, 2)}')
+        pbar.set_description(desc=f'{epoch} --> {np.round(accuracy * 100, 2)}')
 
         if epoch % mlp_plot.step == 0:
             fig = plot(points, mlp, high=high, low=low,

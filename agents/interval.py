@@ -1,10 +1,13 @@
 from types import MethodType
+from typing import cast
 
 import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
 from torch.utils.tensorboard import SummaryWriter
+from tqdm.auto import tqdm
+from tqdm.notebook import tqdm as notebook_tqdm
 from utils.metric import AverageMeter, Timer, accuracy
 
 from interval.hyperparam_scheduler import LinearScheduler
@@ -178,7 +181,8 @@ class IntervalNet(nn.Module):
 
         self.train(orig_mode)
 
-        self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
+        self.log('                     | Val: {acc.avg:.3f} | Time: {time:.2f}  | {txt}'.format(
+            txt=txt, acc=acc, time=batch_timer.toc()))
         return acc.avg
 
     def _interval_based_bound(self, y0, idx, key):
@@ -396,7 +400,11 @@ class IntervalNet(nn.Module):
             self.init_optimizer()
 
         schedule = self.schedule_stack.pop()
-        for epoch in range(schedule):
+
+        is_logging = not issubclass(tqdm, notebook_tqdm)
+        pbar = range(schedule) if is_logging else tqdm(range(schedule))
+
+        for epoch in pbar:
             data_timer = Timer()
             batch_timer = Timer()
             batch_time = AverageMeter()
@@ -406,10 +414,10 @@ class IntervalNet(nn.Module):
             robust_err, robust_loss = -1, -1
 
             # Config the model and optimizer
-            self.log('Epoch:{0}'.format(epoch))
+            msg = f'Epoch: {epoch}'
             self.model.train()
             for param_group in self.optimizer.param_groups:
-                self.log('LR:', param_group['lr'])
+                msg += f' | LR: {param_group["lr"]}'
 
             # Learning with mini-batch
             data_timer.tic()
@@ -434,9 +442,13 @@ class IntervalNet(nn.Module):
                 batch_time.update(batch_timer.toc())  # measure elapsed time
                 data_timer.toc()
 
-            self.log(' * Train Acc {acc.avg:.3f}, Loss {loss.avg:.3f}'.format(loss=losses, acc=acc))
-            self.log(f" * robust loss: {robust_loss:.3f} robust error: {robust_err:.8f}")
+            msg += (f' | Acc: {acc.avg:.3f} | Loss: {losses.avg:.3f}'
+                    f' | Rob. loss: {robust_loss:.3f} | Rob. error: {robust_err:.3f}')
 
+            if is_logging:
+                self.log(msg)
+            else:
+                cast(tqdm, pbar).set_description(desc=msg)
             # Evaluate the performance of current task
             if val_loader is not None:
                 self.validation(val_loader)
