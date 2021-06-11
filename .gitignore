@@ -116,3 +116,5 @@ ENV/
 .virtual_documents
 runs/
 notebooks/runs/
+
+wandb

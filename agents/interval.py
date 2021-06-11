@@ -1,10 +1,13 @@
+import os
 from pathlib import Path
 from types import MethodType
+from typing import Union
 
 import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
+import wandb
 from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
@@ -61,6 +64,7 @@ class IntervalNet(nn.Module):
         self.valid_out_dim = 'ALL'
         # Default: 'ALL' means all output nodes are active
         # Set a interger here for the incremental class scenario
+        self.wandb = os.getenv('WANDB')
 
     def init_optimizer(self):
         optimizer_arg = {
@@ -117,20 +121,20 @@ class IntervalNet(nn.Module):
             if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data += sign * m.eps
 
-    def validation_with_move_weights(self, dataloader):
+    def validation_with_move_weights(self, dataloader, val_id: Union[int, str]):
         # moves = (0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
         moves = (1, )
         for move in moves:
             self.move_weights(-move)
-            self.validation(dataloader, txt=f"Lower {move}")
+            self.validation(dataloader, val_id=val_id, txt=f"Lower {move}", suffix=f'move-{move}/')
             self.restore_weights()
 
         for move in moves:
-            self.move_weights(-move)
-            self.validation(dataloader, txt=f"Upper {move}")
+            self.move_weights(move)
+            self.validation(dataloader, val_id=val_id, txt=f"Upper {move}", suffix=f'move+{move}/')
             self.restore_weights()
 
-    def validation(self, dataloader, txt=""):
+    def validation(self, dataloader, val_id: Union[int, str], txt='', suffix=''):
         # This function doesn't distinguish tasks.
         batch_timer = Timer()
         acc = AverageMeter()
@@ -152,6 +156,12 @@ class IntervalNet(nn.Module):
         self.train(orig_mode)
 
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
+        if self.wandb:
+            wandb.log({
+                f'validation/accuracy/{suffix}{val_id}': acc.avg,
+            },
+                commit=False
+            )
         return acc.avg
 
     def criterion(self, logits, targets, tasks, **kwargs):
@@ -159,11 +169,13 @@ class IntervalNet(nn.Module):
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
-            standard_loss, robust_loss = torch.tensor(0.0, device=targets.device), torch.tensor(0.0, device=targets.device)
+            standard_loss, robust_loss = torch.tensor(
+                0.0, device=targets.device), torch.tensor(0.0, device=targets.device)
             robust_err = torch.tensor(0.0)  # TODO
             # TODO this seems to be unnecessary? we always get one task for entire batch from the loader
             for t, t_logits in logits.items():
-                inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
+                # The index of inputs that matched specific task
+                inds = [i for i in range(len(tasks)) if tasks[i] == t]
                 # print(f'tasks: {tasks} inds: {inds}')
                 if len(inds) > 0:
                     t_logits = t_logits[inds]
@@ -304,6 +316,9 @@ class IntervalNet(nn.Module):
             self.log('Optimizer is reset!')
             self.init_optimizer()
 
+        if self.wandb:
+            wandb.watch(self.model)
+
         schedule = self.schedule_stack.pop()
         self.current_batch = 0
         for epoch in range(schedule):
@@ -350,9 +365,21 @@ class IntervalNet(nn.Module):
             self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
             # self.log(f"  * model: {self.model.features_loss_term}")
 
+            if self.wandb:
+                wandb.log({
+                    'epoch': epoch,
+                    'task': self.current_task,
+                    'train/accuracy': acc.avg,
+                    'train/loss': losses.avg,
+                    'robust/loss': robust_loss,
+                    'robust/error': robust_err,
+                },
+                    step=epoch
+                )
+
             # Evaluate the performance of current task
             if val_loader is not None:
-                self.validation(val_loader)
+                self.validation(val_loader, val_id=self.current_task)
 
             self.scheduler.step()
             # self.tb.flush()

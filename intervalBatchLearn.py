@@ -11,12 +11,14 @@ from torch.utils.data import DataLoader
 
 import agents
 import dataloaders.base
+import wandb
 from dataloaders.datasetGen import PermutedGen, SplitGen
 
 
 def run(args):
     # Prepare dataloaders
-    train_dataset, val_dataset = dataloaders.base.__dict__[args.dataset](args.dataroot, args.train_aug, normalize=False)
+    train_dataset, val_dataset = dataloaders.base.__dict__[
+        args.dataset](args.dataroot, args.train_aug, normalize=False)
     if args.n_permutation > 0:
         train_dataset_splits, val_dataset_splits, task_output_space = PermutedGen(train_dataset,
                                                                                   val_dataset,
@@ -72,6 +74,11 @@ def run(args):
     print(agent.model)
     print('#parameter of model:', agent.count_parameter())
 
+    if os.getenv('WANDB'):
+        group = os.getenv('WANDB_GROUP', f'experiment-{wandb.util.generate_id()}')
+        os.environ['WANDB_GROUP'] = group
+        wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
+
     # Decide split ordering
     print('Task order:', task_names)
     if args.rand_split_order:
@@ -83,13 +90,14 @@ def run(args):
         task_names = ['All']
         train_dataset_all = torch.utils.data.ConcatDataset(train_dataset_splits.values())
         val_dataset_all = torch.utils.data.ConcatDataset(val_dataset_splits.values())
-        train_loader = DataLoader(train_dataset_all, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+        train_loader = DataLoader(train_dataset_all, batch_size=args.batch_size,
+                                  shuffle=True, num_workers=args.workers)
         val_loader = DataLoader(val_dataset_all, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
         agent.learn_batch(train_loader, val_loader)
 
         acc_table['All'] = {}
-        acc_table['All']['All'] = agent.validation(val_loader)
+        acc_table['All']['All'] = agent.validation(val_loader, val_id='all')
 
     else:  # Incremental learning
         # Feed data to agent and evaluate agent's performance
@@ -139,8 +147,8 @@ def run(args):
                 print('validation split name:', val_name)
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-                acc_table[val_name][train_name] = agent.validation(val_loader)
-                agent.validation_with_move_weights(val_loader)
+                acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
+                agent.validation_with_move_weights(val_loader, val_id=val_name)
 
             # agent.tb.close()
     del agent
@@ -240,8 +248,7 @@ def get_args(argv):
         dest='offline_training',
         default=False,
         action='store_true',
-        help=
-        "Non-incremental learning by make all data available in one batch. For measuring the upperbound performance.")
+        help="Non-incremental learning by make all data available in one batch. For measuring the upperbound performance.")
     parser.add_argument('--repeat', type=int, default=1, help="Repeat the experiment N times")
     parser.add_argument(
         '--incremental_class',
@@ -275,7 +282,6 @@ if __name__ == '__main__':
         args.reg_coef = reg_coef
         avg_final_acc[reg_coef] = np.zeros(args.repeat)
         for r in range(args.repeat):
-
             # Run the experiment
             acc_table, task_names = run(args)
 
@@ -290,15 +296,26 @@ if __name__ == '__main__':
                     cls_acc_sum += acc_table[val_name][train_name]
                 avg_acc_history[i] = cls_acc_sum / (i + 1)
                 print('Task', train_name, 'average acc:', avg_acc_history[i])
+                if os.getenv('WANDB'):
+                    wandb.summary.update({
+                        f'avg_accuracy_after_task/{train_name}': avg_acc_history[i]
+                    })
 
             # Gather the final avg accuracy
             avg_final_acc[reg_coef][r] = avg_acc_history[-1]
+            if os.getenv('WANDB'):
+                wandb.summary.update({
+                    f'avg_accuracy_after_task/last': avg_acc_history[-1]
+                })
 
             # Print the summary so far
             print('===Summary of experiment repeats:', r + 1, '/', args.repeat, '===')
             print('The regularization coefficient:', args.reg_coef)
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
+
+            if os.getenv('WANDB'):
+                wandb.run.finish()
 
     for reg_coef, v in avg_final_acc.items():
         print('reg_coef:', reg_coef, 'mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
