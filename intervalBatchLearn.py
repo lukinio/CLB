@@ -13,6 +13,7 @@ import agents
 import dataloaders.base
 import wandb
 from dataloaders.datasetGen import PermutedGen, SplitGen
+from utils.wandb import is_wandb_on
 
 
 def run(args):
@@ -74,10 +75,11 @@ def run(args):
     print(agent.model)
     print('#parameter of model:', agent.count_parameter())
 
-    if os.getenv('WANDB'):
+    if is_wandb_on:
         group = os.getenv('WANDB_GROUP', f'experiment-{wandb.util.generate_id()}')
         os.environ['WANDB_GROUP'] = group
         wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
+        wandb.watch(agent.model)
 
     # Decide split ordering
     print('Task order:', task_names)
@@ -296,14 +298,14 @@ if __name__ == '__main__':
                     cls_acc_sum += acc_table[val_name][train_name]
                 avg_acc_history[i] = cls_acc_sum / (i + 1)
                 print('Task', train_name, 'average acc:', avg_acc_history[i])
-                if os.getenv('WANDB'):
+                if is_wandb_on:
                     wandb.summary.update({
                         f'avg_accuracy_after_task/{train_name}': avg_acc_history[i]
                     })
 
             # Gather the final avg accuracy
             avg_final_acc[reg_coef][r] = avg_acc_history[-1]
-            if os.getenv('WANDB'):
+            if is_wandb_on:
                 wandb.summary.update({
                     f'avg_accuracy_after_task/last': avg_acc_history[-1]
                 })
@@ -314,7 +316,7 @@ if __name__ == '__main__':
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
 
-            if os.getenv('WANDB'):
+            if is_wandb_on:
                 wandb.run.finish()
 
     for reg_coef, v in avg_final_acc.items():

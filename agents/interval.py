@@ -10,6 +10,7 @@ import torch.optim as opt
 import wandb
 from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
+from utils.wandb import is_wandb_on
 
 from interval.hyperparam_scheduler import LinearScheduler
 from interval.layers import IntervalLayerWithParameters, split_activation
@@ -64,7 +65,6 @@ class IntervalNet(nn.Module):
         self.valid_out_dim = 'ALL'
         # Default: 'ALL' means all output nodes are active
         # Set a interger here for the incremental class scenario
-        self.wandb = os.getenv('WANDB')
 
     def init_optimizer(self):
         optimizer_arg = {
@@ -156,7 +156,7 @@ class IntervalNet(nn.Module):
         self.train(orig_mode)
 
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
-        if self.wandb:
+        if is_wandb_on:
             wandb.log({
                 f'validation/accuracy/{suffix}{val_id}': acc.avg,
             },
@@ -315,10 +315,7 @@ class IntervalNet(nn.Module):
         if self.reset_optimizer:  # Reset optimizer before learning each task
             self.log('Optimizer is reset!')
             self.init_optimizer()
-
-        if self.wandb:
-            wandb.watch(self.model)
-
+        
         schedule = self.schedule_stack.pop()
         self.current_batch = 0
         for epoch in range(schedule):
@@ -365,7 +362,7 @@ class IntervalNet(nn.Module):
             self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
             # self.log(f"  * model: {self.model.features_loss_term}")
 
-            if self.wandb:
+            if is_wandb_on:
                 wandb.log({
                     'epoch': epoch,
                     'task': self.current_task,
