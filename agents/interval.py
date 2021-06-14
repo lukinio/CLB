@@ -366,7 +366,7 @@ class IntervalNet(nn.Module):
             if is_wandb_on:
                 wandb.log({
                     'epoch': self.epochs_completed,
-                    'task': self.current_task,
+                    'task/id': self.current_task,
                     'task/epoch': epoch,
                     'train/accuracy': acc.avg,
                     'train/loss': losses.avg,
