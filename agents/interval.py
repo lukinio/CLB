@@ -65,6 +65,7 @@ class IntervalNet(nn.Module):
         self.valid_out_dim = 'ALL'
         # Default: 'ALL' means all output nodes are active
         # Set a interger here for the incremental class scenario
+        self.epochs_completed = 0
 
     def init_optimizer(self):
         optimizer_arg = {
@@ -315,7 +316,7 @@ class IntervalNet(nn.Module):
         if self.reset_optimizer:  # Reset optimizer before learning each task
             self.log('Optimizer is reset!')
             self.init_optimizer()
-        
+
         schedule = self.schedule_stack.pop()
         self.current_batch = 0
         for epoch in range(schedule):
@@ -364,14 +365,15 @@ class IntervalNet(nn.Module):
 
             if is_wandb_on:
                 wandb.log({
-                    'epoch': epoch,
+                    'epoch': self.epochs_completed,
                     'task': self.current_task,
+                    'task/epoch': epoch,
                     'train/accuracy': acc.avg,
                     'train/loss': losses.avg,
                     'robust/loss': robust_loss,
                     'robust/error': robust_err,
                 },
-                    step=epoch
+                    step=self.epochs_completed
                 )
 
             # Evaluate the performance of current task
@@ -379,6 +381,7 @@ class IntervalNet(nn.Module):
                 self.validation(val_loader, val_id=self.current_task)
 
             self.scheduler.step()
+            self.epochs_completed += 1
             # self.tb.flush()
 
     def add_valid_output_dim(self, dim=0):
