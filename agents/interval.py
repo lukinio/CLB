@@ -1,13 +1,15 @@
 import os
 from pathlib import Path
 from types import MethodType
-from typing import Union
+from typing import Literal, Union
 
 import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
 import wandb
+from models.cnn import IntervalCNN
+from models.mlp import IntervalMLP
 from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 from utils.wandb import is_wandb_on
@@ -44,6 +46,7 @@ class IntervalNet(nn.Module):
         self.criterion_fn = nn.CrossEntropyLoss()
         self.kappa_scheduler = LinearScheduler(start=1, end=0.5)
         self.eps_scheduler = LinearScheduler(start=0)
+        self.eps_mode: Literal['sum', 'product'] = self.config['eps_mode']
         self.prev_weight, self.prev_eps = {}, {}
         self.clipping = self.config['clipping']
         self.current_head = "All"
@@ -84,7 +87,7 @@ class IntervalNet(nn.Module):
         self.optimizer = opt.__dict__[self.config['optimizer']](**optimizer_arg)
         self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'], gamma=0.1)
 
-    def create_model(self):
+    def create_model(self) -> Union[IntervalCNN, IntervalMLP]:
         cfg = self.config
         task_output_space = cfg['out_dim']
 
@@ -159,7 +162,7 @@ class IntervalNet(nn.Module):
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
         if is_wandb_on:
             wandb.log({
-                f'validation/accuracy/{suffix}{val_id}': acc.avg,
+                f'validation_accuracy/{suffix}{val_id}': acc.avg,
             },
                 commit=False
             )
@@ -291,7 +294,7 @@ class IntervalNet(nn.Module):
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
-        self.model.importances_to_eps(self.eps_scheduler.current)
+        self.model.importances_to_eps(self.eps_scheduler.current, mode=self.eps_mode)
         out = self.forward(inputs)
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
@@ -366,12 +369,14 @@ class IntervalNet(nn.Module):
             if is_wandb_on:
                 wandb.log({
                     'epoch': self.epochs_completed,
-                    'task/id': self.current_task,
-                    'task/epoch': epoch,
-                    'train/accuracy': acc.avg,
-                    'train/loss': losses.avg,
-                    'robust/loss': robust_loss,
-                    'robust/error': robust_err,
+                    'task_id': self.current_task,
+                    'task_epoch': epoch,
+                    'train_accuracy': acc.avg,
+                    'train_loss': losses.avg,
+                    'kappa_current': self.kappa_scheduler.current,
+                    'eps_current': self.eps_scheduler.current,
+                    'robust_loss': robust_loss,
+                    'robust_error': robust_err,
                 },
                     step=self.epochs_completed
                 )

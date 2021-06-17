@@ -28,6 +28,7 @@
                 "--lr", "0.001",
                 "--clipping",
                 "--eps_per_model",
+                "--eps_mode", "product",
                 "--eps_val", "100000",
                 "--eps_epoch", "100",
                 "--eps_max", "100000",

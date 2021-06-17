@@ -68,6 +68,7 @@ def run(args):
         'force_out_dim': args.force_out_dim,
         'clipping': args.clipping,
         'eps_per_model': args.eps_per_model,
+        'eps_mode': args.eps_mode,
         'milestones': args.milestones,
         'dataset_name': args.dataset,
     }
@@ -223,6 +224,7 @@ def get_args(argv):
     parser.add_argument('--milestones', nargs="+", type=float, default=[])
     parser.add_argument('--eps_val', nargs="+", type=float)
     parser.add_argument('--eps_per_model', dest='eps_per_model', default=False, action='store_true')
+    parser.add_argument('--eps_mode', type=str, default='sum', help="Epsilon limit on: [sum | product]")
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
     parser.add_argument(
         '--schedule',

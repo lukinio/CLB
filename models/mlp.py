@@ -33,9 +33,14 @@ class IntervalMLP(nn.Module):
                 self.numels.append(numwei)
         self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=True, device=self.fc1.weight.device))
 
-    def importances_to_eps(self, eps_scaler):
+    def importances_to_eps(self, eps_scaler, mode='sum'):
+        assert mode in ['sum', 'product']
+
         base_eps = torch.softmax(self.importances, dim=0)
-        eps = base_eps * eps_scaler
+        if mode == 'product':
+            eps = torch.pow(eps_scaler, base_eps)
+        else:
+            eps = base_eps * eps_scaler
         split_eps = torch.split(eps, self.numels)
         i = 0
         for m in self.modules():
