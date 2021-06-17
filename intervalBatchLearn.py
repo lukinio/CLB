@@ -5,6 +5,7 @@ import sys
 from collections import OrderedDict
 from random import shuffle
 
+import coolname
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -77,7 +78,7 @@ def run(args):
     print('#parameter of model:', agent.count_parameter())
 
     if is_wandb_on:
-        group = os.getenv('WANDB_GROUP', f'experiment-{wandb.util.generate_id()}')
+        group = os.getenv('WANDB_GROUP', f'{coolname.generate_slug(2)}')
         os.environ['WANDB_GROUP'] = group
         wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
         wandb.watch(agent.model)

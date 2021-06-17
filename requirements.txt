@@ -3,6 +3,7 @@ torchvision>=0.2.1
 argparse
 quadprog
 
+coolname
 rich
 tensorboard
 tqdm

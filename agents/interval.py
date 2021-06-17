@@ -161,11 +161,12 @@ class IntervalNet(nn.Module):
 
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
         if is_wandb_on:
-            wandb.log({
-                f'validation_accuracy/{suffix}{val_id}': acc.avg,
-            },
-                commit=False
-            )
+            val_log = {f'validation_accuracy/{suffix}{val_id}': acc.avg}
+
+            if val_id == self.current_task:
+                val_log[f'validation_accuracy/{suffix}current'] = acc.avg
+
+            wandb.log(val_log, commit=False)
         return acc.avg
 
     def criterion(self, logits, targets, tasks, **kwargs):
