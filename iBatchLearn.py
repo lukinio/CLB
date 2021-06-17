@@ -91,7 +91,12 @@ def run(args):
                 print(f" * val acc: {res}")
                 acc_table[val_name][train_name] = res
 
-            torch.save(agent.model.state_dict(), f'checkpoints/{type(agent).__name__}_{train_name}.pt')
+            torch.save(agent.model.state_dict(), f'checkpoints/{type(agent).__name__}-task_{train_name}.pt')
+            try:
+                torch.save(agent.regularization_terms,
+                           f'checkpoints/{type(agent).__name__}-task_{train_name}-importance.pt')
+            except:
+                pass
 
     return acc_table, task_names
 

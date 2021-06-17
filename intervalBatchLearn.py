@@ -155,7 +155,7 @@ def run(args):
                 agent.validation_with_move_weights(val_loader, val_id=val_name)
 
             # agent.tb.close()
-            torch.save(agent.model.state_dict(), f'checkpoints/interval_{agent.current_task}.pt')
+            torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
 
     del agent
     gc.collect()
