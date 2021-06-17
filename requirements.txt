@@ -4,6 +4,8 @@ argparse
 quadprog
 
 coolname
+ipywidgets
+matplotlib
 rich
 tensorboard
 tqdm
