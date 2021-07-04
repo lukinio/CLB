@@ -224,7 +224,7 @@ class IntervalNet(nn.Module):
         i = 0
         for block in self.model.modules():
             if isinstance(block, IntervalLayerWithParameters):
-                self.prev_weight[i] = block.weight.data.detach().clone()
+                self.prev_weight[i] = block.weight.detach().clone()
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
 
@@ -290,8 +290,8 @@ class IntervalNet(nn.Module):
         i = 0
         for m in self.model.modules():
             if isinstance(m, IntervalLayerWithParameters):
-                m.weight.data = self.clip_weights(i, m.weight.data.detach())
-                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
+                m.weight.data = self.clip_weights(i, m.weight.detach())
+                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.detach(), m.eps.detach())
                 i += 1
 
     def update_model(self, inputs, targets, tasks):
@@ -300,9 +300,8 @@ class IntervalNet(nn.Module):
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
         loss.backward()
-        # TODO add cmd argument for gradient clipping?
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
+        if self.config["gradient_clipping"]:
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.config["gradient_clipping"], norm_type=float('inf'))
         self.optimizer.step()
 
         self.kappa_scheduler.step()

@@ -42,10 +42,26 @@ class LinearScheduler:
         self.end = None if end == 0 else end
 
 
+class StepScheduler:
+    def __init__(self, steps, coefficients):
+        self.steps = steps
+        self.coefficients = coefficients
+        self.idx = 0
+        self.iteration = 0
+        self.current = 0
+
+    def step(self, apply_fn=None, **kwargs):
+        if self.idx < len(self.steps) and self.iteration == self.steps[self.idx]:
+            self.current = self.coefficients[self.idx]
+            self.idx += 1
+            if apply_fn is not None:
+                apply_fn(**kwargs)
+        self.iteration += 1
+        return self.current
+
+
 if __name__ == '__main__':
-    ls = LinearScheduler(start=1, end=0.5)
-    ls.calc_coefficient(-0.5, 2, 200)
-    for i in range(2 * 200):
+    ls = StepScheduler(steps=[0, 5], coefficients=[0, 1])
+    for i in range(3 * 5):
         print(f"iter {i} - {ls.step()}")
     print(f"current: {ls.current}")
-    print(ls.coefficient)
