@@ -43,25 +43,28 @@ class LinearScheduler:
 
 
 class StepScheduler:
-    def __init__(self, steps, coefficients):
+    def __init__(self, steps=None, coefficients=None, iter_on_batch=None):
         self.steps = steps
         self.coefficients = coefficients
         self.idx = 0
         self.iteration = 0
-        self.current = 0
+        self.current = None
+        self.iter_on_batch = iter_on_batch
 
     def step(self, apply_fn=None, **kwargs):
-        if self.idx < len(self.steps) and self.iteration == self.steps[self.idx]:
+        assert isinstance(self.steps, list) and isinstance(self.coefficients, list) and isinstance(self.iter_on_batch, int), "Missing input"
+        if self.idx < len(self.steps) and self.iteration == self.steps[self.idx] * self.iter_on_batch:
             self.current = self.coefficients[self.idx]
             self.idx += 1
             if apply_fn is not None:
                 apply_fn(**kwargs)
+            print(f"{20 * '='} coefficient {self.current} {20 * '='}")
         self.iteration += 1
         return self.current
 
 
 if __name__ == '__main__':
-    ls = StepScheduler(steps=[0, 5], coefficients=[0, 1])
-    for i in range(3 * 5):
+    ls = StepScheduler(steps=[0, 2], coefficients=[1, 0], iter_on_batch=5)
+    for i in range(5 * 5):
         print(f"iter {i} - {ls.step()}")
     print(f"current: {ls.current}")

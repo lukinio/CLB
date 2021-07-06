@@ -77,13 +77,21 @@ mkdir -p $OUTDIR
 #       --kappa_epoch 4 --schedule 12 --kappa_min 0.5 --gradient_clipping 1 \
 #       | tee ${OUTDIR}/experimental8.log
 
-python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat 10 \
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat 10 \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.0001 --clipping \
+#       --eps_val 25000 10000 8000 5000 2000 --eps_epoch 12 --eps_max 0 \
+#       --kappa_epoch 4 --schedule 12 --kappa_min 0.5 --gradient_clipping 1 \
+#       | tee ${OUTDIR}/experimental9.log
+
+python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
        --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
        --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
        --batch_size 128 --lr 0.0001 --clipping \
        --eps_val 25000 10000 8000 5000 2000 --eps_epoch 12 --eps_max 0 \
-       --kappa_epoch 4 --schedule 12 --kappa_min 0.5 --gradient_clipping 1 \
-       | tee ${OUTDIR}/experimental9.log
+       --kappa_epoch 0 2 --warm_epoch 3 --schedule 12 --kappa_min 1 0 --gradient_clipping 1 \
+       | tee ${OUTDIR}/experimental11.log
 
 #python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
 #       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \

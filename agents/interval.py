@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 from utils.wandb import is_wandb_on
 
-from interval.hyperparam_scheduler import LinearScheduler
+from interval.hyperparam_scheduler import LinearScheduler, StepScheduler
 from interval.layers import IntervalLayerWithParameters, split_activation
 
 
@@ -44,12 +44,13 @@ class IntervalNet(nn.Module):
         self.multihead = True if len(self.config['out_dim']) > 1 else False
         self.model = self.create_model()
         self.criterion_fn = nn.CrossEntropyLoss()
-        self.kappa_scheduler = LinearScheduler(start=1, end=0.5)
+        self.kappa_scheduler = StepScheduler()
         self.eps_scheduler = LinearScheduler(start=0)
         self.eps_mode: Literal['sum', 'product'] = self.config['eps_mode']
         self.prev_weight, self.prev_eps = {}, {}
         self.clipping = self.config['clipping']
         self.current_head = "All"
+        self.current_mode = 'normal'
         self.current_task = 1
         self.schedule_stack = []
         runs_path = Path('runs')
@@ -294,6 +295,13 @@ class IntervalNet(nn.Module):
                 # m.eps, m.weight.data = self.clip_intervals(i, m.weight.detach(), m.eps.detach())
                 i += 1
 
+    def set_train_mode(self, mode):
+        for p in self.model.parameters():
+            p.requires_grad = True if mode == "normal" else False
+        self.model.importances.requires_grad = True if mode == "interval" else False
+        self.log('Optimizer is reset!')
+        self.init_optimizer()
+
     def update_model(self, inputs, targets, tasks):
         self.model.importances_to_eps(self.eps_scheduler.current, mode=self.eps_mode)
         out = self.forward(inputs)
@@ -304,7 +312,8 @@ class IntervalNet(nn.Module):
             nn.utils.clip_grad_norm_(self.model.parameters(), self.config["gradient_clipping"], norm_type=float('inf'))
         self.optimizer.step()
 
-        self.kappa_scheduler.step()
+        self.kappa_scheduler.step(apply_fn=self.set_train_mode, mode=self.current_mode)
+        self.current_mode = 'normal' if self.kappa_scheduler.current == 0 else 'interval'
         self.eps_scheduler.step()
         self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
         self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)

@@ -31,7 +31,7 @@ class IntervalMLP(nn.Module):
                 # print(f'type(m): {type(m)} numwei: {numwei}')
                 sum_numel += numwei
                 self.numels.append(numwei)
-        self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=True, device=self.fc1.weight.device))
+        self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=False, device=self.fc1.weight.device))
 
     def importances_to_eps(self, eps_scaler, mode='sum'):
         assert mode in ['sum', 'product']

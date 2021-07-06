@@ -124,14 +124,14 @@ def run(args):
             if args.eps_max:
                 agent.eps_scheduler.set_end(args.eps_max[i])
 
-            agent.kappa_scheduler.end = args.kappa_min[i]
             iter_on_batch = len(train_loader)
-            agent.kappa_scheduler.calc_coefficient(args.kappa_min[i] - 1, args.kappa_epoch[i], iter_on_batch)
             agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
-            # agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
+            agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
             agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
-            if i > 0:
-                agent.kappa_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
+            agent.kappa_scheduler.steps = list(args.kappa_epoch)
+            agent.kappa_scheduler.coefficients = list(args.kappa_min)
+            agent.kappa_scheduler.iter_on_batch = iter_on_batch
+            agent.kappa_scheduler.iteration, agent.kappa_scheduler.idx = 0, 0
 
             if agent.multihead:
                 agent.current_head = str(train_name)
