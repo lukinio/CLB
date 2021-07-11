@@ -5,6 +5,7 @@ import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
+from matplotlib import pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 
@@ -159,7 +160,8 @@ class IntervalNet(nn.Module):
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
-            standard_loss, robust_loss = torch.tensor(0.0, device=targets.device), torch.tensor(0.0, device=targets.device)
+            standard_loss, robust_loss = torch.tensor(0.0, device=targets.device), torch.tensor(0.0,
+                                                                                                device=targets.device)
             robust_err = torch.tensor(0.0)  # TODO
             # TODO this seems to be unnecessary? we always get one task for entire batch from the loader
             for t, t_logits in logits.items():
@@ -196,11 +198,71 @@ class IntervalNet(nn.Module):
                 z_logits = torch.where(targets_oh.bool(), l_logits, u_logits)
                 robust_loss = self.criterion_fn(z_logits, targets)
                 kappa = self.kappa_scheduler.current
-                loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                # =================== "diminished" variant ===================
+                # max_robust_frac = (1 - kappa)
+                # if robust_loss.item() > standard_loss.item() * max_robust_frac:
+                #     diminish_factor = max_robust_frac * standard_loss.item() / robust_loss.item()
+                #     diminished_robust_loss = robust_loss * diminish_factor
+                # else:
+                #     diminished_robust_loss = robust_loss
+                # loss = kappa * standard_loss + diminished_robust_loss
+                # =================== standard robust loss variant ===================
+                # loss = kappa * standard_loss + (1 - kappa) * robust_loss
+                # =================== normal learning ===================
+                loss = standard_loss
+                # ======================================
                 robust_err = torch.tensor(0.0)  # TODO
             else:
                 loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
         return loss, robust_err, robust_loss, standard_loss
+
+    @staticmethod
+    def histogram(data):
+        fig, ax = plt.subplots()
+        ax.hist(data.cpu().detach().numpy(), bins='auto')
+        return fig
+
+    def weight_grads_stats(self, loader):
+        self.zero_grad()
+        self.model.importances_to_eps(self.eps_scheduler.current)
+        for i, (inputs, targets, tasks) in enumerate(loader):
+            if self.gpu:
+                inputs = inputs.cuda()
+                targets = targets.cuda()
+            out = self.forward(inputs)
+            loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
+            ce_loss.backward(retain_graph=True)
+        weights = []
+        grads = []
+        epsilons = []
+        j = 0
+        for block in self.model.modules():
+            if isinstance(block, IntervalLayerWithParameters):
+                weights.append(block.weight.detach().flatten())
+                grads.append(block.weight.grad.detach().flatten())
+                epsilons.append(block.eps.detach().flatten())
+                j += 1
+
+        weights = torch.cat(weights)
+        grads = torch.cat(grads) / i
+        epsilons = torch.cat(epsilons)
+        
+        self.tb.add_figure('weights_hist', self.histogram(weights), self.current_task)
+        self.tb.add_figure('grads_hist', self.histogram(grads), self.current_task)
+        self.tb.add_figure('epsilons_hist', self.histogram(epsilons), self.current_task)
+        self.tb.add_histogram('weights', weights, self.current_task, bins='auto')
+        self.tb.add_histogram('grads', grads, self.current_task, bins='auto')
+        self.tb.add_histogram('epsilons', epsilons, self.current_task, bins='auto')
+        num_close_weights = weights.isclose(torch.zeros_like(weights)).sum().item()
+        num_close_grads = grads.isclose(torch.zeros_like(grads)).sum().item()
+        num_close_epsilons = epsilons.isclose(torch.zeros_like(epsilons)).sum().item()
+        self.tb.add_text('stats_weights_txt', f'num_close_weights: {num_close_weights}', self.current_task)
+        self.tb.add_text('stats_grads_txt', f'num_close_grads: {num_close_grads}', self.current_task)
+        self.tb.add_text('stats_epsilons_txt', f'num_close_epsilons: {num_close_epsilons}', self.current_task)
+        # =====================================================
+        grads_eps_ratio = grads / epsilons
+        self.tb.add_figure('grad_eps_ratio_hist', self.histogram(grads_eps_ratio), self.current_task)
+        self.tb.add_histogram('grad_eps_ratio', grads_eps_ratio, self.current_task, bins='auto')
 
     def save_params(self):
         self.prev_weight, self.prev_eps = {}, {}

@@ -128,6 +128,7 @@ def run(args):
 
             if args.clipping:
                 agent.save_params()
+            agent.weight_grads_stats(val_loader)
 
             agent.model.print_eps_stats(agent.current_head)
             agent.model.reset_importances()
