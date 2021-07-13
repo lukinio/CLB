@@ -1,15 +1,21 @@
+import os
 from pathlib import Path
 from types import MethodType
+from typing import Literal, Union
 
 import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
 from matplotlib import pyplot as plt
+import wandb
+from models.cnn import IntervalCNN
+from models.mlp import IntervalMLP
 from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
+from utils.wandb import is_wandb_on
 
-from interval.hyperparam_scheduler import LinearScheduler
+from interval.hyperparam_scheduler import LinearScheduler, StepScheduler
 from interval.layers import IntervalLayerWithParameters, split_activation
 
 
@@ -39,11 +45,13 @@ class IntervalNet(nn.Module):
         self.multihead = True if len(self.config['out_dim']) > 1 else False
         self.model = self.create_model()
         self.criterion_fn = nn.CrossEntropyLoss()
-        self.kappa_scheduler = LinearScheduler(start=1, end=0.5)
+        self.kappa_scheduler = StepScheduler()
         self.eps_scheduler = LinearScheduler(start=0)
+        self.eps_mode: Literal['sum', 'product'] = self.config['eps_mode']
         self.prev_weight, self.prev_eps = {}, {}
         self.clipping = self.config['clipping']
         self.current_head = "All"
+        self.current_mode = 'normal'
         self.current_task = 1
         self.schedule_stack = []
         runs_path = Path('runs')
@@ -62,6 +70,7 @@ class IntervalNet(nn.Module):
         self.valid_out_dim = 'ALL'
         # Default: 'ALL' means all output nodes are active
         # Set a interger here for the incremental class scenario
+        self.epochs_completed = 0
 
     def init_optimizer(self):
         optimizer_arg = {
@@ -80,7 +89,7 @@ class IntervalNet(nn.Module):
         self.optimizer = opt.__dict__[self.config['optimizer']](**optimizer_arg)
         self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'], gamma=0.1)
 
-    def create_model(self):
+    def create_model(self) -> Union[IntervalCNN, IntervalMLP]:
         cfg = self.config
         task_output_space = cfg['out_dim']
 
@@ -118,20 +127,7 @@ class IntervalNet(nn.Module):
             if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data += sign * m.eps
 
-    def validation_with_move_weights(self, dataloader):
-        # moves = (0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        moves = (1, )
-        for move in moves:
-            self.move_weights(-move)
-            self.validation(dataloader, txt=f"Lower {move}")
-            self.restore_weights()
-
-        for move in moves:
-            self.move_weights(-move)
-            self.validation(dataloader, txt=f"Upper {move}")
-            self.restore_weights()
-
-    def validation(self, dataloader, txt=""):
+    def validation(self, dataloader, val_id: Union[int, str], txt='', suffix=''):
         # This function doesn't distinguish tasks.
         batch_timer = Timer()
         acc = AverageMeter()
@@ -153,19 +149,66 @@ class IntervalNet(nn.Module):
         self.train(orig_mode)
 
         self.log(' * {txt} Val Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
+        if is_wandb_on:
+            val_log = {f'validation_accuracy/{suffix}{val_id}': acc.avg}
+
+            if val_id == self.current_task:
+                val_log[f'validation_accuracy/{suffix}current'] = acc.avg
+
+            wandb.log(val_log, commit=False)
         return acc.avg
+
+    def worst_case_accuracy(self, dataloader, val_id):
+        correct, total = 0, 0
+
+        orig_mode = self.training
+        self.eval()
+        for i, (inputs, target, task) in enumerate(dataloader):
+            if self.gpu:
+                with torch.no_grad():
+                    inputs = inputs.cuda()
+                    target = target.cuda()
+            outputs = self.forward(inputs)
+            if 'All' in outputs.keys():  # Single-headed model
+                logits = outputs['All']
+                m_logits, l_logits, u_logits = split_activation(logits)
+                if isinstance(self.valid_out_dim, int):
+                    m_logits = m_logits[:, :self.valid_out_dim]
+                    l_logits = l_logits[:, :self.valid_out_dim]
+                    u_logits = u_logits[:, :self.valid_out_dim]
+                target_oh = nn.functional.one_hot(target, m_logits.size(-1))
+                z_logits = torch.where(target_oh.bool(), l_logits, u_logits)
+                total += z_logits.size(0)
+                correct += (z_logits.argmax(1) == target).sum().item()
+            else:  # outputs from multi-headed (multi-task) model
+                for t, t_logits in outputs.items():
+                    m_logits, l_logits, u_logits = split_activation(t_logits)
+                    target_oh = nn.functional.one_hot(target, m_logits.size(-1))
+                    z_logits = torch.where(target_oh.bool(), l_logits, u_logits)
+                    total += z_logits.size(0)
+                    correct += (z_logits.argmax(1) == target).sum().item()
+        self.train(orig_mode)
+        worst_case_acc = correct / total
+        self.log(f' * {val_id} Val Worst Case Acc {worst_case_acc}')
+        if is_wandb_on:
+            val_log = {f'validation_worst_case_accuracy/{val_id}': worst_case_acc}
+            if val_id == self.current_task:
+                val_log[f'validation_worst_case_accuracy/{current}'] = worst_case_acc
+            wandb.log(val_log, commit=False)          
+
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
         # The criterion will match the head and task to calculate the loss.
         if self.multihead:
-            standard_loss, robust_loss = torch.tensor(0.0, device=targets.device), torch.tensor(0.0,
-                                                                                                device=targets.device)
+            standard_loss, robust_loss = torch.tensor(
+                0.0, device=targets.device), torch.tensor(0.0, device=targets.device)
             robust_err = torch.tensor(0.0)  # TODO
             # TODO this seems to be unnecessary? we always get one task for entire batch from the loader
             for t, t_logits in logits.items():
-                inds = [i for i in range(len(tasks)) if tasks[i] == t]  # The index of inputs that matched specific task
+                # The index of inputs that matched specific task
+                inds = [i for i in range(len(tasks)) if tasks[i] == t]
                 # print(f'tasks: {tasks} inds: {inds}')
                 if len(inds) > 0:
                     t_logits = t_logits[inds]
@@ -269,7 +312,7 @@ class IntervalNet(nn.Module):
         i = 0
         for block in self.model.modules():
             if isinstance(block, IntervalLayerWithParameters):
-                self.prev_weight[i] = block.weight.data.detach().clone()
+                self.prev_weight[i] = block.weight.detach().clone()
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
 
@@ -335,22 +378,29 @@ class IntervalNet(nn.Module):
         i = 0
         for m in self.model.modules():
             if isinstance(m, IntervalLayerWithParameters):
-                m.weight.data = self.clip_weights(i, m.weight.data.detach())
-                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.data.detach(), m.eps.detach())
+                m.weight.data = self.clip_weights(i, m.weight.detach())
+                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.detach(), m.eps.detach())
                 i += 1
 
+    def set_train_mode(self, mode):
+        for p in self.model.parameters():
+            p.requires_grad = True if mode == "normal" else False
+        self.model.importances.requires_grad = True if mode == "interval" else False
+        self.log('Optimizer is reset!')
+        self.init_optimizer()
+
     def update_model(self, inputs, targets, tasks):
-        self.model.importances_to_eps(self.eps_scheduler.current)
+        self.model.importances_to_eps(self.eps_scheduler.current, mode=self.eps_mode)
         out = self.forward(inputs)
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
         loss.backward()
-        # TODO add cmd argument for gradient clipping?
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-        # nn.utils.clip_grad_norm_(self.model.parameters(), 1, norm_type=float('inf'))
+        if self.config["gradient_clipping"]:
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.config["gradient_clipping"], norm_type=float('inf'))
         self.optimizer.step()
 
-        self.kappa_scheduler.step()
+        self.kappa_scheduler.step(apply_fn=self.set_train_mode, mode=self.current_mode)
+        self.current_mode = 'normal' if self.kappa_scheduler.current == 0 else 'interval'
         self.eps_scheduler.step()
         self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
         self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)
@@ -412,11 +462,27 @@ class IntervalNet(nn.Module):
             self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
             # self.log(f"  * model: {self.model.features_loss_term}")
 
+            if is_wandb_on:
+                wandb.log({
+                    'epoch': self.epochs_completed,
+                    'task_id': self.current_task,
+                    'task_epoch': epoch,
+                    'train_accuracy': acc.avg,
+                    'train_loss': losses.avg,
+                    'kappa_current': self.kappa_scheduler.current,
+                    'eps_current': self.eps_scheduler.current,
+                    'robust_loss': robust_loss,
+                    'robust_error': robust_err,
+                },
+                    step=self.epochs_completed
+                )
+
             # Evaluate the performance of current task
             if val_loader is not None:
-                self.validation(val_loader)
+                self.validation(val_loader, val_id=self.current_task)
 
             self.scheduler.step()
+            self.epochs_completed += 1
             # self.tb.flush()
 
     def add_valid_output_dim(self, dim=0):

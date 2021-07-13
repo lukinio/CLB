@@ -1,0 +1,75 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "IntervalNet on CIFAR-10 inc. domain",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/intervalBatchLearn.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--dataset", "CIFAR10",
+                "--train_aug",
+                "--gpuid", "0",
+                "--repeat", "2",
+                "--optimizer", "Adam",
+                "--force_out_dim", "2",
+                "--first_split_size", "2",
+                "--other_split_size", "2",
+                "--model_name", "interval_cnn",
+                "--model_type", "cnn",
+                "--agent_type", "interval",
+                "--agent_name", "IntervalNet",
+                "--batch_size", "128",
+                "--lr", "0.001",
+                "--clipping",
+                "--eps_per_model",
+                "--eps_mode", "product",
+                "--eps_val", "100000",
+                "--eps_epoch", "100",
+                "--eps_max", "100000",
+                "--kappa_epoch", "100",
+                "--schedule", "100",
+                "--kappa_min", "0.0"
+            ],
+            "env": {
+                // "WANDB": "on",
+            }
+        },
+        {
+            "name": "EWC on CIFAR-10 inc. domain",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/iBatchLearn.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--dataset", "CIFAR10",
+                "--train_aug",
+                "--gpuid", "0",
+                "--repeat", "1",
+                "--optimizer", "Adam",
+			    "--force_out_dim", "2",
+                "--first_split_size", "2",
+                "--other_split_size", "2",
+                "--schedule", "50",
+                "--batch_size", "128",
+                "--model_name", "cnn",
+                "--model_type", "cnn",
+                "--agent_type", "customization",
+                "--agent_name", "EWC",
+			    "--lr", "0.001",
+                "--reg_coef", "10"
+            ],
+            "env": {
+                // "WANDB": "on",
+            }
+        }
+         
+        
+    ]
+}
