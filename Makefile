@@ -5,6 +5,9 @@ notes=
 train:
 	@WANDB=on NOTES="$(notes)" ./scripts/split_CIFAR10_cnn_interval_id.sh 0
 
+debug:
+	@WANDB=on NOTES="$(notes)" ./scripts/split_CIFAR10_cnn_interval_id_debug.sh 0
+
 ewc:
 	python -u iBatchLearn.py --dataset CIFAR10 --train_aug --gpuid 0 --repeat 1 --optimizer Adam \
 			--force_out_dim 2 --first_split_size 2 --other_split_size 2 --schedule 50 --batch_size 128 \

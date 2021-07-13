@@ -6,6 +6,7 @@ quadprog
 coolname
 ipywidgets
 matplotlib
+python-dotenv
 rich
 tensorboard
 tqdm

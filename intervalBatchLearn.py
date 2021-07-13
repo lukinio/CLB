@@ -8,6 +8,7 @@ from random import shuffle
 import coolname
 import numpy as np
 import torch
+from dotenv import load_dotenv
 from torch.utils.data import DataLoader
 
 import agents
@@ -15,6 +16,8 @@ import dataloaders.base
 import wandb
 from dataloaders.datasetGen import PermutedGen, SplitGen
 from utils.wandb import is_wandb_on
+
+load_dotenv()
 
 
 def run(args):
@@ -80,7 +83,8 @@ def run(args):
     if is_wandb_on:
         group = os.getenv('WANDB_GROUP', f'{coolname.generate_slug(2)}')
         os.environ['WANDB_GROUP'] = group
-        wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
+        wandb.init(project=os.getenv('WANDB_PROJECT'), entity=os.getenv('WANDB_ENTITY'),
+                   group=group, notes=os.getenv('NOTES'), config=vars(args))
         wandb.watch(agent.model)
 
     # Decide split ordering
@@ -104,6 +108,9 @@ def run(args):
         acc_table['All']['All'] = agent.validation(val_loader, val_id='all')
 
     else:  # Incremental learning
+        if is_wandb_on:
+            validation_results = wandb.Table(columns=['task', 'epoch'] +
+                                             [f'val_acc_{task_names[i]}' for i in range(len(task_names))])
         # Feed data to agent and evaluate agent's performance
         for i in range(len(task_names)):
             train_name = task_names[i]
@@ -156,6 +163,13 @@ def run(args):
 
             # agent.tb.close()
             torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
+
+            if is_wandb_on:
+                assert validation_results  # type: ignore
+                task_results = [acc_table[train_name][task_names[j]]
+                                if j <= i else np.nan for j in range(len(task_names))]
+                validation_results.add_data(train_name, agent.epochs_completed, *task_results)
+                wandb.log({'validation_results': validation_results})
 
     del agent
     gc.collect()
