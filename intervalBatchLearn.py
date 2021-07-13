@@ -80,7 +80,7 @@ def run(args):
     if is_wandb_on:
         group = os.getenv('WANDB_GROUP', f'{coolname.generate_slug(2)}')
         os.environ['WANDB_GROUP'] = group
-        wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
+        wandb.init(project='intervalnet_cl', entity='gmum', group=group, notes=os.getenv('NOTES'), config=args)
         wandb.watch(agent.model)
 
     # Decide split ordering
@@ -152,7 +152,7 @@ def run(args):
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
-                agent.validation_with_move_weights(val_loader, val_id=val_name)
+                agent.worst_case_accuracy(val_loader, val_id=val_name)
 
             # agent.tb.close()
             torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
@@ -277,7 +277,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = True
     # torch.backends.cudnn.enabled = False
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     if not os.path.exists('outputs'):
         os.mkdir('outputs')
 

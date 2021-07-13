@@ -126,19 +126,6 @@ class IntervalNet(nn.Module):
             if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data += sign * m.eps
 
-    def validation_with_move_weights(self, dataloader, val_id: Union[int, str]):
-        # moves = (0.001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
-        moves = (1, )
-        for move in moves:
-            self.move_weights(-move)
-            self.validation(dataloader, val_id=val_id, txt=f"Lower {move}", suffix=f'move-{move}/')
-            self.restore_weights()
-
-        for move in moves:
-            self.move_weights(move)
-            self.validation(dataloader, val_id=val_id, txt=f"Upper {move}", suffix=f'move+{move}/')
-            self.restore_weights()
-
     def validation(self, dataloader, val_id: Union[int, str], txt='', suffix=''):
         # This function doesn't distinguish tasks.
         batch_timer = Timer()
@@ -169,6 +156,45 @@ class IntervalNet(nn.Module):
 
             wandb.log(val_log, commit=False)
         return acc.avg
+
+    def worst_case_accuracy(self, dataloader, val_id):
+        correct, total = 0, 0
+
+        orig_mode = self.training
+        self.eval()
+        for i, (inputs, target, task) in enumerate(dataloader):
+            if self.gpu:
+                with torch.no_grad():
+                    inputs = inputs.cuda()
+                    target = target.cuda()
+            outputs = self.forward(inputs)
+            if 'All' in outputs.keys():  # Single-headed model
+                logits = outputs['All']
+                m_logits, l_logits, u_logits = split_activation(logits)
+                if isinstance(self.valid_out_dim, int):
+                    m_logits = m_logits[:, :self.valid_out_dim]
+                    l_logits = l_logits[:, :self.valid_out_dim]
+                    u_logits = u_logits[:, :self.valid_out_dim]
+                target_oh = nn.functional.one_hot(target, m_logits.size(-1))
+                z_logits = torch.where(target_oh.bool(), l_logits, u_logits)
+                total += z_logits.size(0)
+                correct += (z_logits.argmax(1) == target).sum().item()
+            else:  # outputs from multi-headed (multi-task) model
+                for t, t_logits in outputs.items():
+                    m_logits, l_logits, u_logits = split_activation(t_logits)
+                    target_oh = nn.functional.one_hot(target, m_logits.size(-1))
+                    z_logits = torch.where(target_oh.bool(), l_logits, u_logits)
+                    total += z_logits.size(0)
+                    correct += (z_logits.argmax(1) == target).sum().item()
+        self.train(orig_mode)
+        worst_case_acc = correct / total
+        self.log(f' * {val_id} Val Worst Case Acc {worst_case_acc}')
+        if is_wandb_on:
+            val_log = {f'validation_worst_case_accuracy/{val_id}': worst_case_acc}
+            if val_id == self.current_task:
+                val_log[f'validation_worst_case_accuracy/{current}'] = worst_case_acc
+            wandb.log(val_log, commit=False)          
+
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
