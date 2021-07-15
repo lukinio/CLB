@@ -119,3 +119,4 @@ notebooks/runs/
 
 wandb
 _old/
+.vscode/typings
