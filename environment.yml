@@ -1,6 +1,6 @@
 name: intervalnet
 dependencies:
-  - python=3.9
+  - python=3.9.2
   - conda-forge::jupyterlab
   - conda-forge::jupyterlab-lsp
   - conda-forge::python-language-server
