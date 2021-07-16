@@ -1,11 +1,11 @@
-from omegaconf import OmegaConf
+import pytorch_yard
+from intervalnet import Settings
 
-from pytorch_yard import Config, start
 
-
-def main(cfg: Config):
-    print(OmegaConf.to_yaml(cfg, resolve=True))
+class Experiment(pytorch_yard.Experiment):
+    def main(self, cfg: pytorch_yard.RootConfig):
+        super().main(cfg)
 
 
 if __name__ == '__main__':
-    start(main)
+    Experiment('intervalnet', Settings)

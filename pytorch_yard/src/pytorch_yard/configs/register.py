@@ -1,8 +1,5 @@
-from __future__ import annotations
-
-import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, Type, cast
 
 import omegaconf
 from hydra.conf import HydraConf, RunDir, SweepDir
@@ -11,26 +8,25 @@ from omegaconf import SI, DictConfig
 from omegaconf.dictconfig import DictConfig
 from omegaconf.omegaconf import MISSING
 
-# isort: split
-# from .experiment import ExperimentSettings
-# from .lightning import LightningSettings
-# from .optim import OPTIMIZERS, SCHEDULERS, OptimSettings
+from .cfg import Settings
 
 
 @dataclass
 class Hydra(HydraConf):
     run: RunDir = RunDir("${output_dir}")
     sweep: SweepDir = SweepDir(".", "${output_dir}")
+    searchpath: List[str] = field(default_factory=lambda: [
+        'pkg://pytorch_yard/configs'
+    ])
 
 
 @dataclass
-class Config():
+class RootConfig():
     """
     Top-level Hydra config class.
     """
     defaults: List[Any] = field(default_factory=lambda: [
-        # {'experiment': 'fashion'},
-        # {'optim': 'adam'},
+        {'cfg': 'default'},
         {'override hydra/job_logging': 'rich'},
         {'override hydra/hydra_logging': 'rich'},
     ])
@@ -41,20 +37,16 @@ class Config():
 
     # Runtime configuration
     hydra: Hydra = Hydra()
-    # pl: LightningSettings = LightningSettings()
 
-    # Experiment settings --> experiment/*.yaml
-    # experiment: ExperimentSettings = MISSING
-
-    # Optimizer & scheduler settings --> optim/*.yaml
-    # optim: OptimSettings = MISSING
+    # Experiment settings --> *.yaml
+    cfg: Settings = MISSING
 
     # wandb metadata
     notes: Optional[str] = None
     tags: Optional[List[str]] = None
 
 
-def register_configs():
+def register_configs(settings_cls: Optional[Type[Settings]] = None, settings_group: Optional[str] = None):
     """
     Register configuration options in the main ConfigStore.instance().
 
@@ -65,24 +57,16 @@ def register_configs():
     """
     cs = ConfigStore.instance()
 
+    settings_group = settings_group or 'cfg'
+
     # Main config
-    cs.store(name='default', node=DictConfig(Config()))
+    root = RootConfig()
+    root.defaults[0] = {settings_group: 'default'}
+    cs.store(name='root', node=DictConfig(root))
 
     # Config groups with defaults, YAML files validated by Python structured configs
-    # e.g.: `python -m zzsn2021.main experiment=fashion`
-    # cs.store(group='experiment', name='schema_experiment', node=ExperimentSettings)
-    # cs.store(group='optim', name='schema_optim', node=OptimSettings)
-
-    # Specific schemas, YAML files should inherit them as a default, e.g:
-    # defaults:
-    #   - schema_optim
-    #   - schema_optim_adam
-    # for key, node in OPTIMIZERS.items():
-    #     name = f'schema_optim_{key}'
-    #     cs.store(group='optim', name=name, node=node, package='optim.optimizer')
-    # for key, node in SCHEDULERS.items():
-    #     name = f'schema_optim_lrscheduler_{key}'
-    #     cs.store(group='optim', name=name, node=node, package='optim.scheduler')
+    # e.g.: `python train.py experiment=default`
+    cs.store(group=settings_group, name='settings_schema', node=settings_cls if settings_cls is not None else Settings)
 
 
 def _get_tags(cfg: dict[str, Any]) -> Iterator[str]:

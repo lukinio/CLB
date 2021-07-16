@@ -7,13 +7,13 @@ from rich.console import Console
 from rich.text import Text
 
 
-class RichConsoleHandler(StreamHandler):
+class RichConsoleHandler(StreamHandler):  # type: ignore
     """
     Logging handler for rich console output.
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__()  # type: ignore
 
         self.console = Console()
 
@@ -45,16 +45,20 @@ log = logging.getLogger('main')
 log.setLevel(LOG_LEVEL)
 
 
-def info(msg: str):
-    log.info(f':white_circle: [bold white]{msg}')
-
-
 def debug(msg: str):
-    log.debug(f'{msg}')
+    log.debug(f':information_source: {msg}')
+
+
+def info(msg: str):
+    log.info(f'{msg}')
+
+
+def info_bold(msg: str):
+    log.info(f'[bold yellow]{msg}')
 
 
 def warning(msg: str):
-    log.warning(f':exclamation:[bold red]{msg}')
+    log.warning(f':exclamation:[bold yellow]{msg}')
 
 
 def error(msg: str):
