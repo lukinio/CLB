@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 from interval.layers import IntervalLayerWithParameters, LinearInterval
+from math import sqrt
 
 
 class IntervalMLP(nn.Module):
@@ -31,11 +32,13 @@ class IntervalMLP(nn.Module):
                 # print(f'type(m): {type(m)} numwei: {numwei}')
                 sum_numel += numwei
                 self.numels.append(numwei)
-        self.importances = nn.Parameter(torch.zeros(sum_numel, requires_grad=False, device=self.fc1.weight.device))
+        self.importances = nn.Parameter(torch.zeros((sum_numel, 1), requires_grad=False, device=self.fc1.weight.device))
+        nn.init.kaiming_uniform_(self.importances, a=sqrt(5))
+        self.importances.data = self.importances[:, 0]
 
     def importances_to_eps(self, eps_scaler, mode='sum'):
         assert mode in ['sum', 'product']
-
+        eps_scaler = 1140800
         base_eps = torch.softmax(self.importances, dim=0)
         if mode == 'product':
             eps = torch.pow(eps_scaler, base_eps)

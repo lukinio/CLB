@@ -86,7 +86,7 @@ class IntervalNet(nn.Module):
             self.config['optimizer'] = 'Adam'
 
         self.optimizer = opt.__dict__[self.config['optimizer']](**optimizer_arg)
-        self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'], gamma=0.1)
+        self.scheduler = opt.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.config['milestones'], gamma=10)
 
     def create_model(self) -> Union[IntervalCNN, IntervalMLP]:
         cfg = self.config
@@ -168,6 +168,39 @@ class IntervalNet(nn.Module):
                 val_log[f'validation_accuracy/{suffix}current'] = acc.avg
 
             wandb.log(val_log, commit=False)
+        return acc.avg
+
+    def validation_worst_case(self, dataloader, val_id: Union[int, str], txt='', suffix=''):
+        # This function doesn't distinguish tasks.
+        batch_timer = Timer()
+        acc = AverageMeter()
+        batch_timer.tic()
+
+        orig_mode = self.training
+        self.eval()
+        for i, (inputs, target, task) in enumerate(dataloader):
+            if self.gpu:
+                with torch.no_grad():
+                    inputs = inputs.cuda()
+                    target = target.cuda()
+
+            self.model.eval()
+            out = self.forward(inputs)
+            for t in out.keys():
+                m_logits, l_logits, u_logits = split_activation(out[t])
+                m_logits, l_logits, u_logits = m_logits.detach(), l_logits.detach(), u_logits.detach()
+                targets_oh = nn.functional.one_hot(target, m_logits.size(-1))
+                out[t] = torch.where(targets_oh.bool(), l_logits, u_logits)
+
+            # Summarize the performance of all tasks, or 1 task, depends on dataloader.
+            # Calculated by total number of data.
+            acc = accumulate_acc(out, target, task, acc)
+
+        self.train(orig_mode)
+
+        self.log(' * {txt} Worst Case Acc {acc.avg:.3f}, time {time:.2f}'.format(txt=txt, acc=acc, time=batch_timer.toc()))
+        wandb.log({'worst-case acc': acc.avg})
+
         return acc.avg
 
     def criterion(self, logits, targets, tasks, **kwargs):
@@ -299,26 +332,32 @@ class IntervalNet(nn.Module):
         for p in self.model.parameters():
             p.requires_grad = True if mode == "normal" else False
         self.model.importances.requires_grad = True if mode == "interval" else False
+        self.log(f"importances requires_grad: {self.model.importances.requires_grad}")
         self.log('Optimizer is reset!')
         self.init_optimizer()
 
     def update_model(self, inputs, targets, tasks):
+        # self.kappa_scheduler.step(apply_fn=self.set_train_mode, mode=self.current_mode)
+        # self.kappa_scheduler.step(apply_fn=None)
+        self.current_mode = 'normal' if self.kappa_scheduler.current == 0 else 'interval'
         self.model.importances_to_eps(self.eps_scheduler.current, mode=self.eps_mode)
+        if self.clipping and self.prev_eps:
+            self.clip_params()
         out = self.forward(inputs)
+        # print(self.model.importances)
+        # if self.kappa_scheduler.current == 0:
+            # print(f"{40 * '+'} NEXT {40 * '+'}")
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
         loss.backward()
-        if self.config["gradient_clipping"]:
+        if float(self.config["gradient_clipping"]) > 0.:
             nn.utils.clip_grad_norm_(self.model.parameters(), self.config["gradient_clipping"], norm_type=float('inf'))
         self.optimizer.step()
 
-        self.kappa_scheduler.step(apply_fn=self.set_train_mode, mode=self.current_mode)
-        self.current_mode = 'normal' if self.kappa_scheduler.current == 0 else 'interval'
         self.eps_scheduler.step()
         self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
         self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)
-        if self.clipping and self.prev_eps:
-            self.clip_params()
+
         for t in out.keys():
             out[t], _, _ = split_activation(out[t])
             out[t] = out[t].detach()
@@ -331,14 +370,54 @@ class IntervalNet(nn.Module):
 
         schedule = self.schedule_stack.pop()
         self.current_batch = 0
-        for epoch in range(schedule):
+        # for epoch in range(schedule):
+        epoch = 0
+        self.kappa_scheduler.current = 1
+        self.eps_scheduler.current = 1140800
+        self.set_train_mode("normal")
+        normal_epoch, interval_epoch = 0, 0
+        min_ce = 100000000
+        k = 0
+        while True:
+            epoch += 1
             data_timer = Timer()
             batch_timer = Timer()
             batch_time = AverageMeter()
             data_time = AverageMeter()
             losses = AverageMeter()
             acc = AverageMeter()
-            robust_err, robust_loss = -1, -1
+            robust_err, robust_loss, ce_loss = -1, -1, -1
+
+            if self.kappa_scheduler.current == 1:
+                normal_epoch += 1
+                if normal_epoch < 10:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = 1e-3
+                elif normal_epoch < 20:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = 1e-4
+                elif normal_epoch < 30:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = 1e-5
+                # elif normal_epoch < 40:
+                #     for param_group in self.optimizer.param_groups:
+                #         param_group['lr'] = 1e-4
+                # elif normal_epoch < 60:
+                #     for param_group in self.optimizer.param_groups:
+                #         param_group['lr'] = 1e-5
+                # elif normal_epoch < 900:
+                #     for param_group in self.optimizer.param_groups:
+                #         param_group['lr'] = 1e-5
+            else:
+                interval_epoch += 1
+                if interval_epoch < 75:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = 1e-3
+                elif interval_epoch < 150:
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = 1e-4
+
+
 
             # Config the model and optimizer
             self.log('Epoch:{0}'.format(epoch))
@@ -363,6 +442,8 @@ class IntervalNet(nn.Module):
                 self.tb.add_scalar(f"CE Loss/train - task {self.current_task}", ce_loss, self.current_batch)
                 self.tb.add_scalar(f"Robust loss/train - task {self.current_task}", robust_loss, self.current_batch)
                 self.tb.add_scalar(f"Robust error/train - task {self.current_task}", robust_err, self.current_batch)
+
+                wandb.log({'epoch': epoch, 'loss': loss, 'robust_loss': robust_loss,  'ce_loss': ce_loss})
                 # measure accuracy and record loss
                 acc = accumulate_acc(output, target, task, acc)
                 losses.update(loss, inputs.size(0))
@@ -372,8 +453,7 @@ class IntervalNet(nn.Module):
                 data_timer.toc()
 
             self.log(' * Train Acc {acc.avg:.3f}, Loss {loss.avg:.3f}'.format(loss=losses, acc=acc))
-            self.log(f" * robust loss: {robust_loss:.10f} robust error: {robust_err:.10f}")
-            # self.log(f"  * model: {self.model.features_loss_term}")
+            self.log(f" * robust loss: {robust_loss:.10f} ce loss: {ce_loss:.10f}")
 
             if is_wandb_on:
                 wandb.log({
@@ -391,12 +471,49 @@ class IntervalNet(nn.Module):
                 )
 
             # Evaluate the performance of current task
+            wc = -1
             if val_loader is not None:
                 self.validation(val_loader, val_id=self.current_task)
+                wc = self.validation_worst_case(val_loader, val_id=self.current_task)
 
             self.scheduler.step()
             self.epochs_completed += 1
             # self.tb.flush()
+
+            print(self.model.importances)
+            if self.kappa_scheduler.current == 1:
+                if ce_loss < 0.5:
+                    self.set_train_mode("interval")
+                    self.kappa_scheduler.current = 0
+                if ce_loss < min_ce:
+                    min_ce = ce_loss
+                    k = 0
+                elif k < 30:
+                    k += 1
+                else:
+                    self.set_train_mode("interval")
+                    self.kappa_scheduler.current = 0
+            else:
+                if robust_loss < 5:
+                    self.kappa_scheduler.current = 1
+                    self.set_train_mode("normal")
+                    break
+
+
+
+        wandb.log({"fc1/weight": wandb.Histogram(self.model.fc1.weight.detach().cpu())})
+        wandb.log({"fc1/eps": wandb.Histogram(self.model.fc1.eps.detach().cpu())})
+        wandb.log({"fc1/grad": wandb.Histogram(self.model.fc1.weight.grad.detach().cpu())})
+
+        wandb.log({"fc2/weight": wandb.Histogram(self.model.fc2.weight.detach().cpu())})
+        wandb.log({"fc2/eps": wandb.Histogram(self.model.fc2.eps.detach().cpu())})
+        wandb.log({"fc2/grad": wandb.Histogram(self.model.fc2.weight.grad.detach().cpu())})
+
+        wandb.log({"last/weight": wandb.Histogram(self.model.last["All"][0].weight.detach().cpu())})
+        wandb.log({"last/eps": wandb.Histogram(self.model.last["All"][0].eps.detach().cpu())})
+        wandb.log({"last/grad": wandb.Histogram(self.model.last["All"][0].weight.grad.detach().cpu())})
+
+        wandb.log({"importances": wandb.Histogram(self.model.importances.detach().cpu())})
 
     def add_valid_output_dim(self, dim=0):
         # This function is kind of ad-hoc, but it is the simplest way to support incremental class learning

@@ -83,6 +83,9 @@ def run(args):
         wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
         wandb.watch(agent.model)
 
+    wandb.init(name="test-run", project='intervalnet_cl', entity='gmum', config=vars(args))
+    wandb.watch(agent.model, agent.criterion_fn, log="all", log_freq=100)
+
     # Decide split ordering
     print('Task order:', task_names)
     if args.rand_split_order:
@@ -153,6 +156,7 @@ def run(args):
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
                 agent.validation_with_move_weights(val_loader, val_id=val_name)
+                agent.validation_worst_case(val_loader, val_id=val_name)
 
             # agent.tb.close()
             torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
