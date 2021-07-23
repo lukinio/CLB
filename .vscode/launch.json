@@ -41,7 +41,7 @@
             }
         },
         {
-            "name": "EWC on CIFAR-10 inc. domain",
+            "name": "EWC (CIFAR10) inc. domain",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/iBatchLearn.py",

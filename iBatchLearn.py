@@ -6,6 +6,7 @@ from random import shuffle
 
 import numpy as np
 import torch
+import wandb
 
 import agents
 import dataloaders.base
@@ -39,6 +40,9 @@ def run(args):
     agent = agents.__dict__[args.agent_type].__dict__[args.agent_name](agent_config)
     print(agent.model)
     print('#parameter of model:', agent.count_parameter())
+
+    wandb.init(name="ewc", project='intervalnet_cl', entity='gmum', config=vars(args))
+    wandb.watch(agent.model, agent.criterion_fn, log="all", log_freq=100)
 
     # Decide split ordering
     task_names = sorted(list(task_output_space.keys()), key=int)
