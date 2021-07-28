@@ -7,6 +7,6 @@ python -u intervalBatchLearn.py --dataset CIFAR10 --train_aug --gpuid "${GPUID}"
        --repeat "${REPEAT}" --optimizer Adam --force_out_dim 2 --first_split_size 2 \
        --other_split_size 2 --model_name interval_cnn --model_type cnn --agent_type interval \
        --agent_name IntervalNet --batch_size 128 --lr 0.001 --clipping \
-       --eps_val 1 --eps_epoch 100 --eps_max 1 \
-       --kappa_epoch 10 --schedule 10 --kappa_min 0.0 \
+       --eps_val 1 --eps_epoch 20 --eps_max 1 \
+       --kappa_epoch 20 --schedule 40 --kappa_min 0.0 \
        | tee ${OUTDIR}/experimental.log

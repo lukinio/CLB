@@ -8,11 +8,11 @@ from random import shuffle
 import coolname
 import numpy as np
 import torch
+import wandb
 from torch.utils.data import DataLoader
 
 import agents
 import dataloaders.base
-import wandb
 from dataloaders.datasetGen import PermutedGen, SplitGen
 from utils.wandb import is_wandb_on
 
@@ -80,8 +80,9 @@ def run(args):
     if is_wandb_on:
         group = os.getenv('WANDB_GROUP', f'{coolname.generate_slug(2)}')
         os.environ['WANDB_GROUP'] = group
-        wandb.init(project='intervalnet_cl', entity='gmum', group=group, notes=os.getenv('NOTES'), config=args)
-        wandb.watch(agent.model)
+        wandb.init(name="test-run", project='intervalnet_cl', entity='gmum', group=group, notes=os.getenv('NOTES'),
+                   config=args)
+        wandb.watch(agent.model, agent.criterion_fn, log="all", log_freq=100)
 
     # Decide split ordering
     print('Task order:', task_names)
@@ -149,7 +150,8 @@ def run(args):
             for j in range(i + 1):
                 val_name = task_names[j]
                 print('validation split name:', val_name)
-                val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
+                val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[
+                    val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
                 agent.worst_case_accuracy(val_loader, val_id=val_name)

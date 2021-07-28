@@ -1,28 +1,17 @@
-import os
-from pathlib import Path
-from types import MethodType
 from typing import Literal, Union
 
-import models
 import torch
 import torch.nn as nn
 import torch.optim as opt
 import wandb
-from models.cnn import IntervalCNN
-from models.mlp import IntervalMLP
-from torch.utils.tensorboard import SummaryWriter
-from utils.metric import AverageMeter, Timer, accuracy
-from utils.wandb import is_wandb_on
 
+import models
 from interval.hyperparam_scheduler import LinearScheduler, StepScheduler
 from interval.layers import IntervalLayerWithParameters, split_activation
-
-
-def free_exp_name(runs_dir: Path, run_name: str):
-    try_index = 0
-    while (runs_dir / f'{run_name}#{try_index}').exists():
-        try_index += 1
-    return Path(runs_dir / f'{run_name}#{try_index}')
+from models.cnn import IntervalCNN
+from models.mlp import IntervalMLP
+from utils.metric import AverageMeter, Timer, accuracy
+from utils.wandb import is_wandb_on
 
 
 class IntervalNet(nn.Module):
@@ -53,9 +42,6 @@ class IntervalNet(nn.Module):
         self.current_mode = 'normal'
         self.current_task = 1
         self.schedule_stack = []
-        runs_path = Path('runs')
-        log_dir = str(free_exp_name(runs_path, f"{self.config['dataset_name']}_experiment"))
-        self.tb = SummaryWriter(log_dir=log_dir)
         for s in self.config["schedule"][::-1]:
             self.schedule_stack.append(s)
 
@@ -192,9 +178,8 @@ class IntervalNet(nn.Module):
         if is_wandb_on:
             val_log = {f'validation_worst_case_accuracy/{val_id}': worst_case_acc}
             if val_id == self.current_task:
-                val_log[f'validation_worst_case_accuracy/{current}'] = worst_case_acc
-            wandb.log(val_log, commit=False)          
-
+                val_log[f'validation_worst_case_accuracy/{val_id}'] = worst_case_acc
+            wandb.log(val_log, commit=False)
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
@@ -255,33 +240,6 @@ class IntervalNet(nn.Module):
                 self.prev_eps[i] = block.eps.detach().clone()
                 i += 1
 
-        self.tb.add_histogram("importances", self.model.importances, self.current_task)
-
-        # self.tb.add_histogram("c1/0/weight", self.model.c1[0].weight, self.current_task)
-        # self.tb.add_histogram("c1/0/eps", self.model.c1[0].eps, self.current_task)
-
-        # self.tb.add_histogram("c1/2/weight", self.model.c1[2].weight, self.current_task)
-        # self.tb.add_histogram("c1/2/eps", self.model.c1[2].eps, self.current_task)
-
-        # self.tb.add_histogram("c2/0/weight", self.model.c2[0].weight, self.current_task)
-        # self.tb.add_histogram("c2/0/eps", self.model.c2[0].eps, self.current_task)
-
-        # self.tb.add_histogram("c2/2/weight", self.model.c2[2].weight, self.current_task)
-        # self.tb.add_histogram("c2/2/eps", self.model.c2[2].eps, self.current_task)
-
-        # self.tb.add_histogram("c3/0/weight", self.model.c3[0].weight, self.current_task)
-        # self.tb.add_histogram("c3/0/eps", self.model.c3[0].eps, self.current_task)
-
-        # self.tb.add_histogram("c3/2/weight", self.model.c3[2].weight, self.current_task)
-        # self.tb.add_histogram("c3/2/eps", self.model.c3[2].eps, self.current_task)
-
-        # self.tb.add_histogram('fc1/weight', self.model.fc1[0].weight, self.current_task)
-        # self.tb.add_histogram("fc1/eps", self.model.fc1[0].eps, self.current_task)
-
-        # self.tb.add_histogram('last/weight', self.model.last[self.current_head].weight, self.current_task)
-        # self.tb.add_histogram("last/eps", self.model.last[self.current_head][0].eps, self.current_task)
-        # self.tb.flush()
-
     def clip_weights(self, i, weights):
         low_old = self.prev_weight[i] - self.prev_eps[i]
         upp_old = self.prev_weight[i] + self.prev_eps[i]
@@ -318,7 +276,7 @@ class IntervalNet(nn.Module):
         for m in self.model.modules():
             if isinstance(m, IntervalLayerWithParameters):
                 m.weight.data = self.clip_weights(i, m.weight.detach())
-                # m.eps, m.weight.data = self.clip_intervals(i, m.weight.detach(), m.eps.detach())
+                m.eps, m.weight.data = self.clip_intervals(i, m.weight.detach(), m.eps.detach())
                 i += 1
 
     def set_train_mode(self, mode):
@@ -334,15 +292,13 @@ class IntervalNet(nn.Module):
         loss, robust_err, robust_loss, ce_loss = self.criterion(out, targets, tasks)
         self.zero_grad()
         loss.backward()
-        if self.config["gradient_clipping"]:
+        if float(self.config["gradient_clipping"]) > 0.:
             nn.utils.clip_grad_norm_(self.model.parameters(), self.config["gradient_clipping"], norm_type=float('inf'))
         self.optimizer.step()
 
         self.kappa_scheduler.step(apply_fn=self.set_train_mode, mode=self.current_mode)
         self.current_mode = 'normal' if self.kappa_scheduler.current == 0 else 'interval'
         self.eps_scheduler.step()
-        self.tb.add_scalar(f"Kappa/train - task {self.current_task}", self.kappa_scheduler.current, self.current_batch)
-        self.tb.add_scalar(f"Epsilon/train - task {self.current_task}", self.eps_scheduler.current, self.current_batch)
         if self.clipping and self.prev_eps:
             self.clip_params()
         for t in out.keys():
@@ -385,10 +341,6 @@ class IntervalNet(nn.Module):
                 loss, robust_err, robust_loss, ce_loss, output = self.update_model(inputs, target, task)
                 inputs = inputs.detach()
                 target = target.detach()
-                self.tb.add_scalar(f"Loss/train - task {self.current_task}", loss, self.current_batch)
-                self.tb.add_scalar(f"CE Loss/train - task {self.current_task}", ce_loss, self.current_batch)
-                self.tb.add_scalar(f"Robust loss/train - task {self.current_task}", robust_loss, self.current_batch)
-                self.tb.add_scalar(f"Robust error/train - task {self.current_task}", robust_err, self.current_batch)
                 # measure accuracy and record loss
                 acc = accumulate_acc(output, target, task, acc)
                 losses.update(loss, inputs.size(0))
@@ -422,7 +374,21 @@ class IntervalNet(nn.Module):
 
             self.scheduler.step()
             self.epochs_completed += 1
-            # self.tb.flush()
+
+        wandb.log({"fc1/weight": wandb.Histogram(self.model.fc1[0].weight.detach().cpu())})
+        wandb.log({"fc1/eps": wandb.Histogram(self.model.fc1[0].eps.detach().cpu())})
+        wandb.log({"fc1/grad": wandb.Histogram(self.model.fc1[0].weight.grad.detach().cpu())})
+
+        if hasattr(self.model, 'fc2'):
+            wandb.log({"fc2/weight": wandb.Histogram(self.model.fc2[0].weight.detach().cpu())})
+            wandb.log({"fc2/eps": wandb.Histogram(self.model.fc2[0].eps.detach().cpu())})
+            wandb.log({"fc2/grad": wandb.Histogram(self.model.fc2[0].weight.grad.detach().cpu())})
+
+        wandb.log({"last/weight": wandb.Histogram(self.model.last["All"][0].weight.detach().cpu())})
+        wandb.log({"last/eps": wandb.Histogram(self.model.last["All"][0].eps.detach().cpu())})
+        wandb.log({"last/grad": wandb.Histogram(self.model.last["All"][0].weight.grad.detach().cpu())})
+
+        wandb.log({"importances": wandb.Histogram(self.model.importances.detach().cpu())})
 
     def add_valid_output_dim(self, dim=0):
         # This function is kind of ad-hoc, but it is the simplest way to support incremental class learning
