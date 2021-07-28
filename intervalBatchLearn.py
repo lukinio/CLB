@@ -35,12 +35,8 @@ def run(args):
                                                                                remap_class=not args.no_class_remap)
 
     task_names = sorted(list(task_output_space.keys()), key=int)
-    if len(args.eps_val) == 1:
-        args.eps_val = [args.eps_val[0]] * len(task_names)
-    if len(args.eps_max) == 1:
-        args.eps_max = [args.eps_max[0]] * len(task_names)
-    if len(args.eps_epoch) == 1:
-        args.eps_epoch = [args.eps_epoch[0]] * len(task_names)
+    if len(args.wc_threshold) == 1:
+        args.wc_threshold = [args.wc_threshold[0]] * len(task_names)
     if len(args.kappa_epoch) == 1:
         args.kappa_epoch = [args.kappa_epoch[0]] * len(task_names)
     if len(args.kappa_min) == 1:
@@ -69,6 +65,8 @@ def run(args):
         'force_out_dim': args.force_out_dim,
         'clipping': args.clipping,
         'gradient_clipping': args.gradient_clipping,
+        'init_eps': args.init_eps,
+        'wc_threshold': args.wc_threshold,
         'eps_mode': args.eps_mode,
         'milestones': args.milestones,
         'dataset_name': args.dataset,
@@ -122,13 +120,8 @@ def run(args):
             if args.incremental_class:
                 agent.add_valid_output_dim(task_output_space[train_name])
 
-            if args.eps_max:
-                agent.eps_scheduler.set_end(args.eps_max[i])
-
             iter_on_batch = len(train_loader)
-            agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
-            agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
-            agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
+            agent.kappa_scheduler.current = 1
             agent.kappa_scheduler.steps = list(args.kappa_epoch)
             agent.kappa_scheduler.coefficients = list(args.kappa_min)
             agent.kappa_scheduler.iter_on_batch = iter_on_batch
@@ -143,7 +136,7 @@ def run(args):
                 agent.save_params()
 
             agent.model.print_eps_stats(agent.current_head)
-            # agent.model.reset_importances()
+            agent.model.reset_importances()
 
             # Evaluate
             acc_table[train_name] = OrderedDict()
@@ -222,10 +215,9 @@ def get_args(argv):
     parser.add_argument('--kappa_epoch', nargs="+", type=float, default=[1])
     parser.add_argument('--kappa_min', nargs="+", type=float, default=[0.5])
     parser.add_argument('--warm_epoch', nargs="+", type=float, default=[0])
-    parser.add_argument('--eps_epoch', nargs="+", type=float, default=[1])
-    parser.add_argument('--eps_max', nargs="+", type=float, default=[0])
     parser.add_argument('--milestones', nargs="+", type=float, default=[])
-    parser.add_argument('--eps_val', nargs="+", type=float)
+    parser.add_argument('--init_eps', type=float)
+    parser.add_argument('--wc_threshold', nargs="+", type=float, default=[0.5])
     parser.add_argument('--gradient_clipping', dest='gradient_clipping', default=0)
     parser.add_argument('--eps_mode', type=str, default='sum', help="Epsilon limit on: [sum | product]")
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
@@ -330,6 +322,4 @@ if __name__ == '__main__':
         print('reg_coef:', reg_coef, 'mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
 
     print(f"* kappa decrease from 1 to {args.kappa_min} in {args.kappa_epoch} epoch")
-    print(f"* eps increase by {args.eps_val} every {args.eps_epoch} epoch")
-    print(f"* maximal eps: {args.eps_max if args.eps_max else 'inf'}")
     print(f"* tasks were trained {args.schedule} epoch {'with' if args.clipping else 'without'} clipping")
