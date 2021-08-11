@@ -63,6 +63,18 @@ class StepScheduler:
         return self.current
 
 
+class ConstantScheduler:
+    """
+    class represent Linear Scheduler y = a * x
+    """
+    def __init__(self, coefficient=None):
+        self.current = coefficient
+
+    def step(self):
+        assert self.current is not None, "coefficient is None"
+        return self.current
+
+
 if __name__ == '__main__':
     ls = StepScheduler(steps=[0, 2], coefficients=[1, 0], iter_on_batch=5)
     for i in range(5 * 5):

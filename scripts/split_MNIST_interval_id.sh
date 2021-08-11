@@ -80,10 +80,209 @@ mkdir -p $OUTDIR
 #       | tee ${OUTDIR}/dis_experimental19.log
 
 
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.0001 --clipping \
+#       --eps_val 40000 --eps_epoch 100 --eps_max 0 --milestones 2 \
+#       --kappa_epoch 0 10 --warm_epoch 10 --schedule 100 --kappa_min 1 0 --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental21.log
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.0001 --clipping \
+#       --eps_val 40000 --eps_epoch 100 --eps_max 0 --milestones 2 \
+#       --kappa_epoch 0 10 --warm_epoch 10 --schedule 100 --kappa_min 1 0 --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental22.log
+
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 40000 --eps_epoch 100 --eps_max 0 --milestones 2 \
+#       --kappa_epoch 0 10 --warm_epoch 10 --schedule 100 --kappa_min 1 0 --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental24.log
+
+
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+12 --eps_mode product \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental25.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 100 --eps_mode product \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental26.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+6 --eps_mode product \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental27.log
+
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 114080 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental28_softmax_fast.log
+
+# ===========================
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental28_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental28_other.log
+#
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 114080 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental29_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 114080 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental29_other.log
+#
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+12 --eps_mode product --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental25_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+12 --eps_mode product --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental25_other.log
+
+
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental30_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental30_other.log
+#
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 114080 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental31_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 114080 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental31_other.log
+#
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+12 --eps_mode product --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental32_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1e+12 --eps_mode product --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental32_other.log
+
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental33_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 \
+#       | tee ${OUTDIR}/dis_experimental33_other.log
+
+
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 --reg_coef 10 \
+#       | tee ${OUTDIR}/dis_experimental34_softmax.log
+
+
+
 python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
        --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
        --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-       --batch_size 128 --lr 0.0001 --clipping \
-       --eps_val 40000 --eps_epoch 100 --eps_max 0 --milestones 2 \
-       --kappa_epoch 0 10 --warm_epoch 10 --schedule 100 --kappa_min 1 0 --gradient_clipping 1 \
-       | tee ${OUTDIR}/dis_experimental21.log
+       --batch_size 128 --lr 0.001 --clipping \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+       --gradient_clipping 1 --reg_coef 0.1 \
+       | tee ${OUTDIR}/dis_experimental35_softmax.log
+
+python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+       --batch_size 128 --lr 0.001 --clipping \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
+       --gradient_clipping 1 --reg_coef 10 0.1 \
+       | tee ${OUTDIR}/dis_experimental345_other.log

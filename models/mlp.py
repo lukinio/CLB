@@ -36,10 +36,15 @@ class IntervalMLP(nn.Module):
         nn.init.kaiming_uniform_(self.importances, a=sqrt(5))
         self.importances.data = self.importances[:, 0]
 
-    def importances_to_eps(self, eps_scaler, mode='sum'):
+    def importances_to_eps(self, eps_scaler, mode='sum', actv_mode="softmax"):
         assert mode in ['sum', 'product']
-        eps_scaler = 1140800
-        base_eps = torch.softmax(self.importances, dim=0)
+
+        if actv_mode == "softmax":
+            base_eps = torch.softmax(self.importances, dim=0)
+        else:
+            im = self.importances.clone().abs()
+            base_eps = im / im.sum()
+
         if mode == 'product':
             eps = torch.pow(eps_scaler, base_eps)
         else:
@@ -57,6 +62,12 @@ class IntervalMLP(nn.Module):
             if isinstance(m, IntervalLayerWithParameters):
                 eps = m.eps.detach()
                 print(f'module {i}: {type(m)}')
+                me = eps.mean()
+                num = eps.numel()
+                mn = (eps < me).sum()
+                wn = num - mn
+                print(f"  smaller than mean {mn} - {((mn / num) * 100):.2f}")
+                print(f"  bigger than mean {wn} - {((wn / num) * 100):.2f}")
                 print(f'  sum: {eps.sum()} mean: {eps.mean()} std: {eps.std()}')
                 print(f'  min: {eps.min()} max: {eps.max()} numel: {eps.numel()}')
                 eps_sum += eps.sum().item()

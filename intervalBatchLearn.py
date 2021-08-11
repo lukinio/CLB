@@ -70,6 +70,7 @@ def run(args):
         'clipping': args.clipping,
         'gradient_clipping': args.gradient_clipping,
         'eps_mode': args.eps_mode,
+        'eps_actv_mode': args.eps_actv_mode,
         'milestones': args.milestones,
         'dataset_name': args.dataset,
     }
@@ -124,13 +125,13 @@ def run(args):
             if args.incremental_class:
                 agent.add_valid_output_dim(task_output_space[train_name])
 
-            if args.eps_max:
-                agent.eps_scheduler.set_end(args.eps_max[i])
+            # if args.eps_max:
+            #     agent.eps_scheduler.set_end(args.eps_max[i])
 
             iter_on_batch = len(train_loader)
-            agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
-            agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
-            agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, 0
+            # agent.eps_scheduler.calc_coefficient(args.eps_val[i], args.eps_epoch[i], iter_on_batch)
+            # agent.eps_scheduler.warm_epoch(args.warm_epoch[i], iter_on_batch)
+            agent.kappa_scheduler.current, agent.eps_scheduler.current = 1, args.eps_val[i]
             agent.kappa_scheduler.steps = list(args.kappa_epoch)
             agent.kappa_scheduler.coefficients = list(args.kappa_min)
             agent.kappa_scheduler.iter_on_batch = iter_on_batch
@@ -146,6 +147,7 @@ def run(args):
 
             agent.model.print_eps_stats(agent.current_head)
             # agent.model.reset_importances()
+            agent.reset()
 
             # Evaluate
             acc_table[train_name] = OrderedDict()
@@ -154,9 +156,11 @@ def run(args):
                 print('validation split name:', val_name)
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-                acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
+                va = agent.validation(val_loader, val_id=val_name)
+                acc_table[val_name][train_name] = va
                 agent.validation_with_move_weights(val_loader, val_id=val_name)
-                agent.validation_worst_case(val_loader, val_id=val_name)
+                wc = agent.validation_worst_case(val_loader, val_id=val_name)
+                wandb.log({f"worst case val acc task{j+1}": wc, f"val acc task{j+1}": va})
 
             # agent.tb.close()
             torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
@@ -230,6 +234,7 @@ def get_args(argv):
     parser.add_argument('--eps_val', nargs="+", type=float)
     parser.add_argument('--gradient_clipping', dest='gradient_clipping', default=0)
     parser.add_argument('--eps_mode', type=str, default='sum', help="Epsilon limit on: [sum | product]")
+    parser.add_argument('--eps_actv_mode', type=str, default='softmax', help="")
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
     parser.add_argument(
         '--schedule',
