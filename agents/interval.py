@@ -204,6 +204,18 @@ class IntervalNet(nn.Module):
 
         return acc.avg
 
+    def kl_divergence(self):
+        kl, i = 0, 0
+        for block in self.model.modules():
+            if isinstance(block, IntervalLayerWithParameters):
+                ones = torch.ones(block.eps.size(), device=block.eps.device)
+                eps = block.eps.detach()
+                f = eps / eps.sum()
+                g = ones / ones.sum()
+                kl += -(f * torch.log(g / f)).sum()
+                i += 1
+        return kl
+
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
         # The network always makes the predictions with all its heads
@@ -254,8 +266,18 @@ class IntervalNet(nn.Module):
                 loss, robust_err, robust_loss = standard_loss, torch.tensor(0.0), torch.tensor(0.0)
 
             if self.kappa_scheduler.current == 0:
-                loss += self.config['reg_coef'] * torch.norm(self.model.importances, p=1)
-
+                i = 0
+                for block in self.model.modules():
+                    if isinstance(block, IntervalLayerWithParameters):
+                        if self.config['kl']:
+                            kl = self.kl_divergence()
+                            loss += self.config['reg_coef'] * kl
+                            wandb.log({"kl_divergence": kl})
+                        else:
+                            norm = torch.norm(block.eps.detach(), p=self.config['norm'])
+                            loss += self.config['reg_coef'] * norm
+                            wandb.log({f"norm_{self.config['norm']}": norm})
+                        i += 1
         return loss, robust_err, robust_loss, standard_loss
 
     def save_params(self):
@@ -490,7 +512,7 @@ class IntervalNet(nn.Module):
 
             print(self.model.importances)
             if self.kappa_scheduler.current == 1:
-                if ce_loss_meter.avg < 0.3 or normal_epoch > 30:
+                if ce_loss_meter.avg < 0.3 or normal_epoch > 50:
                     self.set_train_mode("interval")
                     self.kappa_scheduler.current = 0
                     normal_epoch = 0

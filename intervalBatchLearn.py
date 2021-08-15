@@ -1,3 +1,7 @@
+from pathlib import Path
+from types import MethodType
+from typing import Literal, Union
+
 import argparse
 import gc
 import os
@@ -17,7 +21,18 @@ from dataloaders.datasetGen import PermutedGen, SplitGen
 from utils.wandb import is_wandb_on
 
 
-def run(args):
+norm_dict = {
+    "1": 1,
+    "2": 2,
+    "max": float('inf')
+}
+
+
+def exp_name(run_name: str, tag: str = "", rep: str = "", reg_coef: int = 0):
+    return f"{run_name}{'_' + tag if tag else tag}{'_coef#' + str(reg_coef) if reg_coef else ''}{'_repetition#' + rep if rep else rep}"
+
+
+def run(args, rep=1):
     # Prepare dataloaders
     train_dataset, val_dataset = dataloaders.base.__dict__[
         args.dataset](args.dataroot, args.train_aug, normalize=False)
@@ -73,6 +88,8 @@ def run(args):
         'eps_actv_mode': args.eps_actv_mode,
         'milestones': args.milestones,
         'dataset_name': args.dataset,
+        'kl': args.kl,
+        'norm': norm_dict[args.norm]
     }
     agent = agents.__dict__[args.agent_type].__dict__[args.agent_name](agent_config)
     print(agent.model)
@@ -84,7 +101,8 @@ def run(args):
         wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
         wandb.watch(agent.model)
 
-    wandb.init(name="test-run", project='intervalnet_cl', entity='gmum', config=vars(args))
+    exp = str(exp_name(f"{args.dataset}_", tag=args.exp_tag, rep=str(rep), reg_coef=args.reg_coef))
+    wandb.init(name=exp, project='intervalnet_cl', entity='gmum', config=vars(args))
     wandb.watch(agent.model, agent.criterion_fn, log="all", log_freq=100)
 
     # Decide split ordering
@@ -199,6 +217,7 @@ def get_args(argv):
     parser.add_argument('--n_permutation', type=int, default=0, help="Enable permuted tests when >0")
     parser.add_argument('--first_split_size', type=int, default=2)
     parser.add_argument('--other_split_size', type=int, default=2)
+    parser.add_argument('--exp_tag', type=str, default='')
     parser.add_argument(
         '--no_class_remap',
         dest='no_class_remap',
@@ -236,6 +255,8 @@ def get_args(argv):
     parser.add_argument('--eps_mode', type=str, default='sum', help="Epsilon limit on: [sum | product]")
     parser.add_argument('--eps_actv_mode', type=str, default='softmax', help="")
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
+    parser.add_argument('--kl', dest='kl', default=False, action='store_true')
+    parser.add_argument('--norm', type=str, dest='norm', default="2")
     parser.add_argument(
         '--schedule',
         nargs="+",
@@ -299,7 +320,7 @@ if __name__ == '__main__':
         avg_final_acc[reg_coef] = np.zeros(args.repeat)
         for r in range(args.repeat):
             # Run the experiment
-            acc_table, task_names = run(args)
+            acc_table, task_names = run(args, rep=r+1)
 
             # Calculate average performance across tasks
             # Customize this part for a different performance metric

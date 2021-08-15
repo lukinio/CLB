@@ -1,6 +1,6 @@
 GPUID=$1
 OUTDIR=outputs/split_MNIST_interval_id
-REPEAT=1
+REPEAT=2
 mkdir -p $OUTDIR
 
 
@@ -271,18 +271,59 @@ mkdir -p $OUTDIR
 
 
 
-python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
-       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
-       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-       --batch_size 128 --lr 0.001 --clipping \
-       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
-       --gradient_clipping 1 --reg_coef 0.1 \
-       | tee ${OUTDIR}/dis_experimental35_softmax.log
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+#       --gradient_clipping 1 --reg_coef 0.1 \
+#       | tee ${OUTDIR}/dis_experimental35_softmax.log
+#
+#python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+#       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+#       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+#       --batch_size 128 --lr 0.001 --clipping \
+#       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
+#       --gradient_clipping 1 --reg_coef 10 0.1 \
+#       | tee ${OUTDIR}/dis_experimental345_other.log
+
+
 
 python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
        --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
        --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
-       --batch_size 128 --lr 0.001 --clipping \
-       --eps_val 1140800 --eps_mode sum --eps_actv_mode other \
-       --gradient_clipping 1 --reg_coef 10 0.1 \
-       | tee ${OUTDIR}/dis_experimental345_other.log
+       --batch_size 128 --lr 0.001 --clipping --kl \
+       --exp_tag ID_softmax_KL \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+       --gradient_clipping 1 --reg_coef 0.01 0.1 10 100 \
+       | tee ${OUTDIR}/interval_id_KL.log
+
+
+python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+       --batch_size 128 --lr 0.001 --clipping --norm 2 \
+       --exp_tag ID_softmax_norm2 \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+       --gradient_clipping 1 --reg_coef 0.01 0.1 10 100 \
+       | tee ${OUTDIR}/interval_id_norm2.log
+
+
+python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+       --batch_size 128 --lr 0.001 --clipping --norm max \
+       --exp_tag ID_softmax_norm_max \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+       --gradient_clipping 1 --reg_coef 0.01 0.1 10 100 \
+       | tee ${OUTDIR}/interval_id_norm_max.log
+
+
+python -u intervalBatchLearn.py --dataroot /shared/sets/datasets/vision --gpuid "${GPUID}" --repeat "${REPEAT}" \
+       --optimizer Adam --force_out_dim 2 --first_split_size 2 --other_split_size 2 \
+       --model_name interval_mlp400 --agent_type interval --agent_name IntervalNet \
+       --batch_size 128 --lr 0.001 --clipping --norm 1 \
+       --exp_tag ID_softmax_norm1 \
+       --eps_val 1140800 --eps_mode sum --eps_actv_mode softmax \
+       --gradient_clipping 1 --reg_coef 0.01 0.1 10 100 \
+       | tee ${OUTDIR}/interval_id_norm1.log
