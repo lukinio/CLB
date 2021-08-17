@@ -204,17 +204,11 @@ class IntervalNet(nn.Module):
 
         return acc.avg
 
-    def kl_divergence(self):
-        kl, i = 0, 0
-        for block in self.model.modules():
-            if isinstance(block, IntervalLayerWithParameters):
-                ones = torch.ones(block.eps.size(), device=block.eps.device)
-                eps = block.eps.detach()
-                f = eps / eps.sum()
-                g = ones / ones.sum()
-                kl += -(f * torch.log(g / f)).sum()
-                i += 1
-        return kl
+    def kl_divergence(self, vec):
+        ones = torch.ones(vec.size(), device=self.model.fc1.weight.device)
+        f = vec / vec.sum()
+        g = ones / ones.sum()
+        return -(f * torch.log(g / f)).sum()
 
     def criterion(self, logits, targets, tasks, **kwargs):
         # The inputs and targets could come from single task or a mix of tasks
@@ -267,17 +261,22 @@ class IntervalNet(nn.Module):
 
             if self.kappa_scheduler.current == 0:
                 i = 0
+                vec_eps = []
                 for block in self.model.modules():
                     if isinstance(block, IntervalLayerWithParameters):
-                        if self.config['kl']:
-                            kl = self.kl_divergence()
-                            loss += self.config['reg_coef'] * kl
-                            wandb.log({"kl_divergence": kl})
-                        else:
-                            norm = torch.norm(block.eps.detach(), p=self.config['norm'])
-                            loss += self.config['reg_coef'] * norm
-                            wandb.log({f"norm_{self.config['norm']}": norm})
+                        vec_eps.append(torch.flatten(block.eps, 0))
                         i += 1
+                vec_eps = torch.cat(vec_eps)
+
+                if self.config['kl']:
+                    kl = self.kl_divergence(vec_eps)
+                    loss += self.config['reg_coef'] * kl
+                    wandb.log({"kl_divergence": kl})
+                else:
+                    norm = torch.norm(vec_eps, p=self.config['norm'])
+                    loss += self.config['reg_coef'] * norm
+                    wandb.log({f"norm_{self.config['norm']}": norm})
+
         return loss, robust_err, robust_loss, standard_loss
 
     def save_params(self):
@@ -512,12 +511,12 @@ class IntervalNet(nn.Module):
 
             print(self.model.importances)
             if self.kappa_scheduler.current == 1:
-                if ce_loss_meter.avg < 0.3 or normal_epoch > 50:
+                if ce_loss_meter.avg < 0.3 or normal_epoch > 30:
                     self.set_train_mode("interval")
                     self.kappa_scheduler.current = 0
                     normal_epoch = 0
             else:
-                if robust_loss_meter.avg < 3 or interval_epoch > 250:
+                if robust_loss_meter.avg < 3 or interval_epoch > 200:
                     self.kappa_scheduler.current = 1
                     self.set_train_mode("normal")
                     interval_epoch = 0

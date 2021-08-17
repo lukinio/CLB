@@ -350,7 +350,7 @@ if __name__ == '__main__':
             print('The regularization coefficient:', args.reg_coef)
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
-
+            wandb.run.finish()
             if is_wandb_on:
                 wandb.run.finish()
 
