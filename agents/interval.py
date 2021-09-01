@@ -4,6 +4,9 @@ from types import MethodType
 from typing import Literal, Union
 
 import models
+import scipy
+import scipy.sparse
+import scipy.sparse.linalg
 import torch
 import torch.nn as nn
 import torch.optim as opt
@@ -14,7 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.metric import AverageMeter, Timer, accuracy
 from utils.wandb import is_wandb_on
 
-from interval.hyperparam_scheduler import LinearScheduler, StepScheduler, ConstantScheduler
+from interval.hyperparam_scheduler import (ConstantScheduler, LinearScheduler,
+                                           StepScheduler)
 from interval.layers import IntervalLayerWithParameters, split_activation
 
 
@@ -402,7 +406,6 @@ class IntervalNet(nn.Module):
 
         schedule = self.schedule_stack.pop()
         self.current_batch = 0
-        # for epoch in range(schedule):
         epoch = 0
         self.set_train_mode("normal")
         normal_epoch, interval_epoch = 0, 0
@@ -418,33 +421,8 @@ class IntervalNet(nn.Module):
 
             if self.kappa_scheduler.current == 1:
                 normal_epoch += 1
-                # if normal_epoch < 10:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-3
-                # elif normal_epoch < 40:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-4
-                # elif normal_epoch < 30:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-5
-                # elif normal_epoch < 40:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-4
-                # elif normal_epoch < 60:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-5
-                # elif normal_epoch < 900:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-5
             else:
                 interval_epoch += 1
-                # if interval_epoch < 75:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-2
-                # elif interval_epoch < 150:
-                #     for param_group in self.optimizer.param_groups:
-                #         param_group['lr'] = 1e-3
-
 
             # Config the model and optimizer
             self.log(f"Epoch:{epoch} interval: {interval_epoch} std: {normal_epoch}")
@@ -512,14 +490,57 @@ class IntervalNet(nn.Module):
             print(self.model.importances)
             if self.kappa_scheduler.current == 1:
                 if ce_loss_meter.avg < 0.3 or normal_epoch > 30:
-                    self.set_train_mode("interval")
-                    self.kappa_scheduler.current = 0
-                    normal_epoch = 0
-            else:
-                if robust_loss_meter.avg < 3 or interval_epoch > 200:
-                    self.kappa_scheduler.current = 1
-                    self.set_train_mode("normal")
-                    interval_epoch = 0
+                    # Calculate FIM
+                    params = {n: p for n, p in self.model.named_parameters()}
+                    del params['importances']
+
+                    fisher = {}
+                    for n, p in params.items():
+                        fisher[n] = p.clone().detach().fill_(0)
+
+                    mode = self.training
+                    self.eval()
+
+                    for i, (input, _, task) in enumerate(train_loader):
+                        if self.gpu:
+                            input = input.cuda()
+
+                        preds = self.forward(input)
+                        task_name = task[0] if self.multihead else 'All'
+                        pred = preds[task_name]
+
+                        m_pred, l_pred, u_pred = split_activation(pred)
+                        if isinstance(self.valid_out_dim, int):
+                            m_pred = m_pred[:, :self.valid_out_dim]
+                            l_pred = l_pred[:, :self.valid_out_dim]
+                            u_pred = u_pred[:, :self.valid_out_dim]
+
+                        ind = m_pred.max(1)[1].flatten()
+
+                        loss, robust_err, robust_loss, ce_loss = self.criterion(preds, ind, task)
+                        self.model.zero_grad()
+                        ce_loss.backward()
+                        for n, p in fisher.items():
+                            if params[n].grad is not None:
+                                p += ((params[n].grad ** 2) * len(input) / len(train_loader))
+
+                    self.train(mode=mode)
+
+                    # Solve for epsilons
+                    fim = torch.cat([t.flatten() for t in fisher.values()])
+                    a = scipy.sparse.lil_matrix((fim.shape[0] + 1, fim.shape[0] + 1))
+
+                    a.setdiag(fim.detach().cpu())
+                    a[:, -1] = 1
+                    a[-1, :] = 1
+                    a[-1, -1] = 0
+
+                    b = np.zeros(fim.shape[0] + 1)
+                    b[-1] = self.eps_scheduler.current / 2
+
+                    eps, *_ = scipy.sparse.linag.lsqr(a, b)
+
+                    # Update epsilons
                     break
 
         wandb.log({"fc1/weight": wandb.Histogram(self.model.fc1.weight.detach().cpu())})

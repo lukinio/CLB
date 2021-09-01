@@ -1,13 +1,12 @@
-from pathlib import Path
-from types import MethodType
-from typing import Literal, Union
-
 import argparse
 import gc
 import os
 import sys
 from collections import OrderedDict
+from pathlib import Path
 from random import shuffle
+from types import MethodType
+from typing import Literal, Union
 
 import coolname
 import numpy as np
@@ -19,7 +18,6 @@ import dataloaders.base
 import wandb
 from dataloaders.datasetGen import PermutedGen, SplitGen
 from utils.wandb import is_wandb_on
-
 
 norm_dict = {
     "1": 1,
@@ -102,7 +100,7 @@ def run(args, rep=1):
         wandb.watch(agent.model)
 
     exp = str(exp_name(f"{args.dataset}_", tag=args.exp_tag, rep=str(rep), reg_coef=args.reg_coef))
-    wandb.init(name=exp, project='intervalnet_cl', entity='gmum', config=vars(args))
+    wandb.init(name=exp, project='intervalnet_test', entity='gmum', config=vars(args))
     wandb.watch(agent.model, agent.criterion_fn, log="all", log_freq=100)
 
     # Decide split ordering
