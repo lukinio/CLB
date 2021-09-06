@@ -119,4 +119,5 @@ notebooks/runs/
 
 wandb
 _old/
+._benchmark/
 .vscode/typings

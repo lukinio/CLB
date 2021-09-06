@@ -1,22 +1,25 @@
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Optional, Type
+from typing import Any, Callable, Literal, Optional, Type, cast
 
 import hydra
 import setproctitle
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
+from omegaconf.dictconfig import DictConfig
 
-from .configs import RootConfig, Settings, register_configs
+from .avalanche.wandb import WandbEpochLogger
+from .configs import RootConfig, Settings, get_tags, register_configs
 from .utils.logging import info, info_bold
-from .utils.rundir import setup_rundir
+from .utils.rundir import finish_rundir, setup_rundir
 
 load_dotenv()
 
 
 class Experiment(ABC):
-    def __init__(self, config_path: str, settings_cls: Type[Settings], settings_group: Optional[str] = None) -> None:
+    def __init__(self, config_path: str, settings_cls: Type[Settings], settings_group: Optional[str] = None,
+                 experiment_variant: Literal['pytorch', 'lightning', 'avalanche'] = 'pytorch') -> None:
         """
         Run an experiment from a provided entry point with minimal boilerplate code.
 
@@ -26,7 +29,7 @@ class Experiment(ABC):
         self.settings_cls = settings_cls
         self.settings_group = settings_group
 
-        self.cfg: RootConfig
+        self.root_cfg: RootConfig
         self._initialize: Callable[[], None]
 
         assert os.getenv('DATA_DIR') is not None, "Missing DATA_DIR environment variable."
@@ -38,25 +41,31 @@ class Experiment(ABC):
 
         setup_rundir()
 
-        # wandb_logger = WandbLogger(
-        #     project=os.getenv('WANDB_PROJECT'),
-        #     entity=os.getenv('WANDB_ENTITY'),
-        #     name=os.getenv('RUN_NAME'),
-        #     save_dir=os.getenv('RUN_DIR'),
-        # )
+        assert experiment_variant in ['pytorch', 'lightning', 'avalanche']
 
-        # # Init logger from source dir (code base) before switching to run dir (results)
-        # wandb_logger.experiment  # type: ignore
+        if experiment_variant == 'lightning':
+            self._initialize = self._lightning
+        elif experiment_variant == 'avalanche':
+            self._initialize = self._avalanche
+        else:
+            self._initialize = self._pytorch
 
         register_configs(self.settings_cls, self.settings_group)
-
-        self._initialize = self._pytorch
 
         hydra_decorator = hydra.main(config_path=config_path, config_name='root')
         hydra_decorator(self.main)()
 
+        if experiment_variant == 'lightning':
+            pass
+        elif experiment_variant == 'avalanche':
+            self.wandb_logger.wandb.finish()  # type: ignore
+        else:
+            pass
+
+        finish_rundir()
+
     @abstractmethod
-    def main(self, cfg: RootConfig):
+    def main(self, root_cfg: RootConfig) -> None:
         """
         Main experiment function. Called after initial setup with `cfg` populated by Hydra.
 
@@ -65,16 +74,52 @@ class Experiment(ABC):
         cfg : Config
             Top-level Hydra config for the experiment.
         """
-        self.cfg = cfg
+        self.root_cfg = root_cfg
         self._initialize()
 
-    def _pytorch(self):
+    def _pytorch(self) -> None:
         RUN_NAME = os.getenv('RUN_NAME')
 
         info_bold(f'\\[init] Run name --> {RUN_NAME}')
-        info(f'\\[init] Loaded config:\n{OmegaConf.to_yaml(self.cfg, resolve=True)}')
+        info(f'\\[init] Loaded config:\n{OmegaConf.to_yaml(self.root_cfg, resolve=True)}')
+
+        setproctitle.setproctitle(f'{RUN_NAME} ({os.getenv("WANDB_PROJECT")})')  # type: ignore
+
+    def _avalanche(self) -> None:
+        RUN_NAME = os.getenv('RUN_NAME')
+
+        info_bold(f'\\[init] Run name --> {RUN_NAME}')
+        info(f'\\[init] Loaded config:\n{OmegaConf.to_yaml(self.root_cfg, resolve=True)}')
+
+        setproctitle.setproctitle(f'{RUN_NAME} ({os.getenv("WANDB_PROJECT")})')  # type: ignore
+
+        self.wandb_logger = WandbEpochLogger(
+            project=os.getenv('WANDB_PROJECT'),
+            entity=os.getenv('WANDB_ENTITY'),
+            name=os.getenv('RUN_NAME'),
+            dir=str(Path(os.getenv('RUN_DIR', '.'))),
+            config=OmegaConf.to_container(self.root_cfg, resolve=True),  # type: ignore
+            tags=get_tags(cast(DictConfig, self.root_cfg)),
+            notes=str(self.root_cfg.notes),
+        )
+
+    def _lightning(self) -> None:
+        raise NotImplementedError()
 
         # pl.seed_everything(cfg.experiment.seed)
+
+     # wandb_logger = WandbLogger(
+        #     project=os.getenv('WANDB_PROJECT'),
+        #     entity=os.getenv('WANDB_ENTITY'),
+        #     name=os.getenv('RUN_NAME'),
+        #     save_dir=os.getenv('RUN_DIR'),
+        # )
+
+        # # Init logger from source dir (code base) before switching to run dir (results)
+        # wandb_logger.experiment  # type: ignore
+        # run.tags = tags
+        # run.notes = str(cfg.notes)
+        # wandb_logger.log_hyperparams()
 
         #   run: Run = wandb_logger.experiment  # type: ignore
 
@@ -99,8 +144,6 @@ class Experiment(ABC):
         # run.notes = str(cfg.notes)
         # wandb_logger.log_hyperparams(OmegaConf.to_container(cfg, resolve=True))  # type: ignore
         # log.info(f'[bold yell
-
-        setproctitle.setproctitle(f'{RUN_NAME} ({os.getenv("WANDB_PROJECT")})')  # type: ignore
 
         # resume_path = get_resume_checkpoint(cfg, wandb_logger)
         # if resume_path is not None:

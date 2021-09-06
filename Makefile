@@ -3,4 +3,4 @@
 notes=
 
 train:
-	@NOTES="$(notes)" python src/train.py
+	@python train.py notes="$(notes)"

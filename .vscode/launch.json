@@ -5,15 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "IntervalNet",
+            "name": "MLP (MNIST inc. domain)",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/train.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
+                "cfg.model=IntervalMLP"
             ],
             "env": {
+                // "WANDB_MODE": "disabled",
             }
         },
     ]

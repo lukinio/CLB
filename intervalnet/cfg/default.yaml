@@ -1,4 +1,2 @@
 defaults:
   - settings_schema
-
-batch_size: 64

@@ -14,4 +14,4 @@ dependencies:
   - pytorch::torchvision
   - cudatoolkit=11.1
   - pip:
-      - -r file:requirements.txt
+      - -r requirements.txt

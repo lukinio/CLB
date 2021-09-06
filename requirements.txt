@@ -1,7 +1,9 @@
 coolname
-git+https://github.com/ContinualAI/avalanche.git@58fa5d477d5d6f327ef003c5dc0a5b4e84407303
+git+https://github.com/ContinualAI/avalanche.git@b295ebabda0c5fe76ca1ad0e046bd24fcaa41df4
+gdown
 ipywidgets
 matplotlib
+opencv-python-headless
 python-dotenv
 rich
 tqdm
