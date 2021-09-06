@@ -116,7 +116,13 @@ class Experiment(pytorch_yard.Experiment):
         eval_plugin = EvaluationPlugin(
             *metrics,
             benchmark=self.scenario,
-            loggers=[RichLogger([r'Diagnostics/(.*)']), self.wandb_logger]
+            loggers=[
+                RichLogger(ignore_metrics=[
+                    r'Diagnostics/(.*)',
+                    r'DiagnosticsHist/(.*)',
+                ]),
+                self.wandb_logger
+            ]
         )
 
         # Strategy

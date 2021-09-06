@@ -53,7 +53,7 @@ class MetricNamingMixin(GenericPluginMetric[TResult]):
         return get_metric_name(self, strategy=strategy, add_experience=add_experience,
                                add_task=add_task, count_experience_from_zero=False)
 
-    def _package_result(self, strategy: 'BaseStrategy') -> MetricResult:
+    def _package_result(self, strategy: BaseStrategy) -> MetricResult:
         metric_value: Any = self.result(strategy)  # type: ignore
         add_exp: bool = self._emit_at == 'experience'  # type: ignore
         plot_x_position: int = self.get_global_counter()

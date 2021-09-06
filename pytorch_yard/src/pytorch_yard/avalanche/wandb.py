@@ -45,7 +45,8 @@ class WandbEpochLogger(StrategyLogger):
         name = metric_value.name
         value = metric_value.value
 
-        supported_types = Image, Tensor, TensorImage, Figure, float, int, self.wandb.viz.CustomChart
+        supported_types = (Image, Tensor, TensorImage, Figure,
+                           float, int, self.wandb.Histogram, self.wandb.viz.CustomChart)
 
         if isinstance(value, AlternativeValues):
             value = value.best_supported_value(*supported_types)
