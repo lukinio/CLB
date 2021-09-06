@@ -21,7 +21,7 @@ import pytorch_yard
 from intervalnet.cfg import DatasetType, ModelType, Settings
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
-from intervalnet.metrics.interval import radius_diagnostics
+from intervalnet.metrics.interval import RobustAccuracy, radius_diagnostics
 from intervalnet.models.mlp import MLP, IntervalMLP
 from intervalnet.strategy import IntervalTraining
 from pytorch_yard import info, info_bold
@@ -110,6 +110,7 @@ class Experiment(pytorch_yard.Experiment):
         ]
 
         if self.cfg.model == ModelType.IntervalMLP:
+            metrics.append(RobustAccuracy())
             metrics += radius_diagnostics(self.model)
 
         eval_plugin = EvaluationPlugin(
