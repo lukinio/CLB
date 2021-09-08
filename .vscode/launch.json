@@ -30,7 +30,7 @@
                 "--reg_coef", "10",
             ],
             "env": {
-                // "WANDB": "on",
+                // "WANDB_MODE": "disabled",
             }
         },
         {

@@ -4,6 +4,7 @@ from types import MethodType
 from typing import Literal, Union
 
 import models
+import numpy as np
 import scipy
 import scipy.sparse
 import scipy.sparse.linalg
@@ -490,57 +491,61 @@ class IntervalNet(nn.Module):
             print(self.model.importances)
             if self.kappa_scheduler.current == 1:
                 if ce_loss_meter.avg < 0.3 or normal_epoch > 30:
-                    # Calculate FIM
-                    params = {n: p for n, p in self.model.named_parameters()}
-                    del params['importances']
+                    if self.current_task == 1:
+                        # Calculate FIM
+                        params = {n: p for n, p in self.model.named_parameters()}
+                        del params['importances']
 
-                    fisher = {}
-                    for n, p in params.items():
-                        fisher[n] = p.clone().detach().fill_(0)
+                        fisher = {}
+                        for n, p in params.items():
+                            fisher[n] = p.clone().detach().fill_(0)
 
-                    mode = self.training
-                    self.eval()
+                        mode = self.training
+                        self.eval()
 
-                    for i, (input, _, task) in enumerate(train_loader):
-                        if self.gpu:
-                            input = input.cuda()
+                        for i, (input, _, task) in enumerate(train_loader):
+                            if self.gpu:
+                                input = input.cuda()
 
-                        preds = self.forward(input)
-                        task_name = task[0] if self.multihead else 'All'
-                        pred = preds[task_name]
+                            preds = self.forward(input)
+                            task_name = task[0] if self.multihead else 'All'
+                            pred = preds[task_name]
 
-                        m_pred, l_pred, u_pred = split_activation(pred)
-                        if isinstance(self.valid_out_dim, int):
-                            m_pred = m_pred[:, :self.valid_out_dim]
-                            l_pred = l_pred[:, :self.valid_out_dim]
-                            u_pred = u_pred[:, :self.valid_out_dim]
+                            m_pred, l_pred, u_pred = split_activation(pred)
+                            if isinstance(self.valid_out_dim, int):
+                                m_pred = m_pred[:, :self.valid_out_dim]
+                                l_pred = l_pred[:, :self.valid_out_dim]
+                                u_pred = u_pred[:, :self.valid_out_dim]
 
-                        ind = m_pred.max(1)[1].flatten()
+                            ind = m_pred.max(1)[1].flatten()
 
-                        loss, robust_err, robust_loss, ce_loss = self.criterion(preds, ind, task)
-                        self.model.zero_grad()
-                        ce_loss.backward()
-                        for n, p in fisher.items():
-                            if params[n].grad is not None:
-                                p += ((params[n].grad ** 2) * len(input) / len(train_loader))
+                            loss, robust_err, robust_loss, ce_loss = self.criterion(preds, ind, task)
+                            self.model.zero_grad()
+                            ce_loss.backward()
+                            for n, p in fisher.items():
+                                if params[n].grad is not None:
+                                    p += ((params[n].grad ** 2) * len(input) / len(train_loader))
 
-                    self.train(mode=mode)
+                        self.train(mode=mode)
 
-                    # Solve for epsilons
-                    fim = torch.cat([t.flatten() for t in fisher.values()])
-                    a = scipy.sparse.lil_matrix((fim.shape[0] + 1, fim.shape[0] + 1))
+                        # Solve for epsilons
+                        fim = torch.cat([t.flatten() for t in fisher.values()])
+                        fim += 1e-20  # Add a small constant to avoid zero values
+                        a = scipy.sparse.lil_matrix((fim.shape[0] + 1, fim.shape[0] + 1))
 
-                    a.setdiag(fim.detach().cpu())
-                    a[:, -1] = 1
-                    a[-1, :] = 1
-                    a[-1, -1] = 0
+                        a.setdiag(fim.detach().cpu())
+                        a[:, -1] = 1
+                        a[-1, :] = 1
+                        a[-1, -1] = 0
 
-                    b = np.zeros(fim.shape[0] + 1)
-                    b[-1] = self.eps_scheduler.current / 2
+                        b = np.zeros(fim.shape[0] + 1)
+                        b[-1] = self.eps_scheduler.current / 2
 
-                    eps, *_ = scipy.sparse.linag.lsqr(a, b)
+                        eps = scipy.sparse.linalg.spsolve(a, b)[:-1]
 
-                    # Update epsilons
+                        # Update importances
+                        self.model.importances.copy_(torch.tensor(eps))
+
                     break
 
         wandb.log({"fc1/weight": wandb.Histogram(self.model.fc1.weight.detach().cpu())})
