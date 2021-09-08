@@ -17,7 +17,18 @@ from dataloaders.datasetGen import PermutedGen, SplitGen
 from utils.wandb import is_wandb_on
 
 
-def run(args):
+norm_dict = {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "max": float('inf')
+}
+
+def exp_name(run_name: str, tag: str = "", rep: str = "", reg_coef: int = 0):
+    return f"{run_name}{'_' + tag if tag else tag}{'_coef#' + str(reg_coef) if reg_coef else ''}{'_repetition#' + rep if rep else rep}"
+
+
+def run(args, rep=1):
     # Prepare dataloaders
     train_dataset, val_dataset = dataloaders.base.__dict__[
         args.dataset](args.dataroot, args.train_aug, normalize=False)
@@ -72,6 +83,9 @@ def run(args):
         'eps_mode': args.eps_mode,
         'milestones': args.milestones,
         'dataset_name': args.dataset,
+        'wandb_logger': args.wandb_logger,
+        'clip_interval': args.clip_interval,
+        'norm': norm_dict[args.norm],
     }
     agent = agents.__dict__[args.agent_type].__dict__[args.agent_name](agent_config)
     print(agent.model)
@@ -82,6 +96,12 @@ def run(args):
         os.environ['WANDB_GROUP'] = group
         wandb.init(project='intervalnet', entity='bionn', group=group, notes=os.getenv('NOTES'), config=vars(args))
         wandb.watch(agent.model)
+
+    if args.wandb_logger:
+        name_of_exp = str(exp_name(f"{args.dataset}_", tag=args.exp_tag, rep=str(rep), reg_coef=args.reg_coef))
+        wandb.init(name=name_of_exp, project='intervalnet_cl', entity='gmum', config=vars(args))
+        wandb.watch(agent.model, agent.criterion_fn, log="all")
+
 
     # Decide split ordering
     print('Task order:', task_names)
@@ -151,8 +171,13 @@ def run(args):
                 print('validation split name:', val_name)
                 val_data = val_dataset_splits[val_name] if not args.eval_on_train_set else train_dataset_splits[val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-                acc_table[val_name][train_name] = agent.validation(val_loader, val_id=val_name)
+                va = agent.validation(val_loader, val_id=val_name)
+                acc_table[val_name][train_name] = va
                 agent.validation_with_move_weights(val_loader, val_id=val_name)
+                wc = agent.validation_worst_case(val_loader, val_id=val_name)
+                if args.wandb_logger:
+                    wandb.log({f"worst case val acc task{j + 1}": wc, f"val acc task{j + 1}": va})
+
 
             # agent.tb.close()
             torch.save(agent.model.state_dict(), f'checkpoints/interval-task_{agent.current_task}.pt')
@@ -227,6 +252,10 @@ def get_args(argv):
     parser.add_argument('--gradient_clipping', dest='gradient_clipping', default=0)
     parser.add_argument('--eps_mode', type=str, default='sum', help="Epsilon limit on: [sum | product]")
     parser.add_argument('--clipping', dest='clipping', default=False, action='store_true')
+    parser.add_argument('--wandb_logger', dest='wandb_logger', default=False, action='store_true')
+    parser.add_argument('--clip_interval', dest='clip_interval', default=False, action='store_true')
+    parser.add_argument('--exp_tag', type=str, default='')
+    parser.add_argument('--norm', type=str, dest='norm', default="2")
     parser.add_argument(
         '--schedule',
         nargs="+",
@@ -303,14 +332,14 @@ if __name__ == '__main__':
                     cls_acc_sum += acc_table[val_name][train_name]
                 avg_acc_history[i] = cls_acc_sum / (i + 1)
                 print('Task', train_name, 'average acc:', avg_acc_history[i])
-                if is_wandb_on:
+                if is_wandb_on or args.wandb_logger:
                     wandb.summary.update({
                         f'avg_accuracy_after_task/{train_name}': avg_acc_history[i]
                     })
 
             # Gather the final avg accuracy
             avg_final_acc[reg_coef][r] = avg_acc_history[-1]
-            if is_wandb_on:
+            if is_wandb_on or args.wandb_logger:
                 wandb.summary.update({
                     f'avg_accuracy_after_task/last': avg_acc_history[-1]
                 })
@@ -321,7 +350,7 @@ if __name__ == '__main__':
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
 
-            if is_wandb_on:
+            if is_wandb_on or args.wandb_logger:
                 wandb.run.finish()
 
     for reg_coef, v in avg_final_acc.items():
