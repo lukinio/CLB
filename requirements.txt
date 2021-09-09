@@ -9,4 +9,4 @@ rich
 tqdm
 typer
 wandb
--e ./pytorch_yard
+pytorch-yard
