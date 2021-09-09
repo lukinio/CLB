@@ -28,6 +28,8 @@ from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
 from intervalnet.models.mlp import MLP, IntervalMLP
 from intervalnet.strategy import IntervalTraining
 
+assert pytorch_yard.__version__ == '0.0.2'  # type: ignore
+
 
 class Experiment(pytorch_yard.Experiment):
 
