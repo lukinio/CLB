@@ -29,7 +29,7 @@ class Settings(pytorch_yard.Settings):
     # General experiment settings
     # ----------------------------------------------------------------------------------------------
     batch_size: int = 128
-    epochs: int = 5
+    epochs: int = 20
     learning_rate: float = 0.01
     momentum: float = 0.9
 

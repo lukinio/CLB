@@ -47,12 +47,12 @@ class IntervalLinear(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         with torch.no_grad():
             self.radius.zero_()
 
-    def forward(self, x: Tensor) -> Tensor:
-        x = x.refine_names('N', 'bounds', 'features')
+    def forward(self, x: Tensor) -> Tensor:  # type: ignore
+        x = x.refine_names('N', 'bounds', 'features')  # type: ignore
         assert (x >= 0.0).all(), 'All input features must be non-negative.'
 
         x_lower, x_middle, x_upper = x.unbind('bounds')
@@ -72,14 +72,14 @@ class IntervalLinear(nn.Module):
         w_middle_pos = w_middle.clamp(min=0)  # split only needed for numeric stability with asserts
         w_middle_neg = w_middle.clamp(max=0)  # split only needed for numeric stability with asserts
 
-        lower = (x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()).rename(None)
-        upper = (x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()).rename(None)
-        middle = (x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()).rename(None)
+        lower = (x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()).rename(None)  # type: ignore
+        upper = (x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()).rename(None)  # type: ignore
+        middle = (x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()).rename(None)  # type: ignore
 
-        assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'
-        assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'
+        assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'  # type: ignore
+        assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'  # type: ignore
 
-        return torch.stack([lower, middle, upper], dim=1).refine_names('N', 'bounds', 'features')
+        return torch.stack([lower, middle, upper], dim=1).refine_names('N', 'bounds', 'features')  # type: ignore
 
 
 class IntervalMLP(nn.Module):
@@ -95,14 +95,14 @@ class IntervalMLP(nn.Module):
         self.last = IntervalLinear(self.hidden_dim, self.output_classes)
 
     def forward(self, x: Tensor):  # type: ignore
-        x = x.refine_names('N', 'C', 'H', 'W')  # expected input shape
+        x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape
 
-        x = x.rename(None)  # drop names for unsupported operations
+        x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)
-        x = x.unflatten(1, (1, -1))  # (N, bounds, features)
+        x = x.unflatten(1, (1, -1))  # type: ignore  # (N, bounds, features)
         x = x.tile((1, 3, 1))
 
-        x = x.refine_names('N', 'bounds', 'features')
+        x = x.refine_names('N', 'bounds', 'features')  # type: ignore
 
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))

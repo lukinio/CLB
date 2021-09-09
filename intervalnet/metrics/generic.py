@@ -18,7 +18,7 @@ def get_metric_name(metric: PluginMetric[Any], strategy: BaseStrategy, add_exper
     phase_name, task_label = phase_and_task(strategy)
     stream = stream_type(strategy.experience)  # type: ignore
     base_name = '{}/{}/{}'.format(str(metric), phase_name, stream)
-    experience = strategy.experience.current_experience
+    experience: int = strategy.experience.current_experience  # type: ignore
     if not count_experience_from_zero:
         experience += 1
     exp_name = f'/exp{experience:01}'
@@ -71,7 +71,7 @@ class MetricNamingMixin(GenericPluginMetric[TResult]):
             return [MetricValue(self, metric_name, metric_value, plot_x_position)]  # type: ignore
 
 
-class MetricNamingFromZeroMixin(MetricNamingMixin):
+class MetricNamingFromZeroMixin(MetricNamingMixin[TResult]):
     def _get_metric_name(self, strategy: BaseStrategy, add_experience: bool, add_task: Any):
         return get_metric_name(self, strategy, add_experience=add_experience,
                                add_task=add_task, count_experience_from_zero=True)

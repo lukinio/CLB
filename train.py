@@ -1,6 +1,7 @@
 import functools
 from typing import Any, Iterable, Optional, Type, cast
 
+import pytorch_yard
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -11,21 +12,21 @@ from avalanche.benchmarks.scenarios.generic_cl_scenario import \
 from avalanche.benchmarks.scenarios.new_classes.nc_scenario import (
     NCExperience, NCScenario)
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
-from avalanche.logging import InteractiveLogger
+from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training import Naive
 from avalanche.training.plugins.evaluation import EvaluationPlugin
+from pytorch_yard import info, info_bold
+from pytorch_yard.avalanche import RichLogger, incremental_domain
 from torch import Tensor
 from torch.optim import SGD
 
-import pytorch_yard
 from intervalnet.cfg import DatasetType, ModelType, Settings
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
-from intervalnet.metrics.interval import RobustAccuracy, radius_diagnostics
+from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
+                                          radius_diagnostics)
 from intervalnet.models.mlp import MLP, IntervalMLP
 from intervalnet.strategy import IntervalTraining
-from pytorch_yard import info, info_bold
-from pytorch_yard.avalanche import RichLogger, incremental_domain
 
 
 class Experiment(pytorch_yard.Experiment):
@@ -103,7 +104,7 @@ class Experiment(pytorch_yard.Experiment):
         print(self.model)
 
         # Evaluation plugin
-        metrics = [
+        metrics: list[PluginMetric[Any]] = [
             TotalLoss(),
             TrainAccuracy(),
             EvalAccuracy(),
@@ -112,6 +113,7 @@ class Experiment(pytorch_yard.Experiment):
         if self.cfg.model == ModelType.IntervalMLP:
             metrics.append(RobustAccuracy())
             metrics += radius_diagnostics(self.model)
+            metrics += interval_losses()
 
         eval_plugin = EvaluationPlugin(
             *metrics,
