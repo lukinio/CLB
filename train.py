@@ -15,6 +15,7 @@ from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training import Naive
 from avalanche.training.plugins.evaluation import EvaluationPlugin
+from numpy import isin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from torch import Tensor
@@ -28,7 +29,7 @@ from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
 from intervalnet.models.mlp import MLP, IntervalMLP
 from intervalnet.strategy import IntervalTraining
 
-assert pytorch_yard.__version__ == '0.0.2'  # type: ignore
+assert pytorch_yard.__version__ == '0.0.3'  # type: ignore
 
 
 class Experiment(pytorch_yard.Experiment):
@@ -84,27 +85,37 @@ class Experiment(pytorch_yard.Experiment):
         # ------------------------------------------------------------------------------------------
         assert self.cfg.model in ModelType
         if self.cfg.model == ModelType.MLP:
-            model_ = MLP
+            self.model = MLP(
+                input_size=28 * 28 * 1,
+                hidden_dim=400,
+                output_classes=self.n_output_classes,
+            )
+            optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 Naive,
                 criterion=nn.CrossEntropyLoss(),
             )
         else:
             assert self.cfg.model == ModelType.IntervalMLP
-            model_ = IntervalMLP
-            strategy_ = IntervalTraining
+            self.model = IntervalMLP(
+                input_size=28 * 28 * 1,
+                hidden_dim=400,
+                output_classes=self.n_output_classes,
+            )
+            optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
+            strategy_ = functools.partial(
+                IntervalTraining,
+                vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
+                robust_loss_threshold=self.cfg.robust_loss_threshold,
+                radius_multiplier=self.cfg.radius_multiplier,
+            )
+
+        print(self.model)
+        print(optimizer)
 
         # ------------------------------------------------------------------------------------------
         # Setup
         # ------------------------------------------------------------------------------------------
-        # Model
-        self.model = model_(
-            input_size=28 * 28 * 1,
-            hidden_dim=400,
-            output_classes=self.n_output_classes,
-        )
-        print(self.model)
-
         # Evaluation plugin
         metrics: list[PluginMetric[Any]] = [
             TotalLoss(),
@@ -113,6 +124,7 @@ class Experiment(pytorch_yard.Experiment):
         ]
 
         if self.cfg.model == ModelType.IntervalMLP:
+            assert isinstance(self.model, IntervalMLP)
             metrics.append(RobustAccuracy())
             metrics += radius_diagnostics(self.model)
             metrics += interval_losses()
@@ -132,7 +144,7 @@ class Experiment(pytorch_yard.Experiment):
         # Strategy
         strategy = strategy_(
             model=self.model,
-            optimizer=SGD(self.model.parameters(), lr=self.cfg.learning_rate),
+            optimizer=optimizer,
             train_mb_size=self.cfg.batch_size,
             train_epochs=self.cfg.epochs,
             eval_mb_size=self.cfg.batch_size,

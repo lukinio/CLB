@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Optional
 
 import pytorch_yard
 
@@ -28,8 +29,10 @@ class Settings(pytorch_yard.Settings):
     # ----------------------------------------------------------------------------------------------
     # General experiment settings
     # ----------------------------------------------------------------------------------------------
+    seed: int = 1234
+
     batch_size: int = 128
-    epochs: int = 20
+    epochs: int = 5
     learning_rate: float = 0.01
     momentum: float = 0.9
 
@@ -48,3 +51,10 @@ class Settings(pytorch_yard.Settings):
     # Model settings
     # ----------------------------------------------------------------------------------------------
     model: ModelType = ModelType.MLP
+
+    # ----------------------------------------------------------------------------------------------
+    # IntervalNet settings
+    # ----------------------------------------------------------------------------------------------
+    vanilla_loss_threshold: Optional[float] = None
+    robust_loss_threshold: Optional[float] = None
+    radius_multiplier: Optional[float] = None

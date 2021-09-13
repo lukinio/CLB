@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -43,13 +44,23 @@ class IntervalLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(torch.empty((out_features, in_features)))
-        self.radius = Parameter(torch.empty((out_features, in_features)))
+        self._radius = Parameter(torch.empty((out_features, in_features)))
+        self.radius_multiplier: Optional[Tensor] = None
+
         self.reset_parameters()
+
+    def radius_transform(self, params: Tensor):
+        assert self.radius_multiplier is not None
+        return (params.abs() * self.radius_multiplier).clamp(max=1)
+
+    @property
+    def radius(self) -> Tensor:
+        return self.radius_transform(self._radius)
 
     def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         with torch.no_grad():
-            self.radius.zero_()
+            self._radius.zero_()
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
@@ -58,8 +69,6 @@ class IntervalLinear(nn.Module):
         x_lower, x_middle, x_upper = x.unbind('bounds')
         assert (x_lower <= x_middle).all(), 'Lower bound must be less than or equal to middle bound.'
         assert (x_middle <= x_upper).all(), 'Middle bound must be less than or equal to upper bound.'
-
-        assert (self.radius >= 0).all(), 'All radii must be non-negative.'
 
         w_middle = self.weight
         w_lower = self.weight - self.radius
@@ -94,7 +103,12 @@ class IntervalMLP(nn.Module):
         self.fc2 = IntervalLinear(self.hidden_dim, self.hidden_dim)
         self.last = IntervalLinear(self.hidden_dim, self.output_classes)
 
-    def forward(self, x: Tensor):  # type: ignore
+    def set_radius_multiplier(self, multiplier: Tensor):
+        self.fc1.radius_multiplier = multiplier
+        self.fc2.radius_multiplier = multiplier
+        self.last.radius_multiplier = multiplier
+
+    def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape
 
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
@@ -104,11 +118,18 @@ class IntervalMLP(nn.Module):
 
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
 
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.last(x)
+        fc1 = F.relu(self.fc1(x))
+        fc2 = F.relu(self.fc2(fc1))
+        last = self.last(fc2)
 
-        return x
+        return {
+            'fc1': fc1,
+            'fc2': fc2,
+            'last': last,
+        }
+
+    def radius_transform(self, params: Tensor):
+        return self.fc1.radius_transform(params)
 
     @property
     def device(self):
