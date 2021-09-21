@@ -24,7 +24,8 @@ from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
                                           radius_diagnostics)
-from intervalnet.models.mlp import MLP, IntervalMLP
+from intervalnet.models.interval import IntervalMLP
+from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
 
 assert pytorch_yard.__version__ == '0.0.5', 'Code not tested with different pytorch-yard versions.'  # type: ignore
@@ -101,7 +102,7 @@ class Experiment(AvalancheExperiment):
             assert isinstance(self.model, IntervalMLP)
             metrics.append(RobustAccuracy())
             metrics += radius_diagnostics(self.model)
-            metrics += interval_losses()
+            metrics += interval_losses(self.model)
 
         eval_plugin = EvaluationPlugin(
             *metrics,
@@ -144,8 +145,7 @@ class Experiment(AvalancheExperiment):
                 [], [], other_streams_datasets={'seen_test': [seen_test]}
             ).seen_test_stream  # type: ignore
 
-            # strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
-            strategy.train(experience, [])  # type: ignore
+            strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
             info('Training completed')
             break
 

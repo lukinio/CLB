@@ -2,7 +2,7 @@ import os
 import warnings
 
 import torchvision.transforms as transforms
-from torchvision.datasets import MNIST
+from torchvision.datasets.mnist import MNIST
 
 
 def mnist():

@@ -8,7 +8,7 @@ from avalanche.evaluation.metric_definitions import GenericPluginMetric
 from avalanche.evaluation.metrics.accuracy import AccuracyPluginMetric
 from avalanche.evaluation.metrics.loss import LossPluginMetric
 from avalanche.training.strategies.base_strategy import BaseStrategy
-from intervalnet.models.mlp import IntervalMLP
+from intervalnet.models.interval import IntervalModel
 from intervalnet.strategy import IntervalTraining
 from torch import Tensor
 
@@ -116,7 +116,7 @@ class LayerDiagnosticsHist(LayerDiagnostics):
         return wandb.plot.bar(table, 'bin', 'count', title=title)  # type: ignore
 
 
-def radius_diagnostics(model: IntervalMLP):
+def radius_diagnostics(model: IntervalModel):
     return [
         LayerDiagnostics(layer, transform=model.radius_transform) for layer in model.state_dict().keys() if 'radius' in layer
     ] + [
@@ -126,11 +126,12 @@ def radius_diagnostics(model: IntervalMLP):
     ]
 
 
-class LossReporter(MetricNamingMixin[Tensor], LossPluginMetric):
-    def __init__(self, metric_name: str, strategy_attribute: str, reset_at: str = 'epoch',
-                 emit_at: str = 'epoch', mode: str = 'train'):
+class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
+    def __init__(self, metric_name: str, strategy_attribute: str, strategy_attribute_key: Optional[str] = None,
+                 reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train'):
         self.metric_name = metric_name
         self.strategy_attribute = strategy_attribute
+        self.strategy_attribute_key = strategy_attribute_key
 
         super().__init__(reset_at=reset_at, emit_at=emit_at, mode=mode)  # type: ignore
 
@@ -140,29 +141,26 @@ class LossReporter(MetricNamingMixin[Tensor], LossPluginMetric):
             task_label = 0
         else:
             task_label = task_labels[0]
-        loss = getattr(strategy, self.strategy_attribute)
+        attr = getattr(strategy, self.strategy_attribute)
+        loss = attr if self.strategy_attribute_key is None else attr[self.strategy_attribute_key]
         self._loss.update(loss, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
 
     def __str__(self):
         return f'{self.metric_name}'
 
 
-def interval_losses():
+def interval_losses(model: IntervalModel):
     return [
-        LossReporter('Loss/vanilla', 'vanilla_loss'),
-        LossReporter('Loss/robust', 'robust_loss'),
-        LossReporter('Loss/robust_penalty', 'robust_penalty'),
-        LossReporter('Loss/bounds_penalty', 'bounds_penalty'),
-        LossReporter('Loss/radius_penalty', 'radius_penalty'),
-        LossReporter('Status/radius_mean', 'radius_mean'),
-        LossReporter('Status/radius_mean_fc1', 'radius_mean_fc1'),
-        LossReporter('Status/radius_mean_fc2', 'radius_mean_fc2'),
-        LossReporter('Status/radius_mean_last', 'radius_mean_last'),
-
-        LossReporter('Status/bounds_width_fc1', 'bounds_width_fc1'),
-        LossReporter('Status/bounds_width_fc2', 'bounds_width_fc2'),
-        LossReporter('Status/bounds_width_last', 'bounds_width_last'),
-
-        LossReporter('Status/mode', 'mode_num'),
-        LossReporter('Status/radius_multiplier', 'radius_multiplier')
+        Reporter('Loss/vanilla', 'vanilla_loss'),
+        Reporter('Loss/robust', 'robust_loss'),
+        Reporter('Loss/robust_penalty', 'robust_penalty'),
+        Reporter('Loss/bounds_penalty', 'bounds_penalty'),
+        Reporter('Loss/radius_penalty', 'radius_penalty'),
+        Reporter('Status/radius_mean', 'radius_mean'),
+        Reporter('Status/mode', 'mode_numeric'),
+        Reporter('Status/radius_multiplier', 'radius_multiplier'),
+    ] + [
+        Reporter(f'Status/radius_mean_{layer}', 'radius_mean_per_layer', layer) for layer, _ in model.named_interval_children()
+    ] + [
+        Reporter(f'Status/bounds_width_{layer}', 'bounds_width_per_layer', layer) for layer, _ in model.named_interval_children()
     ]

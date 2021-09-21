@@ -13,7 +13,7 @@
             "justMyCode": false,
             "args": [
                 "cfg=interval",
-                "cfg.radius_multiplier=5"
+                "cfg.radius_multiplier=1"
             ],
             "env": {
                 // "WANDB_MODE": "disabled",
