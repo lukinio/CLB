@@ -80,6 +80,7 @@ class Experiment(AvalancheExperiment):
             optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 IntervalTraining,
+                enable_visdom=self.cfg.enable_visdom,
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
                 robust_loss_threshold=self.cfg.robust_loss_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,

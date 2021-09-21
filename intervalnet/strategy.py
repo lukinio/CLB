@@ -3,6 +3,7 @@ from typing import Any, Optional, Sequence, cast
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import visdom
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
@@ -25,6 +26,7 @@ class IntervalTraining(BaseStrategy):
         plugins: Optional[Sequence[StrategyPlugin]] = None,
         evaluator: Optional[EvaluationPlugin] = None,
         eval_every: int = -1,
+        enable_visdom: bool = False,
         *,
         vanilla_loss_threshold: float,
         robust_loss_threshold: float,
@@ -33,6 +35,8 @@ class IntervalTraining(BaseStrategy):
 
         self.mb_output_all: dict[str, Tensor]
         """ All model's outputs computed on the current mini-batch (lower, middle, upper bounds) per layer. """
+
+        self.mb_it: int
 
         self.device: torch.device
         self.model: IntervalMLP
@@ -63,6 +67,9 @@ class IntervalTraining(BaseStrategy):
 
         self.model.set_radius_multiplier(self.radius_multiplier)
 
+        self.viz = visdom.Visdom() if enable_visdom else None
+        self.windows: dict[str, str] = {}
+
     @property
     def mode(self):
         return self.model.mode
@@ -83,8 +90,8 @@ class IntervalTraining(BaseStrategy):
 
         super().after_eval_forward(**kwargs)  # type: ignore
 
-    def bounds_width(self, layer: str):
-        bounds: Tensor = self.mb_output_all[layer].rename(None)  # type: ignore
+    def bounds_width(self, layer_name: str):
+        bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
         return bounds[:, 2, :] - bounds[:, 0, :]
 
     def before_backward(self, **kwargs: Any):
@@ -116,9 +123,8 @@ class IntervalTraining(BaseStrategy):
             # ---------------------------------------------------------------------------------------------------------
             # Maximize interval size up to radii of 1
             radii: list[Tensor] = []
-            for name, param in self.model.named_parameters():
-                if 'radius' in name:
-                    radii.append(self.model.radius_transform(param.flatten()))
+            for name, module in self.model.named_interval_children():
+                radii.append(module.radius.flatten())
 
             # sqrt -> more sparse, push to saturate
             # pow(2) -> more regular, push to smooth distribution
@@ -130,7 +136,7 @@ class IntervalTraining(BaseStrategy):
             # Bounds penalty
             # ---------------------------------------------------------------------------------------------------------
             bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
-            # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
+            self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
 
         # ---------------------------------------------------------------------------------------------------------
         # Contraction phase
@@ -145,21 +151,19 @@ class IntervalTraining(BaseStrategy):
         # ---------------------------------------------------------------------------------------------------------
         # Diagnostics
         # ---------------------------------------------------------------------------------------------------------
-        self.radius_mean = torch.cat([
-            self.model.radius_transform(param.flatten())
-            for name, param in self.model.named_parameters() if 'radius' in name
-        ]).mean()
-        for name in self.model.state_dict():
-            if '._radius' in name:
-                layer = name.removesuffix('._radius')
-                self.radius_mean_per_layer[layer] = self.model.radius_transform(self.model.state_dict()[name]).mean()
+        radii = []
 
-        for name, _ in self.model.named_children():
+        for name, module in self.model.named_interval_children():
+            radii.append(module.radius.detach().cpu().flatten())
+            self.radius_mean_per_layer[name] = radii[-1].mean()
             self.bounds_width_per_layer[name] = self.bounds_width(name).mean()
 
-            if '._radius' in self.model.state_dict():
-                r = self.model.state_dict()[f'{name}._radius']
-                self.radius_mean_per_layer[name] = self.model.radius_transform(r).mean()
+            if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
+                win = self.windows.get(name)
+                title = f'{name}.radius --> epoch {(self.epoch or 0) + 1}'
+                self.windows[name] = self.viz.heatmap(module.radius, win=win, opts={'title': title})
+
+        self.radius_mean = torch.cat(radii).mean()
 
     def after_update(self, **kwargs: Any):
         super().after_update(**kwargs)  # type: ignore
@@ -168,6 +172,7 @@ class IntervalTraining(BaseStrategy):
 
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
+
         self.model.switch_mode(Mode.VANILLA)
 
     def before_training_epoch(self, **kwargs: Any):
