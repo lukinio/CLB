@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional, Sequence, cast
+from typing import Any, Iterator, Optional, Sequence, cast
 
 import torch
 import torch.nn as nn
@@ -52,6 +52,13 @@ class IntervalTraining(BaseStrategy):
         self.radius_penalty: Optional[Tensor] = None
         self.radius_mean: Optional[Tensor] = None
 
+        self.radius_mean_fc1: Optional[Tensor] = None
+        self.radius_mean_fc2: Optional[Tensor] = None
+        self.radius_mean_last: Optional[Tensor] = None
+        self.bounds_width_fc1: Optional[Tensor] = None
+        self.bounds_width_fc2: Optional[Tensor] = None
+        self.bounds_width_last: Optional[Tensor] = None
+
         assert vanilla_loss_threshold is not None
         assert robust_loss_threshold is not None
         assert radius_multiplier is not None
@@ -93,36 +100,65 @@ class IntervalTraining(BaseStrategy):
         self.vanilla_loss = self.loss.clone().detach()  # type: ignore
         self.robust_loss = cast(Tensor, self._criterion(self.robust_output(), self.mb_y))  # type: ignore
 
+        # Additional penalties
         self.robust_penalty = torch.tensor(0.0, device=self.device)
-        self.bounds_penalty = torch.tensor(0.0, device=self.device)
         self.radius_penalty = torch.tensor(0.0, device=self.device)
+        self.bounds_penalty = torch.tensor(0.0, device=self.device)
+
+        # Reporting values
         self.radius_mean = torch.cat([
             self.model.radius_transform(param.flatten())
             for name, param in self.model.named_parameters() if 'radius' in name
         ]).mean()
+        self.radius_mean_fc1 = self.model.radius_transform(self.model.state_dict()['fc1._radius']).mean()
+        self.radius_mean_fc2 = self.model.radius_transform(self.model.state_dict()['fc2._radius']).mean()
+        self.radius_mean_last = self.model.radius_transform(self.model.state_dict()['last._radius']).mean()
 
+        def bounds_width(layer: str):
+            bounds: Tensor = self.mb_output_all[layer].rename(None)  # type: ignore
+            return bounds[:, 2, :] - bounds[:, 0, :]
+
+        self.bounds_width_fc1 = bounds_width('fc1').mean()
+        self.bounds_width_fc2 = bounds_width('fc2').mean()
+        self.bounds_width_last = bounds_width('last').mean()
+
+        # Interval training
         if self.mode == Mode.INTERVALS:
+            # Robust loss
+            # --------------------------------------------------------------------------------------------------------------
             # Maintain an acceptable increase in worst-case loss
-            self.robust_penalty = F.relu(self.robust_loss - self.robust_loss_threshold) / self.robust_loss_threshold
+            robust_overflow = F.relu(self.robust_loss - self.robust_loss_threshold) / self.robust_loss_threshold
             # Force quasi-hard constraint
-            self.robust_penalty = (self.robust_penalty + 1).pow(2) - 1
+            self.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
 
-            # Control activation bounds in hidden layers
-            bounds = torch.cat([params for name, params in self.mb_output_all.items() if name != 'last'])
-            bounds_width = bounds[:, 2, :] - bounds[:, 0, :]
-            self.bounds_penalty = bounds_width.pow(2).mean() * 100.0
-
+            # Radius penalty
+            # --------------
             # Maximize interval size up to radii of 1
             radii: list[Tensor] = []
             for name, param in self.model.named_parameters():
                 if 'radius' in name:
                     radii.append(self.model.radius_transform(param.flatten()))
 
-            self.radius_penalty = F.relu(torch.tensor(1.0) - torch.cat(radii)).sqrt().mean()
+            # sqrt -> more sparse, push to saturate
+            # pow(2) -> more regular, push to smooth distribution
+            # Flat version:
+            # self.radius_penalty = F.relu(torch.tensor(1.0) - torch.cat(radii)).pow(2).mean()
+            # Per layer version:
+            self.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]).mean()
+
+            # Bounds penalty
+            # --------------
+            bounds = [bounds_width(name).flatten() for name, _ in self.model.named_children()]
+            self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
 
         self.loss += self.robust_penalty
-        self.loss += self.bounds_penalty
         self.loss += self.radius_penalty
+        # self.loss += self.bounds_penalty
+
+    def after_update(self, **kwargs: Any):
+        super().after_update(**kwargs)  # type: ignore
+
+        self.model.clamp_radii()
 
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
@@ -131,20 +167,9 @@ class IntervalTraining(BaseStrategy):
     def before_training_epoch(self, **kwargs: Any):
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        torch.autograd.set_detect_anomaly(True)
-
         if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
                 and self.vanilla_loss < self.vanilla_loss_threshold:
             self.switch_mode(Mode.INTERVALS)
-
-        # if self.mode == Mode.INTERVALS:
-        #     for name, param in self.model.named_parameters():
-        #         if 'radius' in name:
-        #             with torch.no_grad():
-        #                 param += 0.25 / self.radius_multiplier
-
-    def after_training_epoch(self, **kwargs: Any):
-        super().after_training_epoch(**kwargs)  # type: ignore
 
     def robust_output(self):
         output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')

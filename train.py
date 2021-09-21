@@ -2,24 +2,22 @@ import functools
 from typing import Any, Iterable, Optional, Type, cast
 
 import pytorch_yard
-import torch
 import torch.nn as nn
-import torch.utils.data
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import \
     create_multi_dataset_generic_benchmark
 from avalanche.benchmarks.scenarios.generic_cl_scenario import \
     GenericScenarioStream
-from avalanche.benchmarks.scenarios.new_classes.nc_scenario import (
-    NCExperience, NCScenario)
+from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training import Naive
 from avalanche.training.plugins.evaluation import EvaluationPlugin
-from numpy import isin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
+from pytorch_yard.experiments.avalanche import AvalancheExperiment
+from rich import print
 from torch import Tensor
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 
 from intervalnet.cfg import DatasetType, ModelType, Settings
 from intervalnet.datasets import mnist
@@ -29,28 +27,16 @@ from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
 from intervalnet.models.mlp import MLP, IntervalMLP
 from intervalnet.strategy import IntervalTraining
 
-assert pytorch_yard.__version__ == '0.0.3'  # type: ignore
+assert pytorch_yard.__version__ == '0.0.5', 'Code not tested with different pytorch-yard versions.'  # type: ignore
 
 
-class Experiment(pytorch_yard.Experiment):
+class Experiment(AvalancheExperiment):
 
     def __init__(self, config_path: str, settings_cls: Type[Settings], settings_group: Optional[str] = None) -> None:
-        super().__init__(config_path, settings_cls, settings_group=settings_group, experiment_variant='avalanche')
+        super().__init__(config_path, settings_cls, settings_group=settings_group)
 
         self.cfg: Settings
         """ Experiment config. """
-
-        self.train: torch.utils.data.Dataset[torch.Tensor]
-        """ Train dataset. """
-
-        self.test: torch.utils.data.Dataset[torch.Tensor]
-        """ Test dataset. """
-
-        self.transforms: Any
-        """ Transforms applied to train and test data. """
-
-        self.n_classes: int
-        """ Number of classes in the dataset. """
 
         self.input_size: int
         """ Model input size. """
@@ -58,24 +44,11 @@ class Experiment(pytorch_yard.Experiment):
         self.n_output_classes: int
         """ Number of distinct classes for evaluation purposes. """
 
-        self.scenario: NCScenario
-        """ Main scenario object. """
+    def entry(self, root_cfg: pytorch_yard.RootConfig) -> None:
+        super().entry(root_cfg)
 
-        self.model: nn.Module
-        """ Main PyTorch model. """
-
-    def main(self, root_cfg: pytorch_yard.RootConfig):
-        super().main(root_cfg)
-
-        # ------------------------------------------------------------------------------------------
-        # Init
-        # ------------------------------------------------------------------------------------------
-        self.cfg = cast(Settings, root_cfg.cfg)
-
-        if torch.cuda.is_available():
-            self.device = torch.device("cuda")
-        else:
-            self.device = torch.device("cpu")
+    def main(self):
+        super().main()
 
         self.setup_dataset()
         self.setup_scenario()
@@ -102,7 +75,8 @@ class Experiment(pytorch_yard.Experiment):
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
-            optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
+            # optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
+            optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 IntervalTraining,
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
@@ -170,8 +144,10 @@ class Experiment(pytorch_yard.Experiment):
                 [], [], other_streams_datasets={'seen_test': [seen_test]}
             ).seen_test_stream  # type: ignore
 
-            strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+            # strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+            strategy.train(experience, [])  # type: ignore
             info('Training completed')
+            break
 
     def setup_dataset(self):
         assert self.cfg.dataset in DatasetType

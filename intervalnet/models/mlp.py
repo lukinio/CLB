@@ -51,11 +51,17 @@ class IntervalLinear(nn.Module):
 
     def radius_transform(self, params: Tensor):
         assert self.radius_multiplier is not None
-        return (params.abs() * self.radius_multiplier).clamp(max=1)
+        return (params * self.radius_multiplier).clamp(min=0, max=1)
 
     @property
     def radius(self) -> Tensor:
         return self.radius_transform(self._radius)
+
+    def clamp_radii(self):
+        with torch.no_grad():
+            assert self.radius_multiplier is not None
+            max = 1 / float(self.radius_multiplier)
+            self._radius.clamp_(min=0, max=max)
 
     def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
@@ -107,6 +113,11 @@ class IntervalMLP(nn.Module):
         self.fc1.radius_multiplier = multiplier
         self.fc2.radius_multiplier = multiplier
         self.last.radius_multiplier = multiplier
+
+    def clamp_radii(self):
+        self.fc1.clamp_radii()
+        self.fc2.clamp_radii()
+        self.last.clamp_radii()
 
     def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape

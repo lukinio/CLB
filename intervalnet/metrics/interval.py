@@ -155,6 +155,14 @@ def interval_losses():
         LossReporter('Loss/bounds_penalty', 'bounds_penalty'),
         LossReporter('Loss/radius_penalty', 'radius_penalty'),
         LossReporter('Status/radius_mean', 'radius_mean'),
+        LossReporter('Status/radius_mean_fc1', 'radius_mean_fc1'),
+        LossReporter('Status/radius_mean_fc2', 'radius_mean_fc2'),
+        LossReporter('Status/radius_mean_last', 'radius_mean_last'),
+
+        LossReporter('Status/bounds_width_fc1', 'bounds_width_fc1'),
+        LossReporter('Status/bounds_width_fc2', 'bounds_width_fc2'),
+        LossReporter('Status/bounds_width_last', 'bounds_width_last'),
+
         LossReporter('Status/mode', 'mode_num'),
         LossReporter('Status/radius_multiplier', 'radius_multiplier')
     ]

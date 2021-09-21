@@ -5,6 +5,6 @@ defaults:
 epochs: 30
 
 model: IntervalMLP
-vanilla_loss_threshold: 0.02
+vanilla_loss_threshold: 0.03
 robust_loss_threshold: 0.5
-radius_multiplier: 100.0
+radius_multiplier: 1.0
