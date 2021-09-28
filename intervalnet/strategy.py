@@ -37,6 +37,7 @@ class IntervalTraining(BaseStrategy):
         """ All model's outputs computed on the current mini-batch (lower, middle, upper bounds) per layer. """
 
         self.mb_it: int
+        self.training_exp_counter: int
 
         self.device: torch.device
         self.model: IntervalMLP
@@ -108,40 +109,42 @@ class IntervalTraining(BaseStrategy):
         self.radius_penalty = torch.tensor(0.0, device=self.device)
         self.bounds_penalty = torch.tensor(0.0, device=self.device)
 
-        # ---------------------------------------------------------------------------------------------------------
-        # Expansion phase
-        # ---------------------------------------------------------------------------------------------------------
         if self.mode == Mode.EXPANSION:
-            # Robust loss
             # ---------------------------------------------------------------------------------------------------------
+            # Expansion phase
+            # ---------------------------------------------------------------------------------------------------------
+            # === Robust loss ===
             # Maintain an acceptable increase in worst-case loss
             robust_overflow = F.relu(self.robust_loss - self.robust_loss_threshold) / self.robust_loss_threshold
             # Force quasi-hard constraint
             self.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
 
-            # Radius penalty
-            # ---------------------------------------------------------------------------------------------------------
+            # === Radius penalty ===
             # Maximize interval size up to radii of 1
             radii: list[Tensor] = []
             for name, module in self.model.named_interval_children():
                 radii.append(module.radius.flatten())
 
-            # sqrt -> more sparse, push to saturate
-            # pow(2) -> more regular, push to smooth distribution
-            # Flat version:
+            # INFO: sqrt -> more sparse, push to saturate
+            # INFO: pow(2) -> more regular, push to smooth distribution
+            # :: Flat version:
             # self.radius_penalty = F.relu(torch.tensor(1.0) - torch.cat(radii)).pow(2).mean()
-            # Per layer version:
+            # :: Per layer version:
             self.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]).mean()
 
-            # Bounds penalty
-            # ---------------------------------------------------------------------------------------------------------
+            # === Bounds penalty ===
             bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
 
-        # ---------------------------------------------------------------------------------------------------------
-        # Contraction phase
-        # ---------------------------------------------------------------------------------------------------------
         elif self.mode == Mode.CONTRACTION:
+            # ---------------------------------------------------------------------------------------------------------
+            # Contraction phase
+            # ---------------------------------------------------------------------------------------------------------
+            # === Robust loss ===
+            #
+            pass
+
+            # === Radius (contraction) penalty ===
             pass
 
         self.loss += self.robust_penalty
@@ -173,7 +176,8 @@ class IntervalTraining(BaseStrategy):
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
 
-        self.model.switch_mode(Mode.VANILLA)
+        if self.training_exp_counter == 1:
+            self.model.switch_mode(Mode.CONTRACTION)
 
     def before_training_epoch(self, **kwargs: Any):
         super().before_training_epoch(**kwargs)  # type: ignore

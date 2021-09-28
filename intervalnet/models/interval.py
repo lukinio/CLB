@@ -23,8 +23,13 @@ class IntervalLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(torch.empty((out_features, in_features)))
-        self._radius = Parameter(torch.empty((out_features, in_features)))
+        self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self.radius_multiplier: Optional[Tensor] = None
+
+        self._shift = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
+        self._scale = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
+
+        self.mode: Mode = Mode.VANILLA
 
         self.reset_parameters()
 
@@ -36,6 +41,16 @@ class IntervalLinear(nn.Module):
     def radius(self) -> Tensor:
         return self.radius_transform(self._radius)
 
+    @property
+    def shift(self) -> Tensor:
+        """ Contracted interval middle shift (-1, 1). """
+        return self._shift.tanh()
+
+    @property
+    def scale(self) -> Tensor:
+        """ Contracted interval scale (0, 1). """
+        return self._scale.sigmoid()
+
     def clamp_radii(self):
         with torch.no_grad():
             assert self.radius_multiplier is not None
@@ -46,6 +61,27 @@ class IntervalLinear(nn.Module):
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         with torch.no_grad():
             self._radius.zero_()
+            self._shift.zero_()
+            self._scale.fill_(5)
+
+    def switch_mode(self, mode: Mode) -> None:
+        self.mode = mode
+
+        if mode == Mode.VANILLA:
+            self.weight.requires_grad = True
+            self._radius.requires_grad = False
+            self._shift.requires_grad = False
+            self._scale.requires_grad = False
+        elif mode == Mode.EXPANSION:
+            self.weight.requires_grad = False
+            self._radius.requires_grad = True
+            self._shift.requires_grad = False
+            self._scale.requires_grad = False
+        elif mode == Mode.CONTRACTION:
+            self.weight.requires_grad = False
+            self._radius.requires_grad = False
+            self._shift.requires_grad = True
+            self._scale.requires_grad = True
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
@@ -55,9 +91,18 @@ class IntervalLinear(nn.Module):
         assert (x_lower <= x_middle).all(), 'Lower bound must be less than or equal to middle bound.'
         assert (x_middle <= x_upper).all(), 'Middle bound must be less than or equal to upper bound.'
 
-        w_middle = self.weight
-        w_lower = self.weight - self.radius
-        w_upper = self.weight + self.radius
+        if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
+            w_middle = self.weight
+            w_lower = self.weight - self.radius
+            w_upper = self.weight + self.radius
+        else:
+            assert self.mode == Mode.CONTRACTION
+            assert all(0.0 <= self.scale <= 1.0), 'Scale must be in [0, 1] range.'
+            assert all(-1.0 <= self.shift <= 1.0), 'Shift must be in [-1, 1] range.'
+
+            w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
+            w_lower = w_middle - self.scale * self.radius
+            w_upper = w_middle + self.scale * self.radius
 
         w_lower_pos = w_lower.clamp(min=0)
         w_lower_neg = w_lower.clamp(max=0)
@@ -82,28 +127,23 @@ class IntervalModel(nn.Module):
 
         self.mode: Mode = Mode.VANILLA
 
-    def switch_mode(self, mode: Mode) -> None:
-        if mode == Mode.VANILLA:
-            self.mode = Mode.VANILLA
-            print(f'\n[bold cyan]» :green_circle: Switching to vanilla training phase...')
-
-            for name, param in self.named_parameters():
-                if 'weight' in name:
-                    param.requires_grad = True
-
-        elif mode == Mode.EXPANSION:
-            self.mode = Mode.EXPANSION
-            print(f'\n[bold cyan]» :heavy_large_circle: Switching to interval expansion phase...')
-
-            for name, param in self.named_parameters():
-                if 'weight' in name:
-                    param.requires_grad = False
-
     def interval_children(self) -> list[IntervalLinear]:
         return [m for m in self.children() if isinstance(m, IntervalLinear)]
 
     def named_interval_children(self) -> list[tuple[str, IntervalLinear]]:
         return [(n, m) for n, m in self.named_children() if isinstance(m, IntervalLinear)]
+
+    def switch_mode(self, mode: Mode) -> None:
+        if mode == Mode.VANILLA:
+            print(f'\n[bold cyan]» :green_circle: Switching to vanilla training phase...')
+        elif mode == Mode.EXPANSION:
+            print(f'\n[bold cyan]» :yellow circle: Switching to interval expansion phase...')
+        elif mode == Mode.CONTRACTION:
+            print(f'\n[bold cyan]» :heavy_large_circle: Switching to interval contraction phase...')
+
+        self.mode = mode
+        for m in self.interval_children():
+            m.switch_mode(mode)
 
     def set_radius_multiplier(self, multiplier: Tensor) -> None:
         for m in self.interval_children():
