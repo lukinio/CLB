@@ -1,0 +1,12 @@
+Development:
+    ☐ Checkpointing
+    ☐ Radius mean computed on contracted radii
+
+Experiments:
+    ☐ Multiple random seeds
+
+Plasticity:
+    ☐ Robust threshold increase
+    ☐ L1 regularization in experience 1
+    ☐ Bounds penalty
+
