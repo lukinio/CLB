@@ -83,6 +83,13 @@ class IntervalLinear(nn.Module):
             self._shift.requires_grad = True
             self._scale.requires_grad = True
 
+    def freeze_task(self) -> None:
+        with torch.no_grad():
+            self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
+            self._radius.copy_(self.scale * self._radius)
+            self._shift.zero_()
+            self._scale.fill_(5)
+
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
         assert (x >= 0.0).all(), 'All input features must be non-negative.'
@@ -97,8 +104,8 @@ class IntervalLinear(nn.Module):
             w_upper = self.weight + self.radius
         else:
             assert self.mode == Mode.CONTRACTION
-            assert all(0.0 <= self.scale <= 1.0), 'Scale must be in [0, 1] range.'
-            assert all(-1.0 <= self.shift <= 1.0), 'Shift must be in [-1, 1] range.'
+            assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), 'Scale must be in [0, 1] range.'
+            assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), 'Shift must be in [-1, 1] range.'
 
             w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
             w_lower = w_middle - self.scale * self.radius
@@ -144,6 +151,10 @@ class IntervalModel(nn.Module):
         self.mode = mode
         for m in self.interval_children():
             m.switch_mode(mode)
+
+    def freeze_task(self) -> None:
+        for m in self.interval_children():
+            m.freeze_task()
 
     def set_radius_multiplier(self, multiplier: Tensor) -> None:
         for m in self.interval_children():

@@ -67,11 +67,11 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
     def get_histogram(self) -> Optional[tuple[np.ndarray, np.ndarray]]:
         if self.data is None or (self.grad and self.data_grad is None):
             return None
-        assert self.data_grad is not None
 
         bins = np.linspace(self.start, self.stop, num=self.n_bins)  # type: ignore
 
         if self.grad:
+            assert self.data_grad is not None
             data = self.data_grad
         else:
             data = self.data
@@ -82,7 +82,8 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
         return np.histogram(data, bins=bins)
 
     def result(self, strategy: BaseStrategy) -> Optional[wandb.Histogram]:
-        return wandb.Histogram(np_histogram=self.get_histogram())
+        histogram = self.get_histogram()
+        return wandb.Histogram(np_histogram=histogram) if histogram is not None else None
 
     def reset(self, strategy: BaseStrategy) -> None:
         self.data = None

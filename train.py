@@ -148,7 +148,6 @@ class Experiment(AvalancheExperiment):
 
             strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
             info('Training completed')
-            break
 
     def setup_dataset(self):
         assert self.cfg.dataset in DatasetType

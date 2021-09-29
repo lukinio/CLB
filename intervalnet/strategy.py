@@ -133,8 +133,8 @@ class IntervalTraining(BaseStrategy):
             self.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]).mean()
 
             # === Bounds penalty ===
-            bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
-            self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
+            # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
+            # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
 
         elif self.mode == Mode.CONTRACTION:
             # ---------------------------------------------------------------------------------------------------------
@@ -178,6 +178,8 @@ class IntervalTraining(BaseStrategy):
 
         if self.training_exp_counter == 1:
             self.model.switch_mode(Mode.CONTRACTION)
+        elif self.training_exp_counter > 1:
+            self.model.freeze_task()
 
     def before_training_epoch(self, **kwargs: Any):
         super().before_training_epoch(**kwargs)  # type: ignore
