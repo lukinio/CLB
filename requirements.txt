@@ -5,8 +5,8 @@ ipywidgets
 matplotlib
 opencv-python-headless
 python-dotenv
+pytorch-yard==2021.10.11
 rich
 tqdm
 typer
 wandb
-pytorch-yard

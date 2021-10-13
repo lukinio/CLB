@@ -28,7 +28,7 @@ from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
 
-assert pytorch_yard.__version__ == '0.0.5', 'Code not tested with different pytorch-yard versions.'  # type: ignore
+assert pytorch_yard.__version__ == '2021.10.11', 'Code not tested with different pytorch-yard versions.'  # type: ignore
 
 
 class Experiment(AvalancheExperiment):
@@ -84,6 +84,7 @@ class Experiment(AvalancheExperiment):
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
                 robust_loss_threshold=self.cfg.robust_loss_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
+                l1_lambda=self.cfg.l1_lambda,
             )
 
         print(self.model)

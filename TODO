@@ -3,10 +3,10 @@ Development:
     ☐ Radius mean computed on contracted radii
 
 Experiments:
-    ☐ Multiple random seeds
+    ✔ Multiple random seeds @done(21-10-13 11:48)
 
 Plasticity:
-    ☐ Robust threshold increase
-    ☐ L1 regularization in experience 1
+    ✔ Robust threshold increase @done(21-10-13 11:48)
+    ✔ L1 regularization in experience 1 @done(21-10-13 11:48)
     ☐ Bounds penalty
 
