@@ -1,6 +1,7 @@
 from typing import Any, Optional, Sequence, cast
 
 import torch
+import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
@@ -31,6 +32,7 @@ class IntervalTraining(BaseStrategy):
         vanilla_loss_threshold: float,
         robust_loss_threshold: float,
         radius_multiplier: float,
+        l1_lambda: float,
     ):
 
         self.mb_output_all: dict[str, Tensor]
@@ -44,6 +46,7 @@ class IntervalTraining(BaseStrategy):
 
         self.vanilla_loss: Optional[Tensor] = None
         self.robust_loss: Optional[Tensor] = None
+        self.l1_penalty: Optional[Tensor] = None
         self.robust_penalty: Optional[Tensor] = None
         self.bounds_penalty: Optional[Tensor] = None
         self.radius_penalty: Optional[Tensor] = None
@@ -55,10 +58,12 @@ class IntervalTraining(BaseStrategy):
         assert vanilla_loss_threshold is not None
         assert robust_loss_threshold is not None
         assert radius_multiplier is not None
+        assert l1_lambda is not None
 
         self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
         self.robust_loss_threshold = torch.tensor(robust_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
+        self.l1_lambda = torch.tensor(l1_lambda)
 
         criterion = nn.CrossEntropyLoss()
 
@@ -105,6 +110,7 @@ class IntervalTraining(BaseStrategy):
         self.robust_loss = cast(Tensor, self._criterion(self.robust_output(), self.mb_y))  # type: ignore
 
         # Additional penalties
+        self.l1_penalty = torch.tensor(0.0, device=self.device)
         self.robust_penalty = torch.tensor(0.0, device=self.device)
         self.radius_penalty = torch.tensor(0.0, device=self.device)
         self.bounds_penalty = torch.tensor(0.0, device=self.device)
@@ -147,6 +153,11 @@ class IntervalTraining(BaseStrategy):
             # === Radius (contraction) penalty ===
             pass
 
+        weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
+        l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
+        self.l1_penalty += self.l1_lambda * l1
+
+        self.loss += self.l1_penalty
         self.loss += self.robust_penalty
         self.loss += self.radius_penalty
         # self.loss += self.bounds_penalty
@@ -162,9 +173,17 @@ class IntervalTraining(BaseStrategy):
             self.bounds_width_per_layer[name] = self.bounds_width(name).mean()
 
             if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
-                win = self.windows.get(name)
-                title = f'{name}.radius --> epoch {(self.epoch or 0) + 1}'
-                self.windows[name] = self.viz.heatmap(module.radius, win=win, opts={'title': title})
+                self.windows[f'{name}.radius'] = self.viz.heatmap(
+                    module.radius,
+                    win=self.windows.get(f'{name}.radius'),
+                    opts={'title': f'{name}.radius --> epoch {(self.epoch or 0) + 1}'}
+                )
+
+                self.windows[f'{name}.weight'] = self.viz.heatmap(
+                    module.weight.abs().clamp(max=module.weight.abs().quantile(0.99)),
+                    win=self.windows.get(f'{name}.weight'),
+                    opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
+                )
 
         self.radius_mean = torch.cat(radii).mean()
 

@@ -154,6 +154,7 @@ def interval_losses(model: IntervalModel):
     return [
         Reporter('Loss/vanilla', 'vanilla_loss'),
         Reporter('Loss/robust', 'robust_loss'),
+        Reporter('Loss/l1_penalty', 'l1_penalty'),
         Reporter('Loss/robust_penalty', 'robust_penalty'),
         Reporter('Loss/bounds_penalty', 'bounds_penalty'),
         Reporter('Loss/radius_penalty', 'radius_penalty'),

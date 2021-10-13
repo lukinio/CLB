@@ -59,4 +59,6 @@ class Settings(pytorch_yard.Settings):
     robust_loss_threshold: Optional[float] = None
     radius_multiplier: Optional[float] = None
 
+    l1_lambda: Optional[float] = None
+
     enable_visdom: bool = False
