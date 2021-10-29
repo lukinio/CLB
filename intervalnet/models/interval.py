@@ -1,6 +1,6 @@
 import math
 from enum import Enum
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 import torch.nn as nn
@@ -94,10 +94,7 @@ class IntervalLinear(nn.Module):
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
         assert (x.rename(None) >= 0.0).all(), 'All input features must be non-negative.'  # type: ignore
 
-        x_lower, x_middle, x_upper = x.unbind('bounds')
-        x_lower.rename_(None)  # type: ignore
-        x_middle.rename_(None)  # type: ignore
-        x_upper.rename_(None)  # type: ignore
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind('bounds'))  # type: ignore
         assert (x_lower <= x_middle).all(), 'Lower bound must be less than or equal to middle bound.'
         assert (x_middle <= x_upper).all(), 'Middle bound must be less than or equal to upper bound.'
 
