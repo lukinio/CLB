@@ -92,9 +92,12 @@ class IntervalLinear(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
-        assert (x >= 0.0).all(), 'All input features must be non-negative.'
+        assert (x.rename(None) >= 0.0).all(), 'All input features must be non-negative.'  # type: ignore
 
         x_lower, x_middle, x_upper = x.unbind('bounds')
+        x_lower.rename_(None)  # type: ignore
+        x_middle.rename_(None)  # type: ignore
+        x_upper.rename_(None)  # type: ignore
         assert (x_lower <= x_middle).all(), 'Lower bound must be less than or equal to middle bound.'
         assert (x_middle <= x_upper).all(), 'Middle bound must be less than or equal to upper bound.'
 
@@ -118,12 +121,12 @@ class IntervalLinear(nn.Module):
         w_middle_pos = w_middle.clamp(min=0)  # split only needed for numeric stability with asserts
         w_middle_neg = w_middle.clamp(max=0)  # split only needed for numeric stability with asserts
 
-        lower = (x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()).rename(None)  # type: ignore
-        upper = (x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()).rename(None)  # type: ignore
-        middle = (x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()).rename(None)  # type: ignore
+        lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
+        upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
+        middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
 
-        assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'  # type: ignore
-        assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'  # type: ignore
+        assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'
+        assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'
 
         return torch.stack([lower, middle, upper], dim=1).refine_names('N', 'bounds', 'features')  # type: ignore
 
