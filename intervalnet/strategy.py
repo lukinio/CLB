@@ -5,12 +5,14 @@ import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
+from avalanche.evaluation.metrics.accuracy import Accuracy
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore
 from torch import Tensor
 from torch.optim import Optimizer
+from torchmetrics.functional.classification.accuracy import accuracy as _acc
 
 from intervalnet.models.interval import IntervalMLP, Mode
 
@@ -46,6 +48,8 @@ class IntervalTraining(BaseStrategy):
 
         self.vanilla_loss: Optional[Tensor] = None
         self.robust_loss: Optional[Tensor] = None
+        self.accuracy_meter = Accuracy()
+        self.robust_accuracy_meter = Accuracy()
         self.l1_penalty: Optional[Tensor] = None
         self.robust_penalty: Optional[Tensor] = None
         self.bounds_penalty: Optional[Tensor] = None
@@ -74,6 +78,7 @@ class IntervalTraining(BaseStrategy):
         self.model.set_radius_multiplier(self.radius_multiplier)
 
         self.viz = visdom.Visdom() if enable_visdom else None
+        self.viz_debug = visdom.Visdom(env='debug') if enable_visdom else None
         self.windows: dict[str, str] = {}
 
     @property
@@ -115,12 +120,18 @@ class IntervalTraining(BaseStrategy):
         self.radius_penalty = torch.tensor(0.0, device=self.device)
         self.bounds_penalty = torch.tensor(0.0, device=self.device)
 
+        acc = _acc(self.mb_output, self.mb_y)  # type: ignore
+        robust_acc = _acc(self.robust_output(), self.mb_y)  # type: ignore
+
         if self.mode == Mode.EXPANSION:
             # ---------------------------------------------------------------------------------------------------------
             # Expansion phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust loss ===
             # Maintain an acceptable increase in worst-case loss
+
+            # self.robust_penalty = self.robust_loss * F.relu(acc - robust_acc - 0.10) * 100 / 2
+
             robust_overflow = F.relu(self.robust_loss - self.robust_loss_threshold) / self.robust_loss_threshold
             # Force quasi-hard constraint
             self.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
@@ -185,6 +196,12 @@ class IntervalTraining(BaseStrategy):
                     opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
                 )
 
+        if self.viz_debug:
+            self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([acc]),
+                                win=self.windows['accuracy'], update='append', name='acc')
+            self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([robust_acc]),
+                                win=self.windows['accuracy'], update='append', name='robust_acc')
+
         self.radius_mean = torch.cat(radii).mean()
 
     def after_update(self, **kwargs: Any):
@@ -206,6 +223,21 @@ class IntervalTraining(BaseStrategy):
         if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
                 and self.vanilla_loss < self.vanilla_loss_threshold:
             self.model.switch_mode(Mode.EXPANSION)
+
+        if self.viz_debug:
+            if self.windows.get('accuracy'):
+                # Reset plots every epoch
+                self.viz_debug.line(X=torch.tensor([0]), Y=torch.tensor([0]),
+                                    win=self.windows['accuracy'], name='acc')
+                self.viz_debug.line(X=torch.tensor([0]), Y=torch.tensor([0]),
+                                    win=self.windows['accuracy'], name='robust_acc')
+            else:
+                self.windows['accuracy'] = self.viz_debug.line(
+                    X=torch.tensor([0]),
+                    Y=torch.tensor([0]),
+                    win=None,
+                    opts={'title': 'Batch accuracy'}
+                )
 
     def robust_output(self):
         output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')

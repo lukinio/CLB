@@ -14,10 +14,11 @@
             "args": [
                 "cfg=interval",
                 "cfg.radius_multiplier=1",
-                // "cfg.enable_visdom=true"
+                "cfg.enable_visdom=true"
             ],
             "env": {
                 // "WANDB_MODE": "disabled",
+                "CUDA_VISIBLE_DEVICES": "1"
             }
         },
     ]
