@@ -2,6 +2,7 @@ from collections import deque
 from dataclasses import InitVar, dataclass, field, fields
 from typing import Any, Optional, Sequence, Union, cast
 
+import numpy as np
 import torch
 import torch.linalg
 import torch.nn as nn
@@ -320,18 +321,18 @@ class IntervalTraining(BaseStrategy):
                 )
 
         if self.viz_debug:
-            for metric, name, window, _ in self.get_debug_metrics():
-                self.append_viz_debug(metric, name, window)
+            for metric, name, window, _, color, yrange in self.get_debug_metrics():
+                self.append_viz_debug(metric, name, window, color, yrange)
 
         self.status.radius_mean = torch.cat(radii).mean()
 
-    def get_debug_metrics(self) -> list[tuple[Tensor, str, str, str]]:
+    def get_debug_metrics(self) -> list[tuple[Tensor, str, str, str, tuple[int, int, int], tuple[float, float]]]:
         """Return a list of batch debug metrics to visualize with Visdom plots.
 
         Returns
         -------
-        list[tuple[Tensor, str, str, str]]
-            List of (metric, metric_name, window_name, window_title) tuples.
+        list[tuple[Tensor, str, str, str, tuple[int, int, int]]]
+            List of (metric, metric_name, window_name, window_title, linecolor) tuples.
 
         """
 
@@ -339,26 +340,45 @@ class IntervalTraining(BaseStrategy):
         _ = torch.tensor(0.0)
 
         return [
-            (self.accuracy, 'accuracy', 'accuracy', f'Batch accuracy {epoch}'),
-            (self.robust_accuracy, 'robust_accuracy', 'accuracy', f'Batch accuracy {epoch}'),
-            (self.losses.robust_penalty if self.losses else _, 'robust_penalty', 'penalties', f'Penalties {epoch}'),
-            (self.losses.radius_penalty if self.losses else _, 'radius_penalty', 'penalties', f'Penalties {epoch}'),
+            (self.robust_accuracy, 'robust_accuracy',
+             'accuracy', f'Batch accuracy {epoch}', (7, 126, 143), (-0.1, 1.1)),
+            (self.accuracy, 'accuracy',
+             'accuracy', f'Batch accuracy {epoch}', (219, 0, 108), (-0.1, 1.1)),
+            (self.losses.robust_penalty if self.losses else _, 'robust_penalty',
+             'penalties', f'Penalties {epoch}', (7, 126, 143), (-0.1, 1.1)),
+            (self.losses.radius_penalty if self.losses else _, 'radius_penalty',
+             'penalties', f'Penalties {epoch}', (230, 203, 0), (-0.1, 1.1)),
         ]
 
-    def append_viz_debug(self, val: Tensor, name: str, window_name: str):
+    def append_viz_debug(self, val: Tensor, name: str, window_name: str,
+                         color: tuple[int, int, int], yrange: tuple[float, float]):
         """Append single value to a Visdom line plot."""
         assert self.viz_debug
         self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([val]),
-                            win=self.windows[window_name], update='append', name=name)
+                            win=self.windows[window_name], update='append', name=name,
+                            opts={'linecolor': np.array([color]),  # type: ignore
+                                  'layoutopts': {'plotly': {
+                                      'ytickmin': yrange[0], 'ytickmax': yrange[1],
+                                  }}})
 
     def reset_viz_debug(self):
         """Recreate Visdom line plots before new epoch."""
 
         assert self.viz_debug
 
-        for _, name, window_name, title in self.get_debug_metrics():
+        for _, name, window_name, title, color, yrange in self.get_debug_metrics():
             # Reset plot line or create new plot
             self.windows[window_name] = self.viz_debug.line(
                 X=torch.tensor([0]), Y=torch.tensor([0]), win=self.windows.get(window_name, None),
-                opts={'title': title}, name=name
+                opts={'title': title, 'linecolor': np.array([color]),  # type: ignore
+                      'layoutopts': {'plotly': {
+                          'margin': dict(l=60, r=60, b=80, t=80, pad=5),
+                          #   'font': {'family': 'Roboto Condensed', 'color': 'rgb(0, 0, 0)'},
+                          'legend': {'orientation': 'h'},
+                          'showlegend': True,
+                          'yaxis': {
+                              'autorange': False,
+                              'range': yrange
+                          }
+                      }}}, name=name
             )
