@@ -11,9 +11,7 @@ TResult = TypeVar('TResult')
 
 def get_metric_name(metric: PluginMetric[Any], strategy: BaseStrategy, add_experience: bool = False, add_task: Any = True,
                     count_experience_from_zero: bool = True):
-    """
-    Customized version of Avalanche metric name generator.
-    """
+    """Customized version of Avalanche metric name generator."""
 
     phase_name, task_label = phase_and_task(strategy)
     stream = stream_type(strategy.experience)  # type: ignore
@@ -45,9 +43,7 @@ def get_metric_name(metric: PluginMetric[Any], strategy: BaseStrategy, add_exper
 
 
 class MetricNamingMixin(GenericPluginMetric[TResult]):
-    """
-    Avalanche GenericPluginMetric with custom naming style.
-    """
+    """Avalanche GenericPluginMetric with custom naming style."""
 
     def _get_metric_name(self, strategy: BaseStrategy, add_experience: bool = False, add_task: Any = True):
         return get_metric_name(self, strategy=strategy, add_experience=add_experience,
@@ -78,9 +74,7 @@ class MetricNamingFromZeroMixin(MetricNamingMixin[TResult]):
 
 
 class EvalPluginMetric(MetricNamingMixin[TResult], GenericPluginMetric[TResult]):
-    """
-    Generic plugin metric for evaluation on an epoch/experience basis.
-    """
+    """Generic plugin metric for evaluation on an epoch/experience basis."""
 
     def __init__(self, metric: Metric[Any]):
         super().__init__(metric, reset_at='experience', emit_at='experience', mode='eval')  # type: ignore

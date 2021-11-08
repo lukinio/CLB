@@ -4,9 +4,7 @@ from torch import Tensor
 
 
 class MLP(nn.Module):
-    """
-    Multi-layer perceptron.
-    """
+    """Multi-layer perceptron."""
 
     def __init__(self, input_size: int, hidden_dim: int, output_classes: int):
         super().__init__()

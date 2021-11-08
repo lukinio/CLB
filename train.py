@@ -36,13 +36,13 @@ class Experiment(AvalancheExperiment):
         super().__init__(config_path, settings_cls, settings_group=settings_group)
 
         self.cfg: Settings
-        """ Experiment config. """
+        """Experiment config."""
 
         self.input_size: int
-        """ Model input size. """
+        """Model input size."""
 
         self.n_output_classes: int
-        """ Number of distinct classes for evaluation purposes. """
+        """Number of distinct classes for evaluation purposes."""
 
     def entry(self, root_cfg: pytorch_yard.RootConfig) -> None:
         super().entry(root_cfg)

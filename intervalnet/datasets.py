@@ -6,9 +6,7 @@ from torchvision.datasets.mnist import MNIST
 
 
 def mnist():
-    """
-    MNIST dataset.
-    """
+    """MNIST dataset."""
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')

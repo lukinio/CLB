@@ -43,12 +43,12 @@ class IntervalLinear(nn.Module):
 
     @property
     def shift(self) -> Tensor:
-        """ Contracted interval middle shift (-1, 1). """
+        """Contracted interval middle shift (-1, 1)."""
         return self._shift.tanh()
 
     @property
     def scale(self) -> Tensor:
-        """ Contracted interval scale (0, 1). """
+        """Contracted interval scale (0, 1)."""
         return self._scale.sigmoid()
 
     def clamp_radii(self):
