@@ -83,29 +83,49 @@ class IntervalTraining(BaseStrategy):
 
     @property
     def mode(self):
+        """Current phase of model training.
+
+        Returns
+        -------
+        Mode
+            VANILLA, EXPANSION or CONTRACTION.
+
+        """
         return self.model.mode
 
     @property
     def mode_numeric(self) -> Tensor:
+        """Current phase of model training converted to a float.
+
+        Returns
+        -------
+        Tensor
+            0 - VANILLA
+            1 - EXPANSION
+            2 - CONTRACTION
+
+        """
         return torch.tensor(self.mode.value).float()
 
+    # ----------------------------------------------------------------------------------------------
+    # Training hooks
+    # ----------------------------------------------------------------------------------------------
     def after_forward(self, **kwargs: Any):
+        """Rebind the model's default output to the middle bound."""
         self.mb_output_all = self.mb_output  # type: ignore
         self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_forward(**kwargs)  # type: ignore
 
     def after_eval_forward(self, **kwargs: Any):
+        """Rebind the model's default output to the middle bound."""
         self.mb_output_all = self.mb_output  # type: ignore
         self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_eval_forward(**kwargs)  # type: ignore
 
-    def bounds_width(self, layer_name: str):
-        bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
-        return bounds[:, 2, :] - bounds[:, 0, :]
-
     def before_backward(self, **kwargs: Any):
+        """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
 
         # Save base loss for reporting
@@ -205,11 +225,13 @@ class IntervalTraining(BaseStrategy):
         self.radius_mean = torch.cat(radii).mean()
 
     def after_update(self, **kwargs: Any):
+        """Cleanup after each step."""
         super().after_update(**kwargs)  # type: ignore
 
         self.model.clamp_radii()
 
     def before_training_exp(self, **kwargs: Any):
+        """Switch mode or freeze on each consecutive experience."""
         super().before_training_exp(**kwargs)  # type: ignore
 
         if self.training_exp_counter == 1:
@@ -218,6 +240,7 @@ class IntervalTraining(BaseStrategy):
             self.model.freeze_task()
 
     def before_training_epoch(self, **kwargs: Any):
+        """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
         if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
@@ -239,7 +262,35 @@ class IntervalTraining(BaseStrategy):
                     opts={'title': 'Batch accuracy'}
                 )
 
+    # ----------------------------------------------------------------------------------------------
+    # Helpers
+    # ----------------------------------------------------------------------------------------------
     def robust_output(self):
+        """Get the robust version of the current output.
+
+        Returns
+        -------
+        Tensor
+            Robust output logits (lower bound for correct class, upper bounds for incorrect classes).
+
+        """
         output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')
         y_oh = F.one_hot(self.mb_y)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
+
+    def bounds_width(self, layer_name: str):
+        """Compute the width of the activation bounds.
+
+        Parameters
+        ----------
+        layer_name : str
+            Name of the layer.
+
+        Returns
+        -------
+        Tensor
+            Difference between the upper and lower bounds of activations for a given layer.
+
+        """
+        bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
+        return bounds[:, 2, :] - bounds[:, 0, :]
