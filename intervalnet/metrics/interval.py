@@ -43,6 +43,35 @@ class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
         self._accuracy.update(robust_output, strategy.mb_y, task_label)  # type: ignore
 
 
+class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
+    """Metric wrapper around IntervalTraining attributes."""
+
+    def __init__(self, metric_name: str, strategy_attribute: str, strategy_subattribute: Optional[str] = None,
+                 strategy_attribute_key: Optional[str] = None,
+                 reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train'):
+        self.metric_name = metric_name
+        self.strategy_attribute = strategy_attribute
+        self.strategy_subattribute = strategy_subattribute
+        self.strategy_attribute_key = strategy_attribute_key
+
+        super().__init__(reset_at=reset_at, emit_at=emit_at, mode=mode)  # type: ignore
+
+    def update(self, strategy: BaseStrategy) -> None:
+        task_labels: list[Any] = strategy.experience.task_labels  # type: ignore
+        if len(task_labels) > 1:
+            task_label = 0
+        else:
+            task_label = task_labels[0]
+
+        attr = getattr(strategy, self.strategy_attribute)
+        attr = attr if self.strategy_subattribute is None else getattr(attr, self.strategy_subattribute)
+        attr = attr if self.strategy_attribute_key is None else attr[self.strategy_attribute_key]
+        self._loss.update(attr, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
+
+    def __str__(self):
+        return f'{self.metric_name}'
+
+
 class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
     """Wandb histogram metrics of a given layer's parameter tensor."""
 
@@ -103,7 +132,7 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
 
 
 class LayerDiagnosticsHist(LayerDiagnostics):
-    """Raw histogram visualizations for of a given layer's parameter tensor."""
+    """Raw histogram visualizations of a given layer's parameter tensor."""
 
     def __init__(self, layer_name: str, start: float = 0, stop: float = 1.0, n_bins: int = 20,
                  transform: Optional[Callable[[Tensor], Tensor]] = None):
@@ -127,35 +156,6 @@ class LayerDiagnosticsHist(LayerDiagnostics):
         table = wandb.Table(data=data, columns=['count', 'bin'])
         title = self._get_metric_name(strategy, add_experience=True, add_task=False)
         return wandb.plot.bar(table, 'bin', 'count', title=title)  # type: ignore
-
-
-class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
-    """Metric wrapper around IntervalTraining attributes."""
-
-    def __init__(self, metric_name: str, strategy_attribute: str, strategy_subattribute: Optional[str] = None,
-                 strategy_attribute_key: Optional[str] = None,
-                 reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train'):
-        self.metric_name = metric_name
-        self.strategy_attribute = strategy_attribute
-        self.strategy_subattribute = strategy_subattribute
-        self.strategy_attribute_key = strategy_attribute_key
-
-        super().__init__(reset_at=reset_at, emit_at=emit_at, mode=mode)  # type: ignore
-
-    def update(self, strategy: BaseStrategy) -> None:
-        task_labels: list[Any] = strategy.experience.task_labels  # type: ignore
-        if len(task_labels) > 1:
-            task_label = 0
-        else:
-            task_label = task_labels[0]
-
-        attr = getattr(strategy, self.strategy_attribute)
-        attr = attr if self.strategy_subattribute is None else getattr(attr, self.strategy_subattribute)
-        attr = attr if self.strategy_attribute_key is None else attr[self.strategy_attribute_key]
-        self._loss.update(attr, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
-
-    def __str__(self):
-        return f'{self.metric_name}'
 
 
 def interval_training_diagnostics(model: IntervalModel):
