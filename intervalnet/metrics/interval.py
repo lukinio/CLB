@@ -1,3 +1,5 @@
+from dataclasses import fields
+from types import GenericAlias
 from typing import Any, Callable, Optional
 
 import numpy as np
@@ -16,6 +18,12 @@ from .generic import MetricNamingMixin
 
 
 class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
+    """Evaluation accuracy based on robust model outputs.
+
+    Reset on each experience (epoch).
+
+    """
+
     def __init__(self):
         super().__init__(reset_at='experience', emit_at='experience', mode='eval')  # type: ignore
 
@@ -36,6 +44,8 @@ class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
 
 
 class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
+    """Wandb histogram metrics of a given layer's parameter tensor."""
+
     def __init__(self, layer_name: str, start: float = 0, stop: float = 1, n_bins: int = 100,
                  reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train',
                  transform: Optional[Callable[[Tensor], Tensor]] = None, grad: bool = False):
@@ -93,6 +103,8 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
 
 
 class LayerDiagnosticsHist(LayerDiagnostics):
+    """Raw histogram visualizations for of a given layer's parameter tensor."""
+
     def __init__(self, layer_name: str, start: float = 0, stop: float = 1.0, n_bins: int = 20,
                  transform: Optional[Callable[[Tensor], Tensor]] = None):
         super().__init__(layer_name, start=start, stop=stop, n_bins=n_bins, transform=transform)
@@ -117,21 +129,15 @@ class LayerDiagnosticsHist(LayerDiagnostics):
         return wandb.plot.bar(table, 'bin', 'count', title=title)  # type: ignore
 
 
-def radius_diagnostics(model: IntervalModel):
-    return [
-        LayerDiagnostics(layer, transform=model.radius_transform) for layer in model.state_dict().keys() if 'radius' in layer
-    ] + [
-        LayerDiagnosticsHist(layer, transform=model.radius_transform) for layer in model.state_dict().keys() if 'radius' in layer
-    ] + [
-        LayerDiagnostics(layer, grad=True) for layer in model.state_dict().keys() if 'radius' in layer
-    ]
-
-
 class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
-    def __init__(self, metric_name: str, strategy_attribute: str, strategy_attribute_key: Optional[str] = None,
+    """Metric wrapper around IntervalTraining attributes."""
+
+    def __init__(self, metric_name: str, strategy_attribute: str, strategy_subattribute: Optional[str] = None,
+                 strategy_attribute_key: Optional[str] = None,
                  reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train'):
         self.metric_name = metric_name
         self.strategy_attribute = strategy_attribute
+        self.strategy_subattribute = strategy_subattribute
         self.strategy_attribute_key = strategy_attribute_key
 
         super().__init__(reset_at=reset_at, emit_at=emit_at, mode=mode)  # type: ignore
@@ -142,27 +148,37 @@ class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
             task_label = 0
         else:
             task_label = task_labels[0]
+
         attr = getattr(strategy, self.strategy_attribute)
-        loss = attr if self.strategy_attribute_key is None else attr[self.strategy_attribute_key]
-        self._loss.update(loss, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
+        attr = attr if self.strategy_subattribute is None else getattr(attr, self.strategy_subattribute)
+        attr = attr if self.strategy_attribute_key is None else attr[self.strategy_attribute_key]
+        self._loss.update(attr, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
 
     def __str__(self):
         return f'{self.metric_name}'
 
 
-def interval_losses(model: IntervalModel):
-    return [
-        Reporter('Loss/vanilla', 'vanilla_loss'),
-        Reporter('Loss/robust', 'robust_loss'),
-        Reporter('Loss/l1_penalty', 'l1_penalty'),
-        Reporter('Loss/robust_penalty', 'robust_penalty'),
-        Reporter('Loss/bounds_penalty', 'bounds_penalty'),
-        Reporter('Loss/radius_penalty', 'radius_penalty'),
-        Reporter('Status/radius_mean', 'radius_mean'),
-        Reporter('Status/mode', 'mode_numeric'),
-        Reporter('Status/radius_multiplier', 'radius_multiplier'),
-    ] + [
-        Reporter(f'Status/radius_mean_{layer}', 'radius_mean_per_layer', layer) for layer, _ in model.named_interval_children()
-    ] + [
-        Reporter(f'Status/bounds_width_{layer}', 'bounds_width_per_layer', layer) for layer, _ in model.named_interval_children()
-    ]
+def interval_training_diagnostics(model: IntervalModel):
+    """Combined metrics for interval training."""
+
+    metrics: list[Any] = []
+    metrics.append(RobustAccuracy())
+
+    losses = IntervalTraining.Losses()
+    status = IntervalTraining.Status()
+
+    metrics.extend([Reporter(f'Loss/{field.name}', 'losses', field.name) for field in fields(losses)])
+    metrics.extend([Reporter(f'Status/{field.name}', 'status', field.name)
+                    for field in fields(status) if issubclass(field.type, Tensor)])
+    metrics.extend([Reporter(f'Status/{field.name}{layer}', 'status', field.name, layer)
+                    for layer, _ in model.named_interval_children()
+                    for field in fields(status) if isinstance(field.type, GenericAlias) and issubclass(field.type.__origin__, dict)])
+
+    metrics.extend([LayerDiagnostics(layer, transform=model.radius_transform)
+                    for layer in model.state_dict().keys() if 'radius' in layer])
+    metrics.extend([LayerDiagnosticsHist(layer, transform=model.radius_transform)
+                    for layer in model.state_dict().keys() if 'radius' in layer])
+    metrics.extend([LayerDiagnostics(layer, grad=True)
+                    for layer in model.state_dict().keys() if 'radius' in layer])
+
+    return metrics

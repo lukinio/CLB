@@ -1,3 +1,4 @@
+from dataclasses import InitVar, dataclass, field, fields
 from typing import Any, Optional, Sequence, cast
 
 import torch
@@ -18,6 +19,8 @@ from intervalnet.models.interval import IntervalMLP, Mode
 
 
 class IntervalTraining(BaseStrategy):
+    """Main interval training strategy."""
+
     def __init__(
         self,
         model: nn.Module,
@@ -38,27 +41,18 @@ class IntervalTraining(BaseStrategy):
     ):
 
         self.mb_output_all: dict[str, Tensor]
-        """ All model's outputs computed on the current mini-batch (lower, middle, upper bounds) per layer. """
+        """All model's outputs computed on the current mini-batch (lower, middle, upper bounds), per layer."""
 
+        # Avalanche typing specifications
         self.mb_it: int
         self.training_exp_counter: int
 
         self.device: torch.device
         self.model: IntervalMLP
 
-        self.vanilla_loss: Optional[Tensor] = None
-        self.robust_loss: Optional[Tensor] = None
-        self.accuracy_meter = Accuracy()
-        self.robust_accuracy_meter = Accuracy()
-        self.l1_penalty: Optional[Tensor] = None
-        self.robust_penalty: Optional[Tensor] = None
-        self.bounds_penalty: Optional[Tensor] = None
-        self.radius_penalty: Optional[Tensor] = None
-        self.radius_mean: Optional[Tensor] = None
+        self._criterion = nn.CrossEntropyLoss()
 
-        self.radius_mean_per_layer: dict[str, Optional[Tensor]] = {}
-        self.bounds_width_per_layer: dict[str, Optional[Tensor]] = {}
-
+        # Config values
         assert vanilla_loss_threshold is not None
         assert robust_loss_threshold is not None
         assert radius_multiplier is not None
@@ -69,9 +63,14 @@ class IntervalTraining(BaseStrategy):
         self.radius_multiplier = torch.tensor(radius_multiplier)
         self.l1_lambda = torch.tensor(l1_lambda)
 
-        criterion = nn.CrossEntropyLoss()
+        # Training metrics for the current mini-batch
+        self.losses: Optional[IntervalTraining.Losses] = None  # Reported as 'Loss/*' metrics
+        self.status: Optional[IntervalTraining.Status] = None  # Reported as 'Status/*' metrics
 
-        super().__init__(model, optimizer, criterion=criterion, train_mb_size=train_mb_size,  # type: ignore
+        # self.accuracy_meter = Accuracy()
+        # self.robust_accuracy_meter = Accuracy()
+
+        super().__init__(model, optimizer, criterion=self._criterion, train_mb_size=train_mb_size,  # type: ignore
                          train_epochs=train_epochs, eval_mb_size=eval_mb_size, device=device,
                          plugins=plugins, evaluator=evaluator, eval_every=eval_every)
 
@@ -80,6 +79,11 @@ class IntervalTraining(BaseStrategy):
         self.viz = visdom.Visdom() if enable_visdom else None
         self.viz_debug = visdom.Visdom(env='debug') if enable_visdom else None
         self.windows: dict[str, str] = {}
+
+    @property
+    def mb_y(self) -> Tensor:
+        """Current mini-batch target."""
+        return super().mb_y  # type: ignore
 
     @property
     def mode(self):
@@ -124,55 +128,61 @@ class IntervalTraining(BaseStrategy):
 
         super().after_eval_forward(**kwargs)  # type: ignore
 
+    @dataclass
+    class Losses():
+        """Model losses reported as 'Loss/*'."""
+        device: InitVar[torch.device] = torch.device('cpu')
+
+        total: Tensor = torch.tensor(0.0)
+        vanilla: Tensor = torch.tensor(0.0)
+        robust: Tensor = torch.tensor(0.0)
+
+        robust_penalty: Tensor = torch.tensor(0.0)
+        bounds_penalty: Tensor = torch.tensor(0.0)
+        radius_penalty: Tensor = torch.tensor(0.0)
+
+        def __post__init__(self, device: torch.device):
+            for field in fields(self):
+                if field.type == Tensor:
+                    # Move to device & clone, because we use immutable defaults (no default_factory)
+                    setattr(self, field.name, getattr(self, field.name).clone().to(device))
+
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
-
-        # Save base loss for reporting
         self.loss = cast(Tensor, self.loss)  # type: ignore  # Fix Avalanche type-checking
-        self.vanilla_loss = self.loss.clone().detach()  # type: ignore
 
-        self.robust_loss = cast(Tensor, self._criterion(self.robust_output(), self.mb_y))  # type: ignore
+        self.losses = IntervalTraining.Losses(self.device)
+        self.losses.vanilla = self.loss.clone().detach()
+        self.losses.robust = cast(Tensor, self._criterion(self.robust_output(), self.mb_y))
 
-        # Additional penalties
-        self.l1_penalty = torch.tensor(0.0, device=self.device)
-        self.robust_penalty = torch.tensor(0.0, device=self.device)
-        self.radius_penalty = torch.tensor(0.0, device=self.device)
-        self.bounds_penalty = torch.tensor(0.0, device=self.device)
+        # self.accuracy = _acc(self.mb_output, self.mb_y)  # type: ignore
+        # self.robust_accuracy = _acc(self.robust_output(), self.mb_y)  # type: ignore
 
-        acc = _acc(self.mb_output, self.mb_y)  # type: ignore
-        robust_acc = _acc(self.robust_output(), self.mb_y)  # type: ignore
-
-        if self.mode == Mode.EXPANSION:
-            # ---------------------------------------------------------------------------------------------------------
-            # Expansion phase
-            # ---------------------------------------------------------------------------------------------------------
-            # === Robust loss ===
+        if self.mode == Mode.VANILLA:
+            self.losses.total = self.loss
+        elif self.mode == Mode.EXPANSION:
+            # === Robust penalty ===
             # Maintain an acceptable increase in worst-case loss
-
             # self.robust_penalty = self.robust_loss * F.relu(acc - robust_acc - 0.10) * 100 / 2
 
-            robust_overflow = F.relu(self.robust_loss - self.robust_loss_threshold) / self.robust_loss_threshold
+            robust_overflow = F.relu(self.losses.robust - self.robust_loss_threshold) / self.robust_loss_threshold
             # Force quasi-hard constraint
-            self.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
+            self.losses.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
 
             # === Radius penalty ===
             # Maximize interval size up to radii of 1
             radii: list[Tensor] = []
-            for name, module in self.model.named_interval_children():
+            for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
-            # INFO: sqrt -> more sparse, push to saturate
-            # INFO: pow(2) -> more regular, push to smooth distribution
-            # :: Flat version:
-            # self.radius_penalty = F.relu(torch.tensor(1.0) - torch.cat(radii)).pow(2).mean()
-            # :: Per layer version:
-            self.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]).mean()
+            self.losses.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean()  # mean per layer
+                                                      for r in radii]).mean()
 
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
-
+            self.losses.total = self.losses.robust_penalty + self.losses.radius_penalty
         elif self.mode == Mode.CONTRACTION:
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
@@ -184,45 +194,14 @@ class IntervalTraining(BaseStrategy):
             # === Radius (contraction) penalty ===
             pass
 
-        weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
-        l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
-        self.l1_penalty += self.l1_lambda * l1
+            self.losses.total = self.loss
 
-        self.loss += self.l1_penalty
-        self.loss += self.robust_penalty
-        self.loss += self.radius_penalty
-        # self.loss += self.bounds_penalty
+        # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
+        # l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
+        # self.l1_penalty += self.l1_lambda * l1
 
-        # ---------------------------------------------------------------------------------------------------------
-        # Diagnostics
-        # ---------------------------------------------------------------------------------------------------------
-        radii = []
-
-        for name, module in self.model.named_interval_children():
-            radii.append(module.radius.detach().cpu().flatten())
-            self.radius_mean_per_layer[name] = radii[-1].mean()
-            self.bounds_width_per_layer[name] = self.bounds_width(name).mean()
-
-            if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
-                self.windows[f'{name}.radius'] = self.viz.heatmap(
-                    module.radius,
-                    win=self.windows.get(f'{name}.radius'),
-                    opts={'title': f'{name}.radius --> epoch {(self.epoch or 0) + 1}'}
-                )
-
-                self.windows[f'{name}.weight'] = self.viz.heatmap(
-                    module.weight.abs().clamp(max=module.weight.abs().quantile(0.99)),
-                    win=self.windows.get(f'{name}.weight'),
-                    opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
-                )
-
-        if self.viz_debug:
-            self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([acc]),
-                                win=self.windows['accuracy'], update='append', name='acc')
-            self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([robust_acc]),
-                                win=self.windows['accuracy'], update='append', name='robust_acc')
-
-        self.radius_mean = torch.cat(radii).mean()
+        self.loss = self.losses.total  # Rebind as Avalanche loss
+        self.diagnostics()
 
     def after_update(self, **kwargs: Any):
         """Cleanup after each step."""
@@ -243,8 +222,7 @@ class IntervalTraining(BaseStrategy):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
-                and self.vanilla_loss < self.vanilla_loss_threshold:
+        if self.mode == Mode.VANILLA and self.losses and self.losses.vanilla < self.vanilla_loss_threshold:
             self.model.switch_mode(Mode.EXPANSION)
 
         if self.viz_debug:
@@ -294,3 +272,47 @@ class IntervalTraining(BaseStrategy):
         """
         bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
         return bounds[:, 2, :] - bounds[:, 0, :]
+
+    @dataclass
+    class Status():
+        """Diagnostic values reported as 'Status/*'."""
+        mode: Tensor = torch.tensor(0.0)
+        radius_multiplier: Tensor = torch.tensor(0.0)
+        radius_mean: Tensor = torch.tensor(0.0)
+
+        radius_mean_: dict[str, Tensor] = field(default_factory=lambda: {})
+        bounds_width_: dict[str, Tensor] = field(default_factory=lambda: {})
+
+    def diagnostics(self):
+        """Save training diagnostics before each update."""
+        self.status = IntervalTraining.Status()
+        self.status.mode = self.mode_numeric
+        self.status.radius_multiplier = self.radius_multiplier
+
+        radii: list[Tensor] = []
+
+        for name, module in self.model.named_interval_children():
+            radii.append(module.radius.detach().cpu().flatten())
+            self.status.radius_mean_[name] = radii[-1].mean()
+            self.status.bounds_width_[name] = self.bounds_width(name).mean()
+
+            if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
+                self.windows[f'{name}.radius'] = self.viz.heatmap(
+                    module.radius,
+                    win=self.windows.get(f'{name}.radius'),
+                    opts={'title': f'{name}.radius --> epoch {(self.epoch or 0) + 1}'}
+                )
+
+                self.windows[f'{name}.weight'] = self.viz.heatmap(
+                    module.weight.abs().clamp(max=module.weight.abs().quantile(0.99)),
+                    win=self.windows.get(f'{name}.weight'),
+                    opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
+                )
+
+        # if self.viz_debug:
+        #     self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([self.accuracy]),
+        #                         win=self.windows['accuracy'], update='append', name='accuracy')
+        #     self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([self.robust_accuracy]),
+        #                         win=self.windows['accuracy'], update='append', name='robust_accuracy')
+
+        self.status.radius_mean = torch.cat(radii).mean()

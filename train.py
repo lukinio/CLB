@@ -22,8 +22,7 @@ from torch.optim import SGD, Adam
 from intervalnet.cfg import DatasetType, ModelType, Settings
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
-from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
-                                          radius_diagnostics)
+from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
@@ -102,9 +101,7 @@ class Experiment(AvalancheExperiment):
 
         if self.cfg.model == ModelType.IntervalMLP:
             assert isinstance(self.model, IntervalMLP)
-            metrics.append(RobustAccuracy())
-            metrics += radius_diagnostics(self.model)
-            metrics += interval_losses(self.model)
+            metrics += interval_training_diagnostics(self.model)
 
         eval_plugin = EvaluationPlugin(
             *metrics,
