@@ -84,6 +84,7 @@ class Experiment(AvalancheExperiment):
                 robust_loss_threshold=self.cfg.robust_loss_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
                 l1_lambda=self.cfg.l1_lambda,
+                metric_lookback=self.cfg.metric_lookback,
             )
 
         print(self.model)

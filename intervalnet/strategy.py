@@ -1,19 +1,19 @@
+from collections import deque
 from dataclasses import InitVar, dataclass, field, fields
-from typing import Any, Optional, Sequence, cast
+from typing import Any, Optional, Sequence, Union, cast
 
 import torch
 import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
-from avalanche.evaluation.metrics.accuracy import Accuracy
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore
 from torch import Tensor
 from torch.optim import Optimizer
-from torchmetrics.functional.classification.accuracy import accuracy as _acc
+from torchmetrics.functional.classification.accuracy import accuracy
 
 from intervalnet.models.interval import IntervalMLP, Mode
 
@@ -38,6 +38,7 @@ class IntervalTraining(BaseStrategy):
         robust_loss_threshold: float,
         radius_multiplier: float,
         l1_lambda: float,
+        metric_lookback: int,
     ):
 
         self.mb_output_all: dict[str, Tensor]
@@ -45,6 +46,8 @@ class IntervalTraining(BaseStrategy):
 
         # Avalanche typing specifications
         self.mb_it: int
+        self.mb_output: Union[dict[str, Tensor], Tensor]
+        self.loss: Tensor
         self.training_exp_counter: int
 
         self.device: torch.device
@@ -57,18 +60,21 @@ class IntervalTraining(BaseStrategy):
         assert robust_loss_threshold is not None
         assert radius_multiplier is not None
         assert l1_lambda is not None
+        assert metric_lookback is not None
 
         self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
         self.robust_loss_threshold = torch.tensor(robust_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
         self.l1_lambda = torch.tensor(l1_lambda)
+        self.metric_lookback = metric_lookback
 
         # Training metrics for the current mini-batch
         self.losses: Optional[IntervalTraining.Losses] = None  # Reported as 'Loss/*' metrics
         self.status: Optional[IntervalTraining.Status] = None  # Reported as 'Status/*' metrics
 
-        # self.accuracy_meter = Accuracy()
-        # self.robust_accuracy_meter = Accuracy()
+        # Running metrics
+        self._accuracy: deque[Tensor] = deque(maxlen=metric_lookback)
+        self._robust_accuracy: deque[Tensor] = deque(maxlen=metric_lookback)
 
         super().__init__(model, optimizer, criterion=self._criterion, train_mb_size=train_mb_size,  # type: ignore
                          train_epochs=train_epochs, eval_mb_size=eval_mb_size, device=device,
@@ -111,19 +117,35 @@ class IntervalTraining(BaseStrategy):
         """
         return torch.tensor(self.mode.value).float()
 
+    @property
+    def accuracy(self) -> Tensor:
+        """Moving average of the batch accuracy."""
+        if not self._accuracy:
+            return torch.tensor(0.0)
+        return torch.stack(list(self._accuracy)).mean().detach().cpu()
+
+    @property
+    def robust_accuracy(self) -> Tensor:
+        """Moving average of the batch robust accuracy."""
+        if not self._robust_accuracy:
+            return torch.tensor(0.0)
+        return torch.stack(list(self._robust_accuracy)).mean().detach().cpu()
+
     # ----------------------------------------------------------------------------------------------
     # Training hooks
     # ----------------------------------------------------------------------------------------------
     def after_forward(self, **kwargs: Any):
         """Rebind the model's default output to the middle bound."""
-        self.mb_output_all = self.mb_output  # type: ignore
+        assert isinstance(self.mb_output, dict)
+        self.mb_output_all = self.mb_output
         self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_forward(**kwargs)  # type: ignore
 
     def after_eval_forward(self, **kwargs: Any):
         """Rebind the model's default output to the middle bound."""
-        self.mb_output_all = self.mb_output  # type: ignore
+        assert isinstance(self.mb_output, dict)
+        self.mb_output_all = self.mb_output
         self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_eval_forward(**kwargs)  # type: ignore
@@ -150,14 +172,14 @@ class IntervalTraining(BaseStrategy):
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
-        self.loss = cast(Tensor, self.loss)  # type: ignore  # Fix Avalanche type-checking
 
         self.losses = IntervalTraining.Losses(self.device)
         self.losses.vanilla = self.loss.clone().detach()
         self.losses.robust = cast(Tensor, self._criterion(self.robust_output(), self.mb_y))
 
-        # self.accuracy = _acc(self.mb_output, self.mb_y)  # type: ignore
-        # self.robust_accuracy = _acc(self.robust_output(), self.mb_y)  # type: ignore
+        assert isinstance(self.mb_output, Tensor)
+        self._accuracy.appendleft(accuracy(self.mb_output, self.mb_y))
+        self._robust_accuracy.appendleft(accuracy(self.robust_output(), self.mb_y))
 
         if self.mode == Mode.VANILLA:
             self.losses.total = self.loss
@@ -226,19 +248,7 @@ class IntervalTraining(BaseStrategy):
             self.model.switch_mode(Mode.EXPANSION)
 
         if self.viz_debug:
-            if self.windows.get('accuracy'):
-                # Reset plots every epoch
-                self.viz_debug.line(X=torch.tensor([0]), Y=torch.tensor([0]),
-                                    win=self.windows['accuracy'], name='acc')
-                self.viz_debug.line(X=torch.tensor([0]), Y=torch.tensor([0]),
-                                    win=self.windows['accuracy'], name='robust_acc')
-            else:
-                self.windows['accuracy'] = self.viz_debug.line(
-                    X=torch.tensor([0]),
-                    Y=torch.tensor([0]),
-                    win=None,
-                    opts={'title': 'Batch accuracy'}
-                )
+            self.reset_viz_debug()
 
     # ----------------------------------------------------------------------------------------------
     # Helpers
@@ -309,10 +319,46 @@ class IntervalTraining(BaseStrategy):
                     opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
                 )
 
-        # if self.viz_debug:
-        #     self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([self.accuracy]),
-        #                         win=self.windows['accuracy'], update='append', name='accuracy')
-        #     self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([self.robust_accuracy]),
-        #                         win=self.windows['accuracy'], update='append', name='robust_accuracy')
+        if self.viz_debug:
+            for metric, name, window, _ in self.get_debug_metrics():
+                self.append_viz_debug(metric, name, window)
 
         self.status.radius_mean = torch.cat(radii).mean()
+
+    def get_debug_metrics(self) -> list[tuple[Tensor, str, str, str]]:
+        """Return a list of batch debug metrics to visualize with Visdom plots.
+
+        Returns
+        -------
+        list[tuple[Tensor, str, str, str]]
+            List of (metric, metric_name, window_name, window_title) tuples.
+
+        """
+
+        epoch = f'(epoch: {(self.epoch or 0) + 1})'
+        _ = torch.tensor(0.0)
+
+        return [
+            (self.accuracy, 'accuracy', 'accuracy', f'Batch accuracy {epoch}'),
+            (self.robust_accuracy, 'robust_accuracy', 'accuracy', f'Batch accuracy {epoch}'),
+            (self.losses.robust_penalty if self.losses else _, 'robust_penalty', 'penalties', f'Penalties {epoch}'),
+            (self.losses.radius_penalty if self.losses else _, 'radius_penalty', 'penalties', f'Penalties {epoch}'),
+        ]
+
+    def append_viz_debug(self, val: Tensor, name: str, window_name: str):
+        """Append single value to a Visdom line plot."""
+        assert self.viz_debug
+        self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([val]),
+                            win=self.windows[window_name], update='append', name=name)
+
+    def reset_viz_debug(self):
+        """Recreate Visdom line plots before new epoch."""
+
+        assert self.viz_debug
+
+        for _, name, window_name, title in self.get_debug_metrics():
+            # Reset plot line or create new plot
+            self.windows[window_name] = self.viz_debug.line(
+                X=torch.tensor([0]), Y=torch.tensor([0]), win=self.windows.get(window_name, None),
+                opts={'title': title}, name=name
+            )

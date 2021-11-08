@@ -60,5 +60,6 @@ class Settings(pytorch_yard.Settings):
     radius_multiplier: Optional[float] = None
 
     l1_lambda: Optional[float] = None
+    metric_lookback: Optional[int] = None
 
     enable_visdom: bool = False
