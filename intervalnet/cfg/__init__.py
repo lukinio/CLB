@@ -56,11 +56,12 @@ class Settings(pytorch_yard.Settings):
     # IntervalNet settings
     # ----------------------------------------------------------------------------------------------
     vanilla_loss_threshold: Optional[float] = None
-    robust_loss_threshold: Optional[float] = None
     radius_multiplier: Optional[float] = None
 
     l1_lambda: Optional[float] = None
+
     metric_lookback: Optional[int] = None
+    robust_accuracy_threshold: Optional[float] = None
 
     enable_visdom: bool = False
     visdom_reset_every_epoch: bool = False

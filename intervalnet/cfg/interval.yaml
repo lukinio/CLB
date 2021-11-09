@@ -6,8 +6,9 @@ epochs: 30
 
 model: IntervalMLP
 vanilla_loss_threshold: 0.03
-robust_loss_threshold: 30
 radius_multiplier: 1.0
 
 l1_lambda: 0.0
-metric_lookback: 10
+
+metric_lookback: 32
+robust_accuracy_threshold: 0.8

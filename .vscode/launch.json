@@ -18,7 +18,7 @@
                 "cfg.visdom_reset_every_epoch=true"
             ],
             "env": {
-                "WANDB_MODE": "disabled",
+                // "WANDB_MODE": "disabled",
                 "CUDA_VISIBLE_DEVICES": "1"
             }
         },

@@ -37,7 +37,7 @@ class IntervalTraining(BaseStrategy):
         visdom_reset_every_epoch: bool = False,
         *,
         vanilla_loss_threshold: float,
-        robust_loss_threshold: float,
+        robust_accuracy_threshold: float,
         radius_multiplier: float,
         l1_lambda: float,
         metric_lookback: int,
@@ -59,15 +59,15 @@ class IntervalTraining(BaseStrategy):
 
         # Config values
         assert vanilla_loss_threshold is not None
-        assert robust_loss_threshold is not None
+        assert robust_accuracy_threshold is not None
         assert radius_multiplier is not None
         assert l1_lambda is not None
         assert metric_lookback is not None
 
         self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
-        self.robust_loss_threshold = torch.tensor(robust_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
         self.l1_lambda = torch.tensor(l1_lambda)
+        self.robust_accuracy_threshold = torch.tensor(robust_accuracy_threshold)
         self.metric_lookback = metric_lookback
 
         # Training metrics for the current mini-batch
@@ -191,9 +191,11 @@ class IntervalTraining(BaseStrategy):
             # Maintain an acceptable increase in worst-case loss
             # self.robust_penalty = self.robust_loss * F.relu(acc - robust_acc - 0.10) * 100 / 2
 
-            robust_overflow = F.relu(self.losses.robust - self.robust_loss_threshold) / self.robust_loss_threshold
-            # Force quasi-hard constraint
-            self.losses.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
+            # robust_overflow = F.relu(self.losses.robust - self.robust_loss_threshold) / self.robust_loss_threshold
+            # self.losses.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
+
+            if self.robust_accuracy(self.metric_lookback) < self.robust_accuracy_threshold:
+                self.losses.robust_penalty = self.losses.robust
 
             # === Radius penalty ===
             # Maximize interval size up to radii of 1
@@ -328,9 +330,7 @@ class IntervalTraining(BaseStrategy):
             for metric, name, window, _, color, dash, yrange in self.get_debug_metrics():
                 self.append_viz_debug(metric, name, window, color, dash, yrange)
 
-    def get_debug_metrics(self) -> list[tuple[
-            Tensor, str, str, str, tuple[int, int, int], str, tuple[float, float]
-    ]]:
+    def get_debug_metrics(self):
         """Return a list of batch debug metrics to visualize with Visdom plots.
 
         Returns
@@ -343,14 +343,18 @@ class IntervalTraining(BaseStrategy):
         epoch = f'(epoch: {(self.epoch or 0) + 1})'
         _ = torch.tensor(0.0)
 
-        return [
+        output_type = list[tuple[
+            Tensor, str, str, str, tuple[int, int, int], str, tuple[float, float]
+        ]]
+
+        metrics = cast(output_type, [
             (self.robust_accuracy(1), 'robust_accuracy',
                 'accuracy', f'Batch accuracy {epoch}', (7, 126, 143), 'solid', (-0.1, 1.1)),
             (self.accuracy(1), 'accuracy',
                 'accuracy', f'Batch accuracy {epoch}', (219, 0, 108), 'solid', (-0.1, 1.1)),
-            (self.robust_accuracy(10), 'robust_accuracy_ma',
+            (self.robust_accuracy(self.metric_lookback), f'robust_accuracy_ma{self.metric_lookback}',
                 'accuracy', f'Batch accuracy {epoch}', (7, 126, 143), 'dot', (-0.1, 1.1)),
-            (self.accuracy(10), 'accuracy_ma',
+            (self.accuracy(self.metric_lookback), f'accuracy_ma{self.metric_lookback}',
                 'accuracy', f'Batch accuracy {epoch}', (219, 0, 108), 'dot', (-0.1, 1.1)),
 
             (self.losses.robust_penalty if self.losses else _, 'robust_penalty',
@@ -361,10 +365,18 @@ class IntervalTraining(BaseStrategy):
                 'penalties', f'Penalties {epoch}', (230, 203, 0), 'dot', (-0.1, 1.1)),
 
             (self.losses.total if self.losses else _, 'total_loss',
-                'loss', f'Loss {epoch}', (219, 0, 108), 'solid', (-0.1, float(self.robust_loss_threshold) * 1.25)),
+                'loss', f'Loss {epoch}', (219, 0, 108), 'solid', (-0.1, 35.0)),
             (self.losses.robust if self.losses else _, 'robust_loss',
-                'loss', f'Loss {epoch}', (7, 126, 143), 'solid', (-0.1, float(self.robust_loss_threshold) * 1.25)),
-        ]
+                'loss', f'Loss {epoch}', (7, 126, 143), 'solid', (-0.1, 35.0)),
+        ])
+
+        # for layer, __ in self.model.named_interval_children():  # type: ignore
+        #     metrics.append(
+        #         (self.status.radius_mean_[layer] if self.status else _, f'radius_mean_{layer}',
+        #             'penalties', f'Penalties {epoch}', (203, 203, 203), 'dash', (-0.1, 1.1))
+        #     )
+
+        return metrics
 
     def append_viz_debug(self, val: Tensor, name: str, window_name: str,
                          color: tuple[int, int, int], dash: str, yrange: tuple[float, float]):

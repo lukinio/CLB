@@ -82,7 +82,7 @@ class Experiment(AvalancheExperiment):
                 enable_visdom=self.cfg.enable_visdom,
                 visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
-                robust_loss_threshold=self.cfg.robust_loss_threshold,
+                robust_accuracy_threshold=self.cfg.robust_accuracy_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
                 l1_lambda=self.cfg.l1_lambda,
                 metric_lookback=self.cfg.metric_lookback,
