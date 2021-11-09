@@ -357,11 +357,13 @@ class IntervalTraining(BaseStrategy):
                 'penalties', f'Penalties {epoch}', (7, 126, 143), 'solid', (-0.1, 1.1)),
             (self.losses.radius_penalty if self.losses else _, 'radius_penalty',
                 'penalties', f'Penalties {epoch}', (230, 203, 0), 'solid', (-0.1, 1.1)),
-
             (self.status.radius_mean if self.status else _, 'radius_mean',
-                'status', f'Status {epoch}', (230, 203, 0), 'solid', (-0.1, 1.1)),
+                'penalties', f'Penalties {epoch}', (230, 203, 0), 'dot', (-0.1, 1.1)),
+
             (self.losses.total if self.losses else _, 'total_loss',
-                'status', f'Status {epoch}', (7, 126, 143), 'solid', (-0.1, 1.1)),
+                'loss', f'Loss {epoch}', (219, 0, 108), 'solid', (-0.1, float(self.robust_loss_threshold) * 1.25)),
+            (self.losses.robust if self.losses else _, 'robust_loss',
+                'loss', f'Loss {epoch}', (7, 126, 143), 'solid', (-0.1, float(self.robust_loss_threshold) * 1.25)),
         ]
 
     def append_viz_debug(self, val: Tensor, name: str, window_name: str,
