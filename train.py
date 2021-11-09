@@ -80,6 +80,7 @@ class Experiment(AvalancheExperiment):
             strategy_ = functools.partial(
                 IntervalTraining,
                 enable_visdom=self.cfg.enable_visdom,
+                visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
                 robust_loss_threshold=self.cfg.robust_loss_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,

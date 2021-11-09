@@ -34,6 +34,7 @@ class IntervalTraining(BaseStrategy):
         evaluator: Optional[EvaluationPlugin] = None,
         eval_every: int = -1,
         enable_visdom: bool = False,
+        visdom_reset_every_epoch: bool = False,
         *,
         vanilla_loss_threshold: float,
         robust_loss_threshold: float,
@@ -85,7 +86,7 @@ class IntervalTraining(BaseStrategy):
 
         self.viz = visdom.Visdom() if enable_visdom else None
         self.viz_debug = visdom.Visdom(env='debug') if enable_visdom else None
-        self.viz_reset_every_epoch = True
+        self.viz_reset_every_epoch = visdom_reset_every_epoch
         self.windows: dict[str, str] = {}
 
     @property

@@ -63,3 +63,4 @@ class Settings(pytorch_yard.Settings):
     metric_lookback: Optional[int] = None
 
     enable_visdom: bool = False
+    visdom_reset_every_epoch: bool = False

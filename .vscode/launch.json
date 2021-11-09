@@ -14,7 +14,8 @@
             "args": [
                 "cfg=interval",
                 "cfg.radius_multiplier=1",
-                "cfg.enable_visdom=true"
+                "cfg.enable_visdom=true",
+                "cfg.visdom_reset_every_epoch=true"
             ],
             "env": {
                 "WANDB_MODE": "disabled",
