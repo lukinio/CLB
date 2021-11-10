@@ -3,13 +3,14 @@ defaults:
 
 
 _tags_:
-  - ADAM
-  
+  - SGD
+
 epochs: 30
 
 model: IntervalMLP
-vanilla_loss_threshold: 0.03
-radius_multiplier: 1.0
+optimizer: SGD
+vanilla_loss_threshold: 0.5
+radius_multiplier: 100
 
 l1_lambda: 0.0
 

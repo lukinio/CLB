@@ -230,6 +230,11 @@ class IntervalTraining(BaseStrategy):
         self.loss = self.losses.total  # Rebind as Avalanche loss
         self.diagnostics()
 
+    def after_backward(self, **kwargs: Any):
+        super().after_backward(**kwargs)  # type: ignore
+
+        pass  # Debugging breakpoint
+
     def after_update(self, **kwargs: Any):
         """Cleanup after each step."""
         super().after_update(**kwargs)  # type: ignore
@@ -242,8 +247,10 @@ class IntervalTraining(BaseStrategy):
 
         if self.training_exp_counter == 1:
             self.model.switch_mode(Mode.CONTRACTION)
+            self.make_optimizer()
         elif self.training_exp_counter > 1:
             self.model.freeze_task()
+            self.make_optimizer()
 
     def before_training_epoch(self, **kwargs: Any):
         """Switch to expansion phase when ready."""
@@ -251,6 +258,7 @@ class IntervalTraining(BaseStrategy):
 
         if self.mode == Mode.VANILLA and self.losses and self.losses.vanilla < self.vanilla_loss_threshold:
             self.model.switch_mode(Mode.EXPANSION)
+            self.make_optimizer()
 
         if self.viz_debug:
             self.reset_viz_debug()

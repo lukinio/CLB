@@ -13,9 +13,13 @@
             "justMyCode": false,
             "args": [
                 "cfg=interval",
-                "cfg.radius_multiplier=1",
+                // "cfg.radius_multiplier=1",
                 "cfg.enable_visdom=true",
-                "cfg.visdom_reset_every_epoch=true"
+                "cfg.visdom_reset_every_epoch=true",
+                // "cfg.metric_lookback=10",
+                // "cfg.robust_accuracy_threshold=0.9",
+                // "cfg.vanilla_loss_threshold=0.03",
+                // "tags=[SGD ]"
             ],
             "env": {
                 // "WANDB_MODE": "disabled",

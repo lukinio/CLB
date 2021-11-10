@@ -67,21 +67,23 @@ class IntervalLinear(nn.Module):
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
 
+        def enable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_()
+
+        def disable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_(False)
+                p.grad = None
+
+        disable([self.weight, self._radius, self._shift, self._scale])
+
         if mode == Mode.VANILLA:
-            self.weight.requires_grad = True
-            self._radius.requires_grad = False
-            self._shift.requires_grad = False
-            self._scale.requires_grad = False
+            enable([self.weight])
         elif mode == Mode.EXPANSION:
-            self.weight.requires_grad = False
-            self._radius.requires_grad = True
-            self._shift.requires_grad = False
-            self._scale.requires_grad = False
+            enable([self._radius])
         elif mode == Mode.CONTRACTION:
-            self.weight.requires_grad = False
-            self._radius.requires_grad = False
-            self._shift.requires_grad = True
-            self._scale.requires_grad = True
+            enable([self._shift, self._scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():

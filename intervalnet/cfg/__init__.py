@@ -23,6 +23,11 @@ class ModelType(Enum):
     IntervalMLP = auto()
 
 
+class OptimizerType(Enum):
+    SGD = auto()
+    ADAM = auto()
+
+
 # Experiment settings validation schema & default values
 @dataclass
 class Settings(pytorch_yard.Settings):
@@ -35,6 +40,8 @@ class Settings(pytorch_yard.Settings):
     epochs: int = 5
     learning_rate: float = 0.01
     momentum: float = 0.9
+
+    optimizer: OptimizerType = OptimizerType.ADAM
 
     # ----------------------------------------------------------------------------------------------
     # Dataset

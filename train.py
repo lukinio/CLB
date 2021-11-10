@@ -19,7 +19,7 @@ from rich import print
 from torch import Tensor
 from torch.optim import SGD, Adam
 
-from intervalnet.cfg import DatasetType, ModelType, Settings
+from intervalnet.cfg import DatasetType, ModelType, OptimizerType, Settings
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
@@ -63,7 +63,11 @@ class Experiment(AvalancheExperiment):
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
-            optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
+            if self.cfg.optimizer is OptimizerType.SGD:
+                optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum)
+            else:
+                assert self.cfg.optimizer == OptimizerType.ADAM
+                optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 Naive,
                 criterion=nn.CrossEntropyLoss(),
@@ -75,8 +79,11 @@ class Experiment(AvalancheExperiment):
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
-            # optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
-            optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+            if self.cfg.optimizer is OptimizerType.SGD:
+                optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum)
+            else:
+                assert self.cfg.optimizer == OptimizerType.ADAM
+                optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 IntervalTraining,
                 enable_visdom=self.cfg.enable_visdom,
