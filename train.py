@@ -82,10 +82,13 @@ class Experiment(AvalancheExperiment):
             )
         else:
             assert self.cfg.model == ModelType.IntervalMLP
+            assert self.cfg.radius_multiplier and self.cfg.max_radius
             self.model = IntervalMLP(
                 input_size=28 * 28 * 1,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
+                radius_multiplier=self.cfg.radius_multiplier,
+                max_radius=self.cfg.max_radius,
             )
             if self.cfg.optimizer is OptimizerType.SGD:
                 optimizer = SGD(
@@ -103,6 +106,7 @@ class Experiment(AvalancheExperiment):
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
                 robust_accuracy_threshold=self.cfg.robust_accuracy_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
+                max_radius=self.cfg.max_radius,
                 l1_lambda=self.cfg.l1_lambda,
                 metric_lookback=self.cfg.metric_lookback,
                 expansion_learning_rate=self.cfg.expansion_learning_rate,
@@ -156,9 +160,7 @@ class Experiment(AvalancheExperiment):
         # Experiment loop
         # ------------------------------------------------------------------------------------------
         info_bold("Starting experiment...")
-        for i, experience in enumerate(
-            cast(Iterable[NCExperience], self.scenario.train_stream)
-        ):
+        for i, experience in enumerate(cast(Iterable[NCExperience], self.scenario.train_stream)):
             info(f"Start of experience: {experience.current_experience}")
             info(f"Current classes: {experience.classes_in_this_experience}")
 
@@ -166,9 +168,7 @@ class Experiment(AvalancheExperiment):
                 exp.dataset for exp in self.scenario.test_stream[0 : i + 1]  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
-            seen_test_stream: GenericScenarioStream[
-                Any, Any
-            ] = create_multi_dataset_generic_benchmark(
+            seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
                 [], [], other_streams_datasets={"seen_test": [seen_test]}
             ).seen_test_stream  # type: ignore
 

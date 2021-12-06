@@ -1,6 +1,6 @@
 import math
 from enum import Enum
-from typing import Optional, cast
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -17,14 +17,18 @@ class Mode(Enum):
 
 
 class IntervalLinear(nn.Module):
-    def __init__(self, in_features: int, out_features: int) -> None:
+    def __init__(self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float) -> None:
         super().__init__()
 
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(torch.empty((out_features, in_features)))
         self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
-        self.radius_multiplier: Optional[Tensor] = None
+        self.radius_multiplier: float = radius_multiplier
+        self.max_radius: float = max_radius
+
+        assert self.radius_multiplier > 0
+        assert self.max_radius > 0
 
         self._shift = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self._scale = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
@@ -34,8 +38,7 @@ class IntervalLinear(nn.Module):
         self.reset_parameters()
 
     def radius_transform(self, params: Tensor):
-        assert self.radius_multiplier is not None
-        return (params * self.radius_multiplier).clamp(min=0, max=1)
+        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius)
 
     @property
     def radius(self) -> Tensor:
@@ -51,10 +54,9 @@ class IntervalLinear(nn.Module):
         """Contracted interval scale (0, 1)."""
         return self._scale.sigmoid()
 
-    def clamp_radii(self):
+    def clamp_radii(self) -> None:
         with torch.no_grad():
-            assert self.radius_multiplier is not None
-            max = 1 / float(self.radius_multiplier)
+            max = self.max_radius / self.radius_multiplier
             self._radius.clamp_(min=0, max=max)
 
     def reset_parameters(self) -> None:
@@ -93,21 +95,21 @@ class IntervalLinear(nn.Module):
             self._scale.fill_(5)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
-        x = x.refine_names('N', 'bounds', 'features')  # type: ignore
-        assert (x.rename(None) >= 0.0).all(), 'All input features must be non-negative.'  # type: ignore
+        x = x.refine_names("N", "bounds", "features")  # type: ignore
+        assert (x.rename(None) >= 0.0).all(), "All input features must be non-negative."  # type: ignore
 
-        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind('bounds'))  # type: ignore
-        assert (x_lower <= x_middle).all(), 'Lower bound must be less than or equal to middle bound.'
-        assert (x_middle <= x_upper).all(), 'Middle bound must be less than or equal to upper bound.'
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        assert (x_lower <= x_middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (x_middle <= x_upper).all(), "Middle bound must be less than or equal to upper bound."
 
         if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
-            w_middle = self.weight
+            w_middle: Tensor = self.weight
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
         else:
             assert self.mode == Mode.CONTRACTION
-            assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), 'Scale must be in [0, 1] range.'
-            assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), 'Shift must be in [-1, 1] range.'
+            assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
+            assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
 
             w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
             w_lower = w_middle - self.scale * self.radius
@@ -124,17 +126,19 @@ class IntervalLinear(nn.Module):
         upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
         middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
 
-        assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'
-        assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'
+        assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
 
-        return torch.stack([lower, middle, upper], dim=1).refine_names('N', 'bounds', 'features')  # type: ignore
+        return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
 
 
 class IntervalModel(nn.Module):
-    def __init__(self):
+    def __init__(self, radius_multiplier: float, max_radius: float):
         super().__init__()
 
         self.mode: Mode = Mode.VANILLA
+        self._radius_multiplier = radius_multiplier
+        self._max_radius = max_radius
 
     def interval_children(self) -> list[IntervalLinear]:
         return [m for m in self.children() if isinstance(m, IntervalLinear)]
@@ -144,11 +148,11 @@ class IntervalModel(nn.Module):
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
-            print(f'\n[bold cyan]» :green_circle: Switching to vanilla training phase...')
+            print("\n[bold cyan]» :green_circle: Switching to vanilla training phase...")
         elif mode == Mode.EXPANSION:
-            print(f'\n[bold cyan]» :yellow circle: Switching to interval expansion phase...')
+            print("\n[bold cyan]» :yellow circle: Switching to interval expansion phase...")
         elif mode == Mode.CONTRACTION:
-            print(f'\n[bold cyan]» :heavy_large_circle: Switching to interval contraction phase...')
+            print("\n[bold cyan]» :heavy_large_circle: Switching to interval contraction phase...")
 
         self.mode = mode
         for m in self.interval_children():
@@ -158,9 +162,25 @@ class IntervalModel(nn.Module):
         for m in self.interval_children():
             m.freeze_task()
 
-    def set_radius_multiplier(self, multiplier: Tensor) -> None:
+    @property
+    def radius_multiplier(self):
+        return self._radius_multiplier
+
+    @radius_multiplier.setter
+    def radius_multiplier(self, value: float):
+        self._radius_multiplier = value
         for m in self.interval_children():
-            m.radius_multiplier = multiplier
+            m.radius_multiplier = value
+
+    @property
+    def max_radius(self):
+        return self._max_radius
+
+    @max_radius.setter
+    def max_radius(self, value: float) -> None:
+        self._max_radius = value
+        for m in self.interval_children():
+            m.max_radius = value
 
     def clamp_radii(self) -> None:
         for m in self.interval_children():
@@ -170,39 +190,47 @@ class IntervalModel(nn.Module):
         for m in self.interval_children():
             return m.radius_transform(params)
 
-        raise ValueError('No IntervalNet modules found in model.')
+        raise ValueError("No IntervalNet modules found in model.")
 
 
 class IntervalMLP(IntervalModel):
-    def __init__(self, input_size: int, hidden_dim: int, output_classes: int):
-        super().__init__()
+    def __init__(
+        self, input_size: int, hidden_dim: int, output_classes: int, radius_multiplier: float, max_radius: float
+    ):
+        super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
         self.input_size = input_size
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
 
-        self.fc1 = IntervalLinear(self.input_size, self.hidden_dim)
-        self.fc2 = IntervalLinear(self.hidden_dim, self.hidden_dim)
-        self.last = IntervalLinear(self.hidden_dim, self.output_classes)
+        self.fc1 = IntervalLinear(
+            self.input_size, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius
+        )
+        self.fc2 = IntervalLinear(
+            self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius
+        )
+        self.last = IntervalLinear(
+            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius
+        )
 
     def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
-        x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape
+        x = x.refine_names("N", "C", "H", "W")  # type: ignore  # expected input shape
 
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)
         x = x.unflatten(1, (1, -1))  # type: ignore  # (N, bounds, features)
         x = x.tile((1, 3, 1))
 
-        x = x.refine_names('N', 'bounds', 'features')  # type: ignore
+        x = x.refine_names("N", "bounds", "features")  # type: ignore
 
         fc1 = F.relu(self.fc1(x))
         fc2 = F.relu(self.fc2(fc1))
         last = self.last(fc2)
 
         return {
-            'fc1': fc1,
-            'fc2': fc2,
-            'last': last,
+            "fc1": fc1,
+            "fc2": fc2,
+            "last": last,
         }
 
     @property

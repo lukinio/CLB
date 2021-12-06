@@ -65,6 +65,7 @@ class Settings(pytorch_yard.Settings):
     # ----------------------------------------------------------------------------------------------
     vanilla_loss_threshold: Optional[float] = None
     radius_multiplier: Optional[float] = None
+    max_radius: Optional[float] = None
 
     l1_lambda: Optional[float] = None
 

@@ -10,9 +10,10 @@ from avalanche.evaluation.metric_definitions import GenericPluginMetric
 from avalanche.evaluation.metrics.accuracy import AccuracyPluginMetric
 from avalanche.evaluation.metrics.loss import LossPluginMetric
 from avalanche.training.strategies.base_strategy import BaseStrategy
+from torch import Tensor
+
 from intervalnet.models.interval import IntervalModel
 from intervalnet.strategy import IntervalTraining
-from torch import Tensor
 
 from .generic import MetricNamingMixin
 
@@ -25,7 +26,7 @@ class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
     """
 
     def __init__(self):
-        super().__init__(reset_at='experience', emit_at='experience', mode='eval')  # type: ignore
+        super().__init__(reset_at="experience", emit_at="experience", mode="eval")  # type: ignore
 
     def __str__(self):
         return "RobustAccuracy"
@@ -46,9 +47,16 @@ class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
 class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
     """Metric wrapper around IntervalTraining attributes."""
 
-    def __init__(self, metric_name: str, strategy_attribute: str, strategy_subattribute: Optional[str] = None,
-                 strategy_attribute_key: Optional[str] = None,
-                 reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train'):
+    def __init__(
+        self,
+        metric_name: str,
+        strategy_attribute: str,
+        strategy_subattribute: Optional[str] = None,
+        strategy_attribute_key: Optional[str] = None,
+        reset_at: str = "epoch",
+        emit_at: str = "epoch",
+        mode: str = "train",
+    ):
         self.metric_name = metric_name
         self.strategy_attribute = strategy_attribute
         self.strategy_subattribute = strategy_subattribute
@@ -69,15 +77,24 @@ class Reporter(MetricNamingMixin[Tensor], LossPluginMetric):
         self._loss.update(attr, patterns=len(strategy.mb_y), task_label=task_label)  # type: ignore
 
     def __str__(self):
-        return f'{self.metric_name}'
+        return f"{self.metric_name}"
 
 
 class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
     """Wandb histogram metrics of a given layer's parameter tensor."""
 
-    def __init__(self, layer_name: str, start: float = 0, stop: float = 1, n_bins: int = 100,
-                 reset_at: str = 'epoch', emit_at: str = 'epoch', mode: str = 'train',
-                 transform: Optional[Callable[[Tensor], Tensor]] = None, grad: bool = False):
+    def __init__(
+        self,
+        layer_name: str,
+        start: float = 0,
+        stop: float = 1,
+        n_bins: int = 100,
+        reset_at: str = "epoch",
+        emit_at: str = "epoch",
+        mode: str = "train",
+        transform: Optional[Callable[[Tensor], Tensor]] = None,
+        grad: bool = False,
+    ):
         self.layer_name = layer_name
         self.start = start
         self.stop = stop
@@ -85,7 +102,7 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
         self.transform = transform
         self.grad = grad
 
-        assert self.n_bins <= 512, 'W&B does not support that many bins for visualization.'
+        assert self.n_bins <= 512, "W&B does not support that many bins for visualization."
 
         self.data: Optional[Tensor] = None
         self.data_grad: Optional[Tensor] = None
@@ -128,18 +145,24 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
         self.data = None
 
     def __str__(self):
-        return f'Diagnostics/{self.layer_name}' + ('.grad' if self.grad else '')
+        return f"Diagnostics/{self.layer_name}" + (".grad" if self.grad else "")
 
 
 class LayerDiagnosticsHist(LayerDiagnostics):
     """Raw histogram visualizations of a given layer's parameter tensor."""
 
-    def __init__(self, layer_name: str, start: float = 0, stop: float = 1.0, n_bins: int = 20,
-                 transform: Optional[Callable[[Tensor], Tensor]] = None):
+    def __init__(
+        self,
+        layer_name: str,
+        start: float = 0,
+        stop: float = 1.0,
+        n_bins: int = 20,
+        transform: Optional[Callable[[Tensor], Tensor]] = None,
+    ):
         super().__init__(layer_name, start=start, stop=stop, n_bins=n_bins, transform=transform)
 
     def __str__(self):
-        return f'DiagnosticsHist/{self.layer_name}'
+        return f"DiagnosticsHist/{self.layer_name}"
 
     def _get_metric_name(self, strategy: BaseStrategy, add_experience: bool = True, add_task: Any = True):
         return super()._get_metric_name(strategy, add_experience=True, add_task=add_task)
@@ -151,11 +174,11 @@ class LayerDiagnosticsHist(LayerDiagnostics):
 
         data: list[list[Any]] = []
         for i in range(len(hist[0])):
-            data.append([hist[0][i], f'{i:02d}: [{hist[1][i]:+.2f}, {hist[1][i+1]:+.2f}]'])
+            data.append([hist[0][i], f"{i:02d}: [{hist[1][i]:+.2f}, {hist[1][i+1]:+.2f}]"])
 
-        table = wandb.Table(data=data, columns=['count', 'bin'])
+        table = wandb.Table(data=data, columns=["count", "bin"])
         title = self._get_metric_name(strategy, add_experience=True, add_task=False)
-        return wandb.plot.bar(table, 'bin', 'count', title=title)  # type: ignore
+        return wandb.plot.bar(table, "bin", "count", title=title)  # type: ignore
 
 
 def interval_training_diagnostics(model: IntervalModel):
@@ -167,18 +190,37 @@ def interval_training_diagnostics(model: IntervalModel):
     losses = IntervalTraining.Losses()
     status = IntervalTraining.Status()
 
-    metrics.extend([Reporter(f'Loss/{field.name}', 'losses', field.name) for field in fields(losses)])
-    metrics.extend([Reporter(f'Status/{field.name}', 'status', field.name)
-                    for field in fields(status) if issubclass(field.type, Tensor)])
-    metrics.extend([Reporter(f'Status/{field.name}{layer}', 'status', field.name, layer)
-                    for layer, _ in model.named_interval_children()
-                    for field in fields(status) if isinstance(field.type, GenericAlias) and issubclass(field.type.__origin__, dict)])
+    metrics.extend([Reporter(f"Loss/{field.name}", "losses", field.name) for field in fields(losses)])
+    metrics.extend(
+        [
+            Reporter(f"Status/{field.name}", "status", field.name)
+            for field in fields(status)
+            if issubclass(field.type, Tensor)
+        ]
+    )
+    metrics.extend(
+        [
+            Reporter(f"Status/{field.name}{layer}", "status", field.name, layer)
+            for layer, _ in model.named_interval_children()
+            for field in fields(status)
+            if isinstance(field.type, GenericAlias) and issubclass(field.type.__origin__, dict)
+        ]
+    )
 
-    metrics.extend([LayerDiagnostics(layer, transform=model.radius_transform)
-                    for layer in model.state_dict().keys() if 'radius' in layer])
-    metrics.extend([LayerDiagnosticsHist(layer, transform=model.radius_transform)
-                    for layer in model.state_dict().keys() if 'radius' in layer])
-    metrics.extend([LayerDiagnostics(layer, grad=True)
-                    for layer in model.state_dict().keys() if 'radius' in layer])
+    metrics.extend(
+        [
+            LayerDiagnostics(layer, transform=model.radius_transform, stop=model.max_radius)
+            for layer in model.state_dict().keys()
+            if "radius" in layer
+        ]
+    )
+    metrics.extend(
+        [
+            LayerDiagnosticsHist(layer, transform=model.radius_transform, stop=model.max_radius)
+            for layer in model.state_dict().keys()
+            if "radius" in layer
+        ]
+    )
+    metrics.extend([LayerDiagnostics(layer, grad=True) for layer in model.state_dict().keys() if "radius" in layer])
 
     return metrics

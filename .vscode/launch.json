@@ -12,9 +12,9 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "cfg=interval",
+                // "cfg=interval",
                 // "cfg.radius_multiplier=1",
-                "cfg.enable_visdom=true",
+                // "cfg.enable_visdom=true",
                 "cfg.visdom_reset_every_epoch=true",
                 // "cfg.metric_lookback=10",
                 // "cfg.robust_accuracy_threshold=0.9",
@@ -23,7 +23,7 @@
             ],
             "env": {
                 // "WANDB_MODE": "disabled",
-                "CUDA_VISIBLE_DEVICES": "1"
+                "CUDA_VISIBLE_DEVICES": "0"
             }
         },
     ]

@@ -39,6 +39,7 @@ class IntervalTraining(BaseStrategy):
         vanilla_loss_threshold: float,
         robust_accuracy_threshold: float,
         radius_multiplier: float,
+        max_radius: float,
         l1_lambda: float,
         metric_lookback: int,
         expansion_learning_rate: float,
@@ -63,12 +64,14 @@ class IntervalTraining(BaseStrategy):
         assert vanilla_loss_threshold is not None
         assert robust_accuracy_threshold is not None
         assert radius_multiplier is not None
+        assert max_radius is not None
         assert l1_lambda is not None
         assert metric_lookback is not None
         assert expansion_learning_rate is not None
 
         self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
+        self.max_radius = torch.tensor(max_radius)
         self.l1_lambda = torch.tensor(l1_lambda)
         self.robust_accuracy_threshold = torch.tensor(robust_accuracy_threshold)
         self.metric_lookback = metric_lookback
@@ -95,7 +98,8 @@ class IntervalTraining(BaseStrategy):
             eval_every=eval_every,
         )
 
-        self.model.set_radius_multiplier(self.radius_multiplier)
+        self.model.radius_multiplier = float(self.radius_multiplier)
+        self.model.max_radius = float(self.max_radius)
 
         self.viz = visdom.Visdom() if enable_visdom else None
         self.viz_debug = visdom.Visdom(env="debug") if enable_visdom else None
@@ -218,7 +222,7 @@ class IntervalTraining(BaseStrategy):
                 radii.append(module.radius.flatten())
 
             self.losses.radius_penalty = torch.stack(
-                [F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]  # mean per layer
+                [F.relu(torch.tensor(self.max_radius) - r).pow(2).mean() for r in radii]  # mean per layer
             ).mean()
 
             # === Bounds penalty ===
@@ -424,7 +428,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (7, 126, 143),
                     "solid",
-                    (-0.1, 1.1),
+                    (-0.1, self.max_radius + 0.1),
                 ),
                 (
                     self.losses.radius_penalty if self.losses else _,
@@ -433,7 +437,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (230, 203, 0),
                     "solid",
-                    (-0.1, 1.1),
+                    (-0.1, self.max_radius + 0.1),
                 ),
                 (
                     self.status.radius_mean if self.status else _,
@@ -442,7 +446,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (230, 203, 0),
                     "dot",
-                    (-0.1, 1.1),
+                    (-0.1, self.max_radius + 0.1),
                 ),
                 (
                     self.losses.total if self.losses else _,
