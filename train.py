@@ -27,7 +27,7 @@ from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
 
-assert pytorch_yard.__version__ == '2021.10.11', 'Code not tested with different pytorch-yard versions.'  # type: ignore
+assert pytorch_yard.__version__ == "2021.11.17", "Code not tested with different pytorch-yard versions."  # type: ignore
 
 
 class Experiment(AvalancheExperiment):
@@ -105,6 +105,7 @@ class Experiment(AvalancheExperiment):
                 radius_multiplier=self.cfg.radius_multiplier,
                 l1_lambda=self.cfg.l1_lambda,
                 metric_lookback=self.cfg.metric_lookback,
+                expansion_learning_rate=self.cfg.expansion_learning_rate,
             )
 
         print(self.model)

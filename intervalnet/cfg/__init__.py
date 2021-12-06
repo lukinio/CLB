@@ -39,6 +39,7 @@ class Settings(pytorch_yard.Settings):
     batch_size: int = 128
     epochs: int = 5
     learning_rate: float = 0.01
+    expansion_learning_rate: float = 0.01
     momentum: float = 0.9
 
     optimizer: OptimizerType = OptimizerType.ADAM

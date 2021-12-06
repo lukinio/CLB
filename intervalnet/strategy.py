@@ -41,6 +41,7 @@ class IntervalTraining(BaseStrategy):
         radius_multiplier: float,
         l1_lambda: float,
         metric_lookback: int,
+        expansion_learning_rate: float,
     ):
 
         self.mb_output_all: dict[str, Tensor]
@@ -51,6 +52,7 @@ class IntervalTraining(BaseStrategy):
         self.mb_output: Union[dict[str, Tensor], Tensor]
         self.loss: Tensor
         self.training_exp_counter: int
+        self.optimizer: Optimizer
 
         self.device: torch.device
         self.model: IntervalMLP
@@ -63,12 +65,14 @@ class IntervalTraining(BaseStrategy):
         assert radius_multiplier is not None
         assert l1_lambda is not None
         assert metric_lookback is not None
+        assert expansion_learning_rate is not None
 
         self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
         self.l1_lambda = torch.tensor(l1_lambda)
         self.robust_accuracy_threshold = torch.tensor(robust_accuracy_threshold)
         self.metric_lookback = metric_lookback
+        self.expansion_learning_rate = expansion_learning_rate
 
         # Training metrics for the current mini-batch
         self.losses: Optional[IntervalTraining.Losses] = None  # Reported as 'Loss/*' metrics
@@ -270,6 +274,7 @@ class IntervalTraining(BaseStrategy):
         if self.mode == Mode.VANILLA and self.losses and self.losses.vanilla < self.vanilla_loss_threshold:
             self.model.switch_mode(Mode.EXPANSION)
             self.make_optimizer()
+            self.optimizer.param_groups[0]["lr"] = self.expansion_learning_rate  # type: ignore
 
         if self.viz_debug:
             self.reset_viz_debug()
