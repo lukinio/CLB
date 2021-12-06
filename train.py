@@ -3,10 +3,10 @@ from typing import Any, Iterable, Optional, Type, cast
 
 import pytorch_yard
 import torch.nn as nn
-from avalanche.benchmarks.scenarios.generic_benchmark_creation import \
-    create_multi_dataset_generic_benchmark
-from avalanche.benchmarks.scenarios.generic_cl_scenario import \
-    GenericScenarioStream
+from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
+    create_multi_dataset_generic_benchmark,
+)
+from avalanche.benchmarks.scenarios.generic_cl_scenario import GenericScenarioStream
 from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
@@ -31,8 +31,12 @@ assert pytorch_yard.__version__ == '2021.10.11', 'Code not tested with different
 
 
 class Experiment(AvalancheExperiment):
-
-    def __init__(self, config_path: str, settings_cls: Type[Settings], settings_group: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        config_path: str,
+        settings_cls: Type[Settings],
+        settings_group: Optional[str] = None,
+    ) -> None:
         super().__init__(config_path, settings_cls, settings_group=settings_group)
 
         self.cfg: Settings
@@ -64,7 +68,11 @@ class Experiment(AvalancheExperiment):
                 output_classes=self.n_output_classes,
             )
             if self.cfg.optimizer is OptimizerType.SGD:
-                optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum)
+                optimizer = SGD(
+                    self.model.parameters(),
+                    lr=self.cfg.learning_rate,
+                    momentum=self.cfg.momentum,
+                )
             else:
                 assert self.cfg.optimizer == OptimizerType.ADAM
                 optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
@@ -80,7 +88,11 @@ class Experiment(AvalancheExperiment):
                 output_classes=self.n_output_classes,
             )
             if self.cfg.optimizer is OptimizerType.SGD:
-                optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate, momentum=self.cfg.momentum)
+                optimizer = SGD(
+                    self.model.parameters(),
+                    lr=self.cfg.learning_rate,
+                    momentum=self.cfg.momentum,
+                )
             else:
                 assert self.cfg.optimizer == OptimizerType.ADAM
                 optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
@@ -116,12 +128,14 @@ class Experiment(AvalancheExperiment):
             *metrics,
             benchmark=self.scenario,
             loggers=[
-                RichLogger(ignore_metrics=[
-                    r'Diagnostics/(.*)',
-                    r'DiagnosticsHist/(.*)',
-                ]),
-                self.wandb_logger
-            ]
+                RichLogger(
+                    ignore_metrics=[
+                        r"Diagnostics/(.*)",
+                        r"DiagnosticsHist/(.*)",
+                    ]
+                ),
+                self.wandb_logger,
+            ],
         )
 
         # Strategy
@@ -140,21 +154,25 @@ class Experiment(AvalancheExperiment):
         # ------------------------------------------------------------------------------------------
         # Experiment loop
         # ------------------------------------------------------------------------------------------
-        info_bold('Starting experiment...')
-        for i, experience in enumerate(cast(Iterable[NCExperience], self.scenario.train_stream)):
-            info(f'Start of experience: {experience.current_experience}')
-            info(f'Current classes: {experience.classes_in_this_experience}')
+        info_bold("Starting experiment...")
+        for i, experience in enumerate(
+            cast(Iterable[NCExperience], self.scenario.train_stream)
+        ):
+            info(f"Start of experience: {experience.current_experience}")
+            info(f"Current classes: {experience.classes_in_this_experience}")
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                exp.dataset for exp in self.scenario.test_stream[0:i+1]  # type: ignore
+                exp.dataset for exp in self.scenario.test_stream[0 : i + 1]  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
-            seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
-                [], [], other_streams_datasets={'seen_test': [seen_test]}
+            seen_test_stream: GenericScenarioStream[
+                Any, Any
+            ] = create_multi_dataset_generic_benchmark(
+                [], [], other_streams_datasets={"seen_test": [seen_test]}
             ).seen_test_stream  # type: ignore
 
             strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
-            info('Training completed')
+            info("Training completed")
 
     def setup_dataset(self):
         assert self.cfg.dataset in DatasetType
@@ -169,9 +187,9 @@ class Experiment(AvalancheExperiment):
             self.test,
             self.transforms,
             self.cfg.n_experiences,
-            self.n_classes
+            self.n_classes,
         )
 
 
-if __name__ == '__main__':
-    Experiment('intervalnet', Settings)
+if __name__ == "__main__":
+    Experiment("intervalnet", Settings)

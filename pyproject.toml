@@ -1,0 +1,11 @@
+[tool.black]
+line-length = 119
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+skip_glob = ['.vscode/*']
+src_paths = ["intervalnet"]
+
+[tool.pyright]
+exclude = ['.vscode/*']

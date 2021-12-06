@@ -29,7 +29,7 @@ class IntervalTraining(BaseStrategy):
         train_mb_size: int = 1,
         train_epochs: int = 1,
         eval_mb_size: int = 1,
-        device: torch.device = torch.device('cpu'),
+        device: torch.device = torch.device("cpu"),
         plugins: Optional[Sequence[StrategyPlugin]] = None,
         evaluator: Optional[EvaluationPlugin] = None,
         eval_every: int = -1,
@@ -78,14 +78,23 @@ class IntervalTraining(BaseStrategy):
         self._accuracy: deque[Tensor] = deque(maxlen=metric_lookback)  # latest readings from the left
         self._robust_accuracy: deque[Tensor] = deque(maxlen=metric_lookback)  # latest readings from the left
 
-        super().__init__(model, optimizer, criterion=self._criterion, train_mb_size=train_mb_size,  # type: ignore
-                         train_epochs=train_epochs, eval_mb_size=eval_mb_size, device=device,
-                         plugins=plugins, evaluator=evaluator, eval_every=eval_every)
+        super().__init__(  # type: ignore
+            model,
+            optimizer,
+            criterion=self._criterion,
+            train_mb_size=train_mb_size,
+            train_epochs=train_epochs,
+            eval_mb_size=eval_mb_size,
+            device=device,
+            plugins=plugins,
+            evaluator=evaluator,
+            eval_every=eval_every,
+        )
 
         self.model.set_radius_multiplier(self.radius_multiplier)
 
         self.viz = visdom.Visdom() if enable_visdom else None
-        self.viz_debug = visdom.Visdom(env='debug') if enable_visdom else None
+        self.viz_debug = visdom.Visdom(env="debug") if enable_visdom else None
         self.viz_reset_every_epoch = visdom_reset_every_epoch
         self.windows: dict[str, str] = {}
 
@@ -141,7 +150,7 @@ class IntervalTraining(BaseStrategy):
         """Rebind the model's default output to the middle bound."""
         assert isinstance(self.mb_output, dict)
         self.mb_output_all = self.mb_output
-        self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
+        self.mb_output = self.mb_output["last"][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_forward(**kwargs)  # type: ignore
 
@@ -149,14 +158,15 @@ class IntervalTraining(BaseStrategy):
         """Rebind the model's default output to the middle bound."""
         assert isinstance(self.mb_output, dict)
         self.mb_output_all = self.mb_output
-        self.mb_output = self.mb_output['last'][:, 1, :].rename(None)  # type: ignore  # middle bound
+        self.mb_output = self.mb_output["last"][:, 1, :].rename(None)  # type: ignore  # middle bound
 
         super().after_eval_forward(**kwargs)  # type: ignore
 
     @dataclass
-    class Losses():
+    class Losses:
         """Model losses reported as 'Loss/*'."""
-        device: InitVar[torch.device] = torch.device('cpu')
+
+        device: InitVar[torch.device] = torch.device("cpu")
 
         total: Tensor = torch.tensor(0.0)
         vanilla: Tensor = torch.tensor(0.0)
@@ -203,8 +213,9 @@ class IntervalTraining(BaseStrategy):
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
-            self.losses.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean()  # mean per layer
-                                                      for r in radii]).mean()
+            self.losses.radius_penalty = torch.stack(
+                [F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]  # mean per layer
+            ).mean()
 
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
@@ -275,7 +286,7 @@ class IntervalTraining(BaseStrategy):
             Robust output logits (lower bound for correct class, upper bounds for incorrect classes).
 
         """
-        output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')
+        output_lower, _, output_higher = self.mb_output_all["last"].unbind("bounds")
         y_oh = F.one_hot(self.mb_y)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
 
@@ -297,8 +308,9 @@ class IntervalTraining(BaseStrategy):
         return bounds[:, 2, :] - bounds[:, 0, :]
 
     @dataclass
-    class Status():
+    class Status:
         """Diagnostic values reported as 'Status/*'."""
+
         mode: Tensor = torch.tensor(0.0)
         radius_multiplier: Tensor = torch.tensor(0.0)
         radius_mean: Tensor = torch.tensor(0.0)
@@ -320,22 +332,30 @@ class IntervalTraining(BaseStrategy):
             self.status.bounds_width_[name] = self.bounds_width(name).mean()
 
             if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
-                self.windows[f'{name}.radius'] = self.viz.heatmap(
+                self.windows[f"{name}.radius"] = self.viz.heatmap(
                     module.radius,
-                    win=self.windows.get(f'{name}.radius'),
-                    opts={'title': f'{name}.radius --> epoch {(self.epoch or 0) + 1}'}
+                    win=self.windows.get(f"{name}.radius"),
+                    opts={"title": f"{name}.radius --> epoch {(self.epoch or 0) + 1}"},
                 )
 
-                self.windows[f'{name}.weight'] = self.viz.heatmap(
+                self.windows[f"{name}.weight"] = self.viz.heatmap(
                     module.weight.abs().clamp(max=module.weight.abs().quantile(0.99)),
-                    win=self.windows.get(f'{name}.weight'),
-                    opts={'title': f'{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}'}
+                    win=self.windows.get(f"{name}.weight"),
+                    opts={"title": f"{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}"},
                 )
 
         self.status.radius_mean = torch.cat(radii).mean()
 
         if self.viz_debug:
-            for metric, name, window, _, color, dash, yrange in self.get_debug_metrics():
+            for (
+                metric,
+                name,
+                window,
+                _,
+                color,
+                dash,
+                yrange,
+            ) in self.get_debug_metrics():
                 self.append_viz_debug(metric, name, window, color, dash, yrange)
 
     def get_debug_metrics(self):
@@ -348,35 +368,97 @@ class IntervalTraining(BaseStrategy):
 
         """
 
-        epoch = f'(epoch: {(self.epoch or 0) + 1})'
+        epoch = f"(epoch: {(self.epoch or 0) + 1})"
         _ = torch.tensor(0.0)
 
-        output_type = list[tuple[
-            Tensor, str, str, str, tuple[int, int, int], str, tuple[float, float]
-        ]]
+        output_type = list[tuple[Tensor, str, str, str, tuple[int, int, int], str, tuple[float, float]]]
 
-        metrics = cast(output_type, [
-            (self.robust_accuracy(1), 'robust_accuracy',
-                'accuracy', f'Batch accuracy {epoch}', (7, 126, 143), 'solid', (-0.1, 1.1)),
-            (self.accuracy(1), 'accuracy',
-                'accuracy', f'Batch accuracy {epoch}', (219, 0, 108), 'solid', (-0.1, 1.1)),
-            (self.robust_accuracy(self.metric_lookback), f'robust_accuracy_ma{self.metric_lookback}',
-                'accuracy', f'Batch accuracy {epoch}', (7, 126, 143), 'dot', (-0.1, 1.1)),
-            (self.accuracy(self.metric_lookback), f'accuracy_ma{self.metric_lookback}',
-                'accuracy', f'Batch accuracy {epoch}', (219, 0, 108), 'dot', (-0.1, 1.1)),
-
-            (self.losses.robust_penalty if self.losses else _, 'robust_penalty',
-                'penalties', f'Penalties {epoch}', (7, 126, 143), 'solid', (-0.1, 1.1)),
-            (self.losses.radius_penalty if self.losses else _, 'radius_penalty',
-                'penalties', f'Penalties {epoch}', (230, 203, 0), 'solid', (-0.1, 1.1)),
-            (self.status.radius_mean if self.status else _, 'radius_mean',
-                'penalties', f'Penalties {epoch}', (230, 203, 0), 'dot', (-0.1, 1.1)),
-
-            (self.losses.total if self.losses else _, 'total_loss',
-                'loss', f'Loss {epoch}', (219, 0, 108), 'solid', (-0.1, 35.0)),
-            (self.losses.robust if self.losses else _, 'robust_loss',
-                'loss', f'Loss {epoch}', (7, 126, 143), 'solid', (-0.1, 35.0)),
-        ])
+        metrics = cast(
+            output_type,
+            [
+                (
+                    self.robust_accuracy(1),
+                    "robust_accuracy",
+                    "accuracy",
+                    f"Batch accuracy {epoch}",
+                    (7, 126, 143),
+                    "solid",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.accuracy(1),
+                    "accuracy",
+                    "accuracy",
+                    f"Batch accuracy {epoch}",
+                    (219, 0, 108),
+                    "solid",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.robust_accuracy(self.metric_lookback),
+                    f"robust_accuracy_ma{self.metric_lookback}",
+                    "accuracy",
+                    f"Batch accuracy {epoch}",
+                    (7, 126, 143),
+                    "dot",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.accuracy(self.metric_lookback),
+                    f"accuracy_ma{self.metric_lookback}",
+                    "accuracy",
+                    f"Batch accuracy {epoch}",
+                    (219, 0, 108),
+                    "dot",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.losses.robust_penalty if self.losses else _,
+                    "robust_penalty",
+                    "penalties",
+                    f"Penalties {epoch}",
+                    (7, 126, 143),
+                    "solid",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.losses.radius_penalty if self.losses else _,
+                    "radius_penalty",
+                    "penalties",
+                    f"Penalties {epoch}",
+                    (230, 203, 0),
+                    "solid",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.status.radius_mean if self.status else _,
+                    "radius_mean",
+                    "penalties",
+                    f"Penalties {epoch}",
+                    (230, 203, 0),
+                    "dot",
+                    (-0.1, 1.1),
+                ),
+                (
+                    self.losses.total if self.losses else _,
+                    "total_loss",
+                    "loss",
+                    f"Loss {epoch}",
+                    (219, 0, 108),
+                    "solid",
+                    (-0.1, 35.0),
+                ),
+                (
+                    self.losses.robust if self.losses else _,
+                    "robust_loss",
+                    "loss",
+                    f"Loss {epoch}",
+                    (7, 126, 143),
+                    "solid",
+                    (-0.1, 35.0),
+                ),
+            ],
+        )
 
         # for layer, __ in self.model.named_interval_children():  # type: ignore
         #     metrics.append(
@@ -386,45 +468,75 @@ class IntervalTraining(BaseStrategy):
 
         return metrics
 
-    def append_viz_debug(self, val: Tensor, name: str, window_name: str,
-                         color: tuple[int, int, int], dash: str, yrange: tuple[float, float]):
+    def append_viz_debug(
+        self,
+        val: Tensor,
+        name: str,
+        window_name: str,
+        color: tuple[int, int, int],
+        dash: str,
+        yrange: tuple[float, float],
+    ):
         """Append single value to a Visdom line plot."""
 
         assert self.viz_debug
 
         if self.viz_reset_every_epoch:
-            window_name = f'{window_name}_{(self.epoch or 0) + 1}'
+            window_name = f"{window_name}_{(self.epoch or 0) + 1}"
 
-        self.viz_debug.line(X=torch.tensor([self.mb_it]), Y=torch.tensor([val]),
-                            win=self.windows[window_name], update='append', name=name,
-                            opts={'linecolor': np.array([color]),  # type: ignore
-                                  'dash': np.array([dash]),  # type: ignore
-                                  'layoutopts': {'plotly': {
-                                      'ytickmin': yrange[0], 'ytickmax': yrange[1],
-                                  }}})
+        self.viz_debug.line(
+            X=torch.tensor([self.mb_it]),
+            Y=torch.tensor([val]),
+            win=self.windows[window_name],
+            update="append",
+            name=name,
+            opts={
+                "linecolor": np.array([color]),  # type: ignore
+                "dash": np.array([dash]),  # type: ignore
+                "layoutopts": {
+                    "plotly": {
+                        "ytickmin": yrange[0],
+                        "ytickmax": yrange[1],
+                    }
+                },
+            },
+        )
 
     def reset_viz_debug(self):
         """Recreate Visdom line plots before new epoch."""
 
         assert self.viz_debug
 
-        for _, name, window_name, title, color, dash, yrange in self.get_debug_metrics():
+        for (
+            _,
+            name,
+            window_name,
+            title,
+            color,
+            dash,
+            yrange,
+        ) in self.get_debug_metrics():
             if self.viz_reset_every_epoch:
-                window_name = f'{window_name}_{(self.epoch or 0) + 1}'
+                window_name = f"{window_name}_{(self.epoch or 0) + 1}"
 
             # Reset plot line or create new plot
             self.windows[window_name] = self.viz_debug.line(
-                X=torch.tensor([0]), Y=torch.tensor([0]), win=self.windows.get(window_name, None),
-                opts={'title': title, 'linecolor': np.array([color]),  # type: ignore
-                      'dash': np.array([dash]),  # type: ignore
-                      'layoutopts': {'plotly': {
-                          'margin': dict(l=40, r=40, b=80, t=80, pad=5),
-                          'font': {'color': 'rgb(0, 0, 0)'},
-                          'legend': {'orientation': 'h'},
-                          'showlegend': True,
-                          'yaxis': {
-                              'autorange': False,
-                              'range': yrange
-                          }
-                      }}}, name=name
+                X=torch.tensor([0]),
+                Y=torch.tensor([0]),
+                win=self.windows.get(window_name, None),
+                opts={
+                    "title": title,
+                    "linecolor": np.array([color]),  # type: ignore
+                    "dash": np.array([dash]),  # type: ignore
+                    "layoutopts": {
+                        "plotly": {
+                            "margin": dict(l=40, r=40, b=80, t=80, pad=5),
+                            "font": {"color": "rgb(0, 0, 0)"},
+                            "legend": {"orientation": "h"},
+                            "showlegend": True,
+                            "yaxis": {"autorange": False, "range": yrange},
+                        }
+                    },
+                },
+                name=name,
             )
