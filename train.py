@@ -107,6 +107,7 @@ class Experiment(AvalancheExperiment):
                 robust_accuracy_threshold=self.cfg.robust_accuracy_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
                 max_radius=self.cfg.max_radius,
+                radius_lambda=self.cfg.radius_lambda,
                 l1_lambda=self.cfg.l1_lambda,
                 metric_lookback=self.cfg.metric_lookback,
                 expansion_learning_rate=self.cfg.expansion_learning_rate,

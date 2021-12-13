@@ -17,7 +17,8 @@
                 // "cfg.enable_visdom=true",
                 "cfg.visdom_reset_every_epoch=true",
                 // "cfg.metric_lookback=10",
-                // "cfg.robust_accuracy_threshold=0.9",
+                "cfg.robust_accuracy_threshold=0.9",
+                "cfg.max_radius=1",
                 // "cfg.vanilla_loss_threshold=0.03",
                 // "tags=[SGD ]"
             ],
