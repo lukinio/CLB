@@ -226,7 +226,7 @@ class IntervalTraining(BaseStrategy):
 
             self.losses.radius_penalty = torch.stack(
                 [
-                    F.relu(torch.tensor(self.max_radius) - r).mul(self.radius_lambda / self.max_radius).pow(2).mean()
+                    F.relu(torch.tensor(1.0) - r / self.max_radius).mul(self.radius_lambda).pow(2).mean()
                     for r in radii
                 ]  # mean per layer
             ).mean()
