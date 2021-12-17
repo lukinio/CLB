@@ -277,7 +277,7 @@ class IntervalTraining(BaseStrategy):
         ):
             self.model.switch_mode(Mode.EXPANSION)
             self.make_optimizer()
-            self.optimizer.param_groups[0]["lr"] = self.expansion_learning_rate  # type: ignore
+            self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
 
         if self.viz_debug:
             self.reset_viz_debug()
