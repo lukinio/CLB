@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional
 
 import pytorch_yard
 
@@ -28,7 +27,23 @@ class OptimizerType(Enum):
     ADAM = auto()
 
 
-# Experiment settings validation schema & default values
+# Interval training settings
+@dataclass
+class IntervalSettings:
+    vanilla_loss_threshold: float = 0.03
+    expansion_learning_rate: float = 0.01
+
+    radius_multiplier: float = 1.0
+    max_radius: float = 1.0
+    radius_exponent: float = 0.5
+
+    robust_lambda: float = 0.002
+
+    metric_lookback: int = 10
+    robust_accuracy_threshold: float = 0.9
+
+
+# General experiment settings validation schema & default values
 @dataclass
 class Settings(pytorch_yard.Settings):
     # ----------------------------------------------------------------------------------------------
@@ -36,10 +51,12 @@ class Settings(pytorch_yard.Settings):
     # ----------------------------------------------------------------------------------------------
     seed: int = 1234
 
+    enable_visdom: bool = False
+    visdom_reset_every_epoch: bool = False
+
     batch_size: int = 128
     epochs: int = 5
     learning_rate: float = 0.01
-    expansion_learning_rate: float = 0.01
     momentum: float = 0.9
 
     optimizer: OptimizerType = OptimizerType.ADAM
@@ -63,15 +80,4 @@ class Settings(pytorch_yard.Settings):
     # ----------------------------------------------------------------------------------------------
     # IntervalNet settings
     # ----------------------------------------------------------------------------------------------
-    vanilla_loss_threshold: Optional[float] = None
-    radius_multiplier: Optional[float] = None
-    max_radius: Optional[float] = None
-    radius_lambda: Optional[float] = None
-
-    l1_lambda: Optional[float] = None
-
-    metric_lookback: Optional[int] = None
-    robust_accuracy_threshold: Optional[float] = None
-
-    enable_visdom: bool = False
-    visdom_reset_every_epoch: bool = False
+    interval: IntervalSettings = IntervalSettings()

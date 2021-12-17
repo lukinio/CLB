@@ -11,11 +11,12 @@ import visdom
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
-from rich import print  # type: ignore
+from rich import print  # type: ignore # noqa
 from torch import Tensor
 from torch.optim import Optimizer
 from torchmetrics.functional.classification.accuracy import accuracy
 
+from intervalnet.cfg import Settings
 from intervalnet.models.interval import IntervalMLP, Mode
 
 
@@ -36,24 +37,17 @@ class IntervalTraining(BaseStrategy):
         enable_visdom: bool = False,
         visdom_reset_every_epoch: bool = False,
         *,
-        vanilla_loss_threshold: float,
-        robust_accuracy_threshold: float,
-        radius_multiplier: float,
-        max_radius: float,
-        radius_lambda: float,
-        l1_lambda: float,
-        metric_lookback: int,
-        expansion_learning_rate: float,
+        cfg: Settings,
     ):
 
         self.mb_output_all: dict[str, Tensor]
         """All model's outputs computed on the current mini-batch (lower, middle, upper bounds), per layer."""
 
         # Avalanche typing specifications
-        self.mb_it: int
-        self.mb_output: Union[dict[str, Tensor], Tensor]
-        self.loss: Tensor
-        self.training_exp_counter: int
+        self.mb_it: int  # type: ignore
+        self.mb_output: Union[dict[str, Tensor], Tensor]  # type: ignore
+        self.loss: Tensor  # type: ignore
+        self.training_exp_counter: int  # type: ignore
         self.optimizer: Optimizer
 
         self.device: torch.device
@@ -62,31 +56,21 @@ class IntervalTraining(BaseStrategy):
         self._criterion = nn.CrossEntropyLoss()
 
         # Config values
-        assert vanilla_loss_threshold is not None
-        assert robust_accuracy_threshold is not None
-        assert radius_multiplier is not None
-        assert max_radius is not None
-        assert radius_lambda is not None
-        assert l1_lambda is not None
-        assert metric_lookback is not None
-        assert expansion_learning_rate is not None
+        self.cfg = cfg
 
-        self.vanilla_loss_threshold = torch.tensor(vanilla_loss_threshold)
-        self.radius_multiplier = torch.tensor(radius_multiplier)
-        self.max_radius = torch.tensor(max_radius)
-        self.radius_lambda = torch.tensor(radius_lambda)
-        self.l1_lambda = torch.tensor(l1_lambda)
-        self.robust_accuracy_threshold = torch.tensor(robust_accuracy_threshold)
-        self.metric_lookback = metric_lookback
-        self.expansion_learning_rate = expansion_learning_rate
+        self._current_lambda = self.cfg.interval.robust_lambda
 
         # Training metrics for the current mini-batch
         self.losses: Optional[IntervalTraining.Losses] = None  # Reported as 'Loss/*' metrics
         self.status: Optional[IntervalTraining.Status] = None  # Reported as 'Status/*' metrics
 
         # Running metrics
-        self._accuracy: deque[Tensor] = deque(maxlen=metric_lookback)  # latest readings from the left
-        self._robust_accuracy: deque[Tensor] = deque(maxlen=metric_lookback)  # latest readings from the left
+        self._accuracy: deque[Tensor] = deque(
+            maxlen=self.cfg.interval.metric_lookback
+        )  # latest readings from the left
+        self._robust_accuracy: deque[Tensor] = deque(
+            maxlen=self.cfg.interval.metric_lookback
+        )  # latest readings from the left
 
         super().__init__(  # type: ignore
             model,
@@ -101,8 +85,8 @@ class IntervalTraining(BaseStrategy):
             eval_every=eval_every,
         )
 
-        self.model.radius_multiplier = float(self.radius_multiplier)
-        self.model.max_radius = float(self.max_radius)
+        self.model.radius_multiplier = self.cfg.interval.radius_multiplier
+        self.model.max_radius = self.cfg.interval.max_radius
 
         self.viz = visdom.Visdom() if enable_visdom else None
         self.viz_debug = visdom.Visdom(env="debug") if enable_visdom else None
@@ -142,14 +126,14 @@ class IntervalTraining(BaseStrategy):
 
     def accuracy(self, n_last: int = 1) -> Tensor:
         """Moving average of the batch accuracy."""
-        assert n_last <= self.metric_lookback
+        assert n_last <= self.cfg.interval.metric_lookback
         if not self._accuracy:
             return torch.tensor(0.0)
         return torch.stack(list(self._accuracy)[:n_last]).mean().detach().cpu()
 
     def robust_accuracy(self, n_last: int = 1) -> Tensor:
         """Moving average of the batch robust accuracy."""
-        assert n_last <= self.metric_lookback
+        assert n_last <= self.cfg.interval.metric_lookback
         if not self._robust_accuracy:
             return torch.tensor(0.0)
         return torch.stack(list(self._robust_accuracy)[:n_last]).mean().detach().cpu()
@@ -187,8 +171,8 @@ class IntervalTraining(BaseStrategy):
         bounds_penalty: Tensor = torch.tensor(0.0)
         radius_penalty: Tensor = torch.tensor(0.0)
 
-        def __post__init__(self, device: torch.device):
-            for field in fields(self):
+        def __post_init__(self, device: torch.device):
+            for field in fields(self):  # noqa
                 if field.type == Tensor:
                     # Move to device & clone, because we use immutable defaults (no default_factory)
                     setattr(self, field.name, getattr(self, field.name).clone().to(device))
@@ -210,23 +194,28 @@ class IntervalTraining(BaseStrategy):
         elif self.mode == Mode.EXPANSION:
             # === Robust penalty ===
             # Maintain an acceptable increase in worst-case loss
-            # self.robust_penalty = self.robust_loss * F.relu(acc - robust_acc - 0.10) * 100 / 2
 
-            # robust_overflow = F.relu(self.losses.robust - self.robust_loss_threshold) / self.robust_loss_threshold
-            # self.losses.robust_penalty = ((robust_overflow + 1).pow(2) - 1).sqrt()
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+                self.losses.robust_penalty = self.losses.robust * self._current_lambda
 
-            if self.robust_accuracy(self.metric_lookback) < self.robust_accuracy_threshold:
-                self.losses.robust_penalty = self.losses.robust
+            #     if self._lambda is None:
+            #         self._lambda = start_lambda
+            #     self.losses.robust_penalty = self.losses.robust * self._lambda
+            #     self._lambda *= 1.1
+            # else:
+            #     self._lambda = start_lambda
 
             # === Radius penalty ===
-            # Maximize interval size up to radii of 1
+            # Maximize interval size up to `max_radius`
             radii: list[Tensor] = []
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
             self.losses.radius_penalty = torch.stack(
                 [
-                    F.relu(torch.tensor(1.0) - r / self.max_radius).mul(self.radius_lambda).pow(2).mean()
+                    F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
+                    .pow(self.cfg.interval.radius_exponent)
+                    .mean()
                     for r in radii
                 ]  # mean per layer
             ).mean()
@@ -281,7 +270,11 @@ class IntervalTraining(BaseStrategy):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if self.mode == Mode.VANILLA and self.losses and self.losses.vanilla < self.vanilla_loss_threshold:
+        if (
+            self.mode == Mode.VANILLA
+            and self.losses
+            and self.losses.vanilla < self.cfg.interval.vanilla_loss_threshold
+        ):
             self.model.switch_mode(Mode.EXPANSION)
             self.make_optimizer()
             self.optimizer.param_groups[0]["lr"] = self.expansion_learning_rate  # type: ignore
@@ -337,7 +330,7 @@ class IntervalTraining(BaseStrategy):
         """Save training diagnostics before each update."""
         self.status = IntervalTraining.Status()
         self.status.mode = self.mode_numeric
-        self.status.radius_multiplier = self.radius_multiplier
+        self.status.radius_multiplier = torch.tensor(self.cfg.interval.radius_multiplier)
 
         radii: list[Tensor] = []
 
@@ -410,8 +403,8 @@ class IntervalTraining(BaseStrategy):
                     (-0.1, 1.1),
                 ),
                 (
-                    self.robust_accuracy(self.metric_lookback),
-                    f"robust_accuracy_ma{self.metric_lookback}",
+                    self.robust_accuracy(self.cfg.interval.metric_lookback),
+                    f"robust_accuracy_ma{self.cfg.interval.metric_lookback}",
                     "accuracy",
                     f"Batch accuracy {epoch}",
                     (7, 126, 143),
@@ -419,8 +412,8 @@ class IntervalTraining(BaseStrategy):
                     (-0.1, 1.1),
                 ),
                 (
-                    self.accuracy(self.metric_lookback),
-                    f"accuracy_ma{self.metric_lookback}",
+                    self.accuracy(self.cfg.interval.metric_lookback),
+                    f"accuracy_ma{self.cfg.interval.metric_lookback}",
                     "accuracy",
                     f"Batch accuracy {epoch}",
                     (219, 0, 108),
@@ -434,7 +427,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (7, 126, 143),
                     "solid",
-                    (-0.1, float(self.max_radius) + 0.1),
+                    (-0.1, self.cfg.interval.max_radius + 0.1),
                 ),
                 (
                     self.losses.radius_penalty if self.losses else _,
@@ -443,7 +436,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (230, 203, 0),
                     "solid",
-                    (-0.1, float(self.max_radius) + 0.1),
+                    (-0.1, self.cfg.interval.max_radius + 0.1),
                 ),
                 (
                     self.status.radius_mean if self.status else _,
@@ -452,7 +445,7 @@ class IntervalTraining(BaseStrategy):
                     f"Penalties {epoch}",
                     (230, 203, 0),
                     "dot",
-                    (-0.1, float(self.max_radius) + 0.1),
+                    (-0.1, self.cfg.interval.max_radius + 0.1),
                 ),
                 (
                     self.losses.total if self.losses else _,

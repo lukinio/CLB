@@ -13,13 +13,13 @@
             "justMyCode": false,
             "args": [
                 // "cfg=interval",
-                // "cfg.radius_multiplier=1",
                 // "cfg.enable_visdom=true",
-                "cfg.visdom_reset_every_epoch=true",
-                // "cfg.metric_lookback=10",
-                "cfg.robust_accuracy_threshold=0.9",
-                "cfg.max_radius=1",
-                // "cfg.vanilla_loss_threshold=0.03",
+                // "cfg.visdom_reset_every_epoch=true",
+                // "cfg.interval.radius_multiplier=1",
+                // "cfg.interval.metric_lookback=10",
+                // "cfg.interval.robust_accuracy_threshold=0.9",
+                // "cfg.interval.max_radius=1",
+                // "cfg.interval.vanilla_loss_threshold=0.03",
                 // "tags=[SGD ]"
             ],
             "env": {

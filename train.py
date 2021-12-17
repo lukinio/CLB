@@ -27,7 +27,7 @@ from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
 
-assert pytorch_yard.__version__ == "2021.11.17", "Code not tested with different pytorch-yard versions."  # type: ignore
+assert pytorch_yard.__version__ == "2021.11.17", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
 
 class Experiment(AvalancheExperiment):
@@ -60,60 +60,44 @@ class Experiment(AvalancheExperiment):
         # ------------------------------------------------------------------------------------------
         # Experiment variants
         # ------------------------------------------------------------------------------------------
-        assert self.cfg.model in ModelType
         if self.cfg.model == ModelType.MLP:
             self.model = MLP(
                 input_size=28 * 28 * 1,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
-            if self.cfg.optimizer is OptimizerType.SGD:
-                optimizer = SGD(
-                    self.model.parameters(),
-                    lr=self.cfg.learning_rate,
-                    momentum=self.cfg.momentum,
-                )
-            else:
-                assert self.cfg.optimizer == OptimizerType.ADAM
-                optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 Naive,
                 criterion=nn.CrossEntropyLoss(),
             )
         else:
             assert self.cfg.model == ModelType.IntervalMLP
-            assert self.cfg.radius_multiplier and self.cfg.max_radius
             self.model = IntervalMLP(
                 input_size=28 * 28 * 1,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
-                radius_multiplier=self.cfg.radius_multiplier,
-                max_radius=self.cfg.max_radius,
+                radius_multiplier=self.cfg.interval.radius_multiplier,
+                max_radius=self.cfg.interval.max_radius,
             )
-            if self.cfg.optimizer is OptimizerType.SGD:
-                optimizer = SGD(
-                    self.model.parameters(),
-                    lr=self.cfg.learning_rate,
-                    momentum=self.cfg.momentum,
-                )
-            else:
-                assert self.cfg.optimizer == OptimizerType.ADAM
-                optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
             strategy_ = functools.partial(
                 IntervalTraining,
                 enable_visdom=self.cfg.enable_visdom,
                 visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
-                vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
-                robust_accuracy_threshold=self.cfg.robust_accuracy_threshold,
-                radius_multiplier=self.cfg.radius_multiplier,
-                max_radius=self.cfg.max_radius,
-                radius_lambda=self.cfg.radius_lambda,
-                l1_lambda=self.cfg.l1_lambda,
-                metric_lookback=self.cfg.metric_lookback,
-                expansion_learning_rate=self.cfg.expansion_learning_rate,
+                cfg=self.cfg,
             )
 
         print(self.model)
+
+        if self.cfg.optimizer is OptimizerType.SGD:
+            optimizer = SGD(
+                self.model.parameters(),
+                lr=self.cfg.learning_rate,
+                momentum=self.cfg.momentum,
+            )
+        else:
+            assert self.cfg.optimizer == OptimizerType.ADAM
+            optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+
         print(optimizer)
 
         # ------------------------------------------------------------------------------------------

@@ -2,18 +2,8 @@ defaults:
   - settings_schema
 
 
-_tags_:
-  - ADAM
-  
+_tags_: ~
+
 epochs: 30
 
 model: IntervalMLP
-vanilla_loss_threshold: 0.03
-radius_multiplier: 1.0
-max_radius: 1.0
-radius_lambda: 10.0
-
-l1_lambda: 0.0
-
-metric_lookback: 10
-robust_accuracy_threshold: 0.9

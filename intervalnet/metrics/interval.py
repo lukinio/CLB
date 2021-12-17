@@ -120,7 +120,7 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
             if values.grad is not None:
                 self.data_grad = values.grad.detach().cpu()
 
-    def get_histogram(self) -> Optional[tuple[np.ndarray, np.ndarray]]:
+    def get_histogram(self) -> Optional[tuple[np.ndarray, np.ndarray]]:  # type: ignore
         if self.data is None or (self.grad and self.data_grad is None):
             return None
 
@@ -135,10 +135,10 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
                 data = self.transform(data)
 
         data = data.view(-1).numpy()
-        return np.histogram(data, bins=bins)
+        return np.histogram(data, bins=bins)  # type: ignore
 
     def result(self, strategy: BaseStrategy) -> Optional[wandb.Histogram]:
-        histogram = self.get_histogram()
+        histogram = self.get_histogram()  # type: ignore
         return wandb.Histogram(np_histogram=histogram) if histogram is not None else None
 
     def reset(self, strategy: BaseStrategy) -> None:
@@ -168,12 +168,12 @@ class LayerDiagnosticsHist(LayerDiagnostics):
         return super()._get_metric_name(strategy, add_experience=True, add_task=add_task)
 
     def result(self, strategy: BaseStrategy) -> Optional[wandb.viz.CustomChart]:  # type: ignore
-        hist = self.get_histogram()
+        hist = self.get_histogram()  # type: ignore
         if hist is None:
             return None
 
         data: list[list[Any]] = []
-        for i in range(len(hist[0])):
+        for i in range(len(hist[0])):  # type: ignore
             data.append([hist[0][i], f"{i:02d}: [{hist[1][i]:+.2f}, {hist[1][i+1]:+.2f}]"])
 
         table = wandb.Table(data=data, columns=["count", "bin"])
