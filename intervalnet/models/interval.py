@@ -22,14 +22,14 @@ class IntervalLinear(nn.Module):
 
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = Parameter(torch.empty((out_features, in_features)))
-        self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self.radius_multiplier: float = radius_multiplier
         self.max_radius: float = max_radius
 
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
 
+        self.weight = Parameter(torch.empty((out_features, in_features)))
+        self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self._shift = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self._scale = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
 
