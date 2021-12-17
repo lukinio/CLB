@@ -36,7 +36,7 @@ class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):
         if len(task_labels) > 1:
             task_label: Any = strategy.mb_task_id  # type: ignore
         else:
-            task_label: Any = task_labels[0]
+            task_label = task_labels[0]
 
         with torch.no_grad():
             robust_output = strategy.robust_output()
@@ -137,11 +137,11 @@ class LayerDiagnostics(MetricNamingMixin[Tensor], GenericPluginMetric[Tensor]):
         data = data.view(-1).numpy()
         return np.histogram(data, bins=bins)  # type: ignore
 
-    def result(self, strategy: BaseStrategy) -> Optional[wandb.Histogram]:
+    def result(self, strategy: BaseStrategy) -> Optional[wandb.Histogram]:  # type: ignore
         histogram = self.get_histogram()  # type: ignore
         return wandb.Histogram(np_histogram=histogram) if histogram is not None else None
 
-    def reset(self, strategy: BaseStrategy) -> None:
+    def reset(self, strategy: BaseStrategy) -> None:  # type: ignore
         self.data = None
 
     def __str__(self):
