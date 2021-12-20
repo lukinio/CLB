@@ -1,6 +1,8 @@
 from typing import Any, Callable, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
+import PIL
 import torch
 import wandb
 import wandb.viz
@@ -8,11 +10,57 @@ from avalanche.evaluation.metric_definitions import GenericPluginMetric
 from avalanche.evaluation.metrics.accuracy import AccuracyPluginMetric
 from avalanche.evaluation.metrics.loss import LossPluginMetric
 from avalanche.training.strategies.base_strategy import BaseStrategy
+from intervalnet.datasets import f1, f2
 from intervalnet.models.interval import IntervalModel
 from intervalnet.strategy import IntervalTraining
+from matplotlib.figure import Figure
 from torch import Tensor
 
 from .generic import MetricNamingMixin
+
+
+class OutputIntervalPlot(MetricNamingMixin[plt.Figure], GenericPluginMetric[plt.Figure]):
+    def __init__(self):
+        self.fig: Optional[plt.Figure] = None
+        super().__init__(self.fig, reset_at='experience', emit_at='experience', mode='train')  # type: ignore
+
+    def __str__(self):
+        return "OutputIntervalPlot"
+
+    def result(self, strategy: IntervalTraining):
+
+        X = torch.linspace(0, 20, steps=10000).view(-1, 1).to(strategy.device)
+        y_lower, y_mid, y_higher = strategy.model(X)["last"].unbind('bounds')
+
+        self.fig, ax = plt.subplots()
+        X_numpy = X.cpu().detach().numpy().reshape(-1)
+        y_lower_numpy = y_lower.cpu().detach().numpy().reshape(-1)
+        y_mid_numpy = y_mid.cpu().detach().numpy().reshape(-1)
+        y_higher_numpy = y_higher.cpu().detach().numpy().reshape(-1)
+
+        ax.plot(X_numpy, y_mid_numpy, label="Preds")
+        ax.fill_between(X_numpy, y_lower_numpy, y_higher_numpy, alpha=0.2)
+
+        X1 = torch.linspace(0, 10, steps=5000)
+        GT1 = f1(X1)
+        X2 = torch.linspace(10, 20, steps=5000)
+        GT2 = f2(X2)
+        ax.plot(torch.cat([X1, X2], dim=0),
+                torch.cat([GT1, GT2], dim=0),
+                label="GT")
+
+        min_val = min(GT1.min(), GT2.min())
+        max_val = min(GT1.max(), GT2.max())
+        ax.set_ylim(min_val - 10, max_val + 10)
+
+        self.fig.canvas.draw()
+        return PIL.Image.frombytes('RGB', self.fig.canvas.get_width_height(), self.fig.canvas.tostring_rgb())
+
+
+    def reset(self, strategy: BaseStrategy) -> None:
+        if self.fig is not None:
+            plt.close(self.fig)
+            self.fig = None
 
 
 class RobustAccuracy(MetricNamingMixin[float], AccuracyPluginMetric):

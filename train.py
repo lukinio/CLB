@@ -20,10 +20,10 @@ from torch import Tensor
 from torch.optim import SGD, Adam
 
 from intervalnet.cfg import DatasetType, ModelType, Settings
-from intervalnet.datasets import mnist
+from intervalnet.datasets import mnist, mnist2, two_1d_functions
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import (RobustAccuracy, interval_losses,
-                                          radius_diagnostics)
+                                          radius_diagnostics, OutputIntervalPlot)
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining
@@ -60,7 +60,7 @@ class Experiment(AvalancheExperiment):
         assert self.cfg.model in ModelType
         if self.cfg.model == ModelType.MLP:
             self.model = MLP(
-                input_size=28 * 28 * 1,
+                input_size=self.input_size,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
@@ -72,19 +72,23 @@ class Experiment(AvalancheExperiment):
         else:
             assert self.cfg.model == ModelType.IntervalMLP
             self.model = IntervalMLP(
-                input_size=28 * 28 * 1,
+                input_size=self.input_size,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
             )
             # optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
-            optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+            optimizer_cls = Adam
+            learning_rate = self.cfg.learning_rate
+            optimizer = optimizer_cls(self.model.parameters(), lr=learning_rate)
             strategy_ = functools.partial(
                 IntervalTraining,
                 enable_visdom=self.cfg.enable_visdom,
                 vanilla_loss_threshold=self.cfg.vanilla_loss_threshold,
                 robust_loss_threshold=self.cfg.robust_loss_threshold,
                 radius_multiplier=self.cfg.radius_multiplier,
-                l1_lambda=self.cfg.l1_lambda,
+                optimizer_cls=optimizer_cls, learning_rate=learning_rate,
+                l1_lambda=self.cfg.l1_lambda, regression_task=self.regression_task,
+                eps=self.cfg.eps,
             )
 
         print(self.model)
@@ -94,15 +98,23 @@ class Experiment(AvalancheExperiment):
         # Setup
         # ------------------------------------------------------------------------------------------
         # Evaluation plugin
-        metrics: list[PluginMetric[Any]] = [
-            TotalLoss(),
-            TrainAccuracy(),
-            EvalAccuracy(),
-        ]
+        if self.regression_task:
+            metrics: list[PluginMetric[Any]] = [
+                TotalLoss(),
+            ]
+        else:
+            metrics: list[PluginMetric[Any]] = [
+                TotalLoss(),
+                TrainAccuracy(),
+                EvalAccuracy(),
+            ]
 
         if self.cfg.model == ModelType.IntervalMLP:
             assert isinstance(self.model, IntervalMLP)
-            metrics.append(RobustAccuracy())
+            if not self.regression_task:
+                metrics.append(RobustAccuracy())
+            else:
+                metrics.append(OutputIntervalPlot())
             metrics += radius_diagnostics(self.model)
             metrics += interval_losses(self.model)
 
@@ -137,7 +149,7 @@ class Experiment(AvalancheExperiment):
         info_bold('Starting experiment...')
         for i, experience in enumerate(cast(Iterable[NCExperience], self.scenario.train_stream)):
             info(f'Start of experience: {experience.current_experience}')
-            info(f'Current classes: {experience.classes_in_this_experience}')
+            # info(f'Current classes: {experience.classes_in_this_experience}')
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
                 exp.dataset for exp in self.scenario.test_stream[0:i+1]  # type: ignore
@@ -156,15 +168,31 @@ class Experiment(AvalancheExperiment):
             self.train, self.test, self.transforms = mnist()
             self.n_classes = 10
             self.input_size = 28 * 28
+            self.regression_task = False
+        if self.cfg.dataset == DatasetType.MNIST2:
+            self.train, self.test, self.transforms = mnist2()
+            self.n_classes = 4
+            self.input_size = 28 * 28
+            self.regression_task = False
+        if self.cfg.dataset == DatasetType.Two1DFunctions:
+            self.train, self.test, self.transforms = two_1d_functions()
+            self.n_classes = 1
+            self.input_size = 1
+            self.regression_task = True
 
     def setup_scenario(self):
-        self.scenario, self.n_output_classes = incremental_domain(
-            self.train,
-            self.test,
-            self.transforms,
-            self.cfg.n_experiences,
-            self.n_classes
-        )
+
+        if self.regression_task:
+            self.scenario = create_multi_dataset_generic_benchmark(self.train, self.test)
+            self.n_output_classes = 1
+        else:
+            self.scenario, self.n_output_classes = incremental_domain(
+                self.train,
+                self.test,
+                self.transforms,
+                self.cfg.n_experiences,
+                self.n_classes
+            )
 
 
 if __name__ == '__main__':

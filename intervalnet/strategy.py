@@ -1,4 +1,5 @@
 from typing import Any, Optional, Sequence, cast
+import ipdb
 
 import torch
 import torch.linalg
@@ -11,10 +12,12 @@ from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore
 from torch import Tensor
+from torch.utils.data import DataLoader, Subset
 from torch.optim import Optimizer
 from torchmetrics.functional.classification.accuracy import accuracy as _acc
 
 from intervalnet.models.interval import IntervalMLP, Mode
+
 
 
 class IntervalTraining(BaseStrategy):
@@ -31,10 +34,14 @@ class IntervalTraining(BaseStrategy):
         eval_every: int = -1,
         enable_visdom: bool = False,
         *,
+        regression_task: bool,
         vanilla_loss_threshold: float,
         robust_loss_threshold: float,
         radius_multiplier: float,
         l1_lambda: float,
+        optimizer_cls,
+        learning_rate: float,
+        eps: float,
     ):
 
         self.mb_output_all: dict[str, Tensor]
@@ -45,11 +52,14 @@ class IntervalTraining(BaseStrategy):
 
         self.device: torch.device
         self.model: IntervalMLP
+        self.regression_task = regression_task
+        self.eps = eps
 
         self.vanilla_loss: Optional[Tensor] = None
         self.robust_loss: Optional[Tensor] = None
-        self.accuracy_meter = Accuracy()
-        self.robust_accuracy_meter = Accuracy()
+        if not self.regression_task:
+            self.accuracy_meter = Accuracy()
+            self.robust_accuracy_meter = Accuracy()
         self.l1_penalty: Optional[Tensor] = None
         self.robust_penalty: Optional[Tensor] = None
         self.bounds_penalty: Optional[Tensor] = None
@@ -68,8 +78,13 @@ class IntervalTraining(BaseStrategy):
         self.robust_loss_threshold = torch.tensor(robust_loss_threshold)
         self.radius_multiplier = torch.tensor(radius_multiplier)
         self.l1_lambda = torch.tensor(l1_lambda)
+        self.optimizer_cls = optimizer_cls
+        self.learning_rate = learning_rate
 
-        criterion = nn.CrossEntropyLoss()
+        if regression_task:
+            criterion = nn.MSELoss()
+        else:
+            criterion = nn.CrossEntropyLoss()
 
         super().__init__(model, optimizer, criterion=criterion, train_mb_size=train_mb_size,  # type: ignore
                          train_epochs=train_epochs, eval_mb_size=eval_mb_size, device=device,
@@ -105,6 +120,13 @@ class IntervalTraining(BaseStrategy):
         bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
         return bounds[:, 2, :] - bounds[:, 0, :]
 
+    def apply_fisher_scaling(self, inv_fisher, scale):
+        for n, m in self.model.named_interval_children():
+            m.radius[:, :-1] = torch.minimum(m.radius[:, :-1],
+                                             inv_fisher[n + "." + "weight"] * scale)
+            m.radius[:, -1] = torch.minimum(m.radius[:, -1],
+                                            inv_fisher[n + "." + "bias"] * scale)
+
     def before_backward(self, **kwargs: Any):
         super().before_backward(**kwargs)  # type: ignore
 
@@ -120,8 +142,9 @@ class IntervalTraining(BaseStrategy):
         self.radius_penalty = torch.tensor(0.0, device=self.device)
         self.bounds_penalty = torch.tensor(0.0, device=self.device)
 
-        acc = _acc(self.mb_output, self.mb_y)  # type: ignore
-        robust_acc = _acc(self.robust_output(), self.mb_y)  # type: ignore
+        if not self.regression_task:
+            acc = _acc(self.mb_output, self.mb_y)  # type: ignore
+            robust_acc = _acc(self.robust_output(), self.mb_y)  # type: ignore
 
         if self.mode == Mode.EXPANSION:
             # ---------------------------------------------------------------------------------------------------------
@@ -147,7 +170,7 @@ class IntervalTraining(BaseStrategy):
             # :: Flat version:
             # self.radius_penalty = F.relu(torch.tensor(1.0) - torch.cat(radii)).pow(2).mean()
             # :: Per layer version:
-            self.radius_penalty = torch.stack([F.relu(torch.tensor(1.0) - r).pow(2).mean() for r in radii]).mean()
+            self.radius_penalty = torch.stack([F.relu(self.radius_multiplier - r).pow(2).mean() for r in radii]).mean()
 
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
@@ -204,25 +227,73 @@ class IntervalTraining(BaseStrategy):
 
         self.radius_mean = torch.cat(radii).mean()
 
+    def compute_fisher(self):
+        params = {n: p for n, p in self.model.named_parameters() if "weight" in n or "bias" in n}  # TODO: .weight, .bias
+
+        fisher = {}
+        for n, p in params.items():
+            fisher[n] = p.clone().detach().fill_(0)
+
+        self.model.eval()
+
+        train_loader = DataLoader(Subset(self.experience.dataset, list(range(10000))), batch_size=1)
+        for i, (input, target, _) in enumerate(train_loader):
+            input = input.cuda()
+
+            preds = self.model(input)
+            _, m_pred, _ = preds['last'].unbind('bounds')
+            m_pred = m_pred.rename(None)
+
+
+            if self.regression_task:
+                loss = m_pred
+            else:
+                ind = m_pred.max(1)[1].flatten()
+                loss = self._criterion(m_pred, ind)
+
+            # empirical fisher?
+            self.model.zero_grad()
+            loss.backward()
+
+            for n, p in fisher.items():
+                if params[n].grad is not None:
+                    p += ((params[n].grad ** 2 + self.eps) * len(input) / len(train_loader))
+
+        inv_fisher = {n: 1 / p for n, p in fisher.items()}
+        self.model.train()
+        return fisher, inv_fisher
+
+
     def after_update(self, **kwargs: Any):
         super().after_update(**kwargs)  # type: ignore
 
-        self.model.clamp_radii()
+        # self.model.clamp_radii()
 
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
 
         if self.training_exp_counter == 1:
+            self.make_optimizer()
+            self.fisher, self.inv_fisher = self.compute_fisher()
+            # TODO: adaptive choice of scale?
+            self.apply_fisher_scaling(self.inv_fisher, self.robust_loss_threshold)
             self.model.switch_mode(Mode.CONTRACTION)
         elif self.training_exp_counter > 1:
             self.model.freeze_task()
+            self.model.switch_mode(Mode.VANILLA)
+            self.fisher, self.inv_fisher = self.compute_fisher()
+            self.apply_fisher_scaling(self.inv_fisher, self.robust_loss_threshold)
+            self.model.switch_mode(Mode.CONTRACTION)
+
+
 
     def before_training_epoch(self, **kwargs: Any):
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
-                and self.vanilla_loss < self.vanilla_loss_threshold:
-            self.model.switch_mode(Mode.EXPANSION)
+        # if self.mode == Mode.VANILLA and self.vanilla_loss is not None \
+        #         and self.vanilla_loss < self.vanilla_loss_threshold:
+        #     self.make_optimizer()
+        #     self.model.switch_mode(Mode.EXPANSION)
 
         if self.viz_debug:
             if self.windows.get('accuracy'):
@@ -240,6 +311,12 @@ class IntervalTraining(BaseStrategy):
                 )
 
     def robust_output(self):
-        output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')
-        y_oh = F.one_hot(self.mb_y)  # type: ignore
-        return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
+        if self.regression_task:
+            output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')
+            lower_error = ((output_lower - self.mb_y) ** 2).rename(None)
+            higher_error = ((output_higher - self.mb_y) ** 2).rename(None)
+            return torch.where(higher_error > lower_error, output_higher.rename(None), output_lower.rename(None))
+        else:
+            output_lower, _, output_higher = self.mb_output_all['last'].unbind('bounds')
+            y_oh = F.one_hot(self.mb_y)  # type: ignore
+            return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore

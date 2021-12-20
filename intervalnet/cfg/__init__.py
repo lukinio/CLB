@@ -7,6 +7,8 @@ import pytorch_yard
 
 class DatasetType(Enum):
     MNIST = auto()
+    MNIST2 = auto()
+    Two1DFunctions = auto()
     # FASHION_MNIST = auto()
     # CELEBA = auto()
     # CIFAR100 = auto()
@@ -62,3 +64,5 @@ class Settings(pytorch_yard.Settings):
     l1_lambda: Optional[float] = None
 
     enable_visdom: bool = False
+
+    eps: float = 1e-5

@@ -9,7 +9,7 @@ outputs/
 .DS_Store
 *.pth
 *.png
-.swp
+*.swp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

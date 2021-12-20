@@ -23,11 +23,13 @@ class IntervalLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(torch.empty((out_features, in_features)))
-        self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
+        self.bias = Parameter(torch.empty(out_features))
+        self._radius = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
+        self.radius = Parameter(torch.ones((out_features, in_features + 1)) * 1e8, requires_grad=False)
         self.radius_multiplier: Optional[Tensor] = None
 
-        self._shift = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
-        self._scale = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
+        self._shift = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
+        self._scale = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
 
         self.mode: Mode = Mode.VANILLA
 
@@ -35,11 +37,11 @@ class IntervalLinear(nn.Module):
 
     def radius_transform(self, params: Tensor):
         assert self.radius_multiplier is not None
-        return (params * self.radius_multiplier).clamp(min=0, max=1)
+        return torch.sigmoid(params) * self.radius_multiplier
 
-    @property
-    def radius(self) -> Tensor:
-        return self.radius_transform(self._radius)
+    # @property
+    # def radius(self) -> Tensor:
+    #     return self.radius_transform(self._radius)
 
     @property
     def shift(self) -> Tensor:
@@ -60,32 +62,46 @@ class IntervalLinear(nn.Module):
     def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         with torch.no_grad():
-            self._radius.zero_()
+            # -inf?
+            self._radius.fill_(-10.)
+            # self._radius.zero_()
             self._shift.zero_()
             self._scale.fill_(5)
+
+            self.bias.zero_()
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
 
         if mode == Mode.VANILLA:
             self.weight.requires_grad = True
+            self.bias.requires_grad = True
             self._radius.requires_grad = False
             self._shift.requires_grad = False
             self._scale.requires_grad = False
         elif mode == Mode.EXPANSION:
             self.weight.requires_grad = False
+            self.bias.requires_grad = False
             self._radius.requires_grad = True
             self._shift.requires_grad = False
             self._scale.requires_grad = False
         elif mode == Mode.CONTRACTION:
             self.weight.requires_grad = False
+            self.bias.requires_grad = False
             self._radius.requires_grad = False
             self._shift.requires_grad = True
             self._scale.requires_grad = True
 
     def freeze_task(self) -> None:
         with torch.no_grad():
-            self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
+            self.weight.copy_(
+                    self.weight
+                    + self.shift[:, :-1]
+                    * (torch.tensor(1.0) - self.scale[:, :-1]) * self.radius[:, :-1])
+            self.bias.copy_(
+                    self.bias
+                    + self.shift[:, -1]
+                    * (torch.tensor(1.0) - self.scale[:, -1]) * self.radius[:, -1])
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(5)
@@ -100,16 +116,28 @@ class IntervalLinear(nn.Module):
 
         if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
             w_middle = self.weight
-            w_lower = self.weight - self.radius
-            w_upper = self.weight + self.radius
+            w_lower = self.weight - self.radius[:, :-1]
+            w_upper = self.weight + self.radius[:, :-1]
+
+            b_middle = self.bias
+            b_lower = self.bias - self.radius[:, -1]
+            b_upper = self.bias + self.radius[:, -1]
         else:
             assert self.mode == Mode.CONTRACTION
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), 'Scale must be in [0, 1] range.'
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), 'Shift must be in [-1, 1] range.'
 
-            w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
-            w_lower = w_middle - self.scale * self.radius
-            w_upper = w_middle + self.scale * self.radius
+            w_middle = (self.weight
+                        + self.shift[:, :-1]
+                        * (torch.tensor(1.0) - self.scale[:, :-1]) * self.radius[:, :-1])
+            w_lower = w_middle - self.scale[:, :-1] * self.radius[:, :-1]
+            w_upper = w_middle + self.scale[:, :-1] * self.radius[:, :-1]
+
+            b_middle = (self.bias
+                        + self.shift[:, -1]
+                        * (torch.tensor(1.0) - self.scale[:, -1]) * self.radius[:, -1])
+            b_lower = b_middle - self.scale[:, -1] * self.radius[:, -1]
+            b_upper = b_middle + self.scale[:, -1] * self.radius[:, -1]
 
         w_lower_pos = w_lower.clamp(min=0)
         w_lower_neg = w_lower.clamp(max=0)
@@ -121,6 +149,10 @@ class IntervalLinear(nn.Module):
         lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
         upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
         middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
+
+        lower = lower + b_lower
+        upper = upper + b_upper
+        middle = middle + b_middle
 
         assert (lower <= middle).all(), 'Lower bound must be less than or equal to middle bound.'
         assert (middle <= upper).all(), 'Middle bound must be less than or equal to upper bound.'
@@ -184,7 +216,8 @@ class IntervalMLP(IntervalModel):
         self.last = IntervalLinear(self.hidden_dim, self.output_classes)
 
     def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
-        x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape
+        if len(x.shape) == 4:
+            x = x.refine_names('N', 'C', 'H', 'W')  # type: ignore  # expected input shape
 
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)

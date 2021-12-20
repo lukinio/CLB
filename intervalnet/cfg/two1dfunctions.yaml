@@ -1,0 +1,16 @@
+defaults:
+  - settings_schema
+
+
+epochs: 25
+
+dataset: Two1DFunctions
+model: IntervalMLP
+vanilla_loss_threshold: 0.05
+robust_loss_threshold: 1
+radius_multiplier: 1000
+n_experiences: 2
+learning_rate: 0.002
+batch_size: 1000
+
+l1_lambda: 0.0

@@ -2,11 +2,15 @@ defaults:
   - settings_schema
 
 
-epochs: 30
+epochs: 25
 
+seed: 1234
+dataset: MNIST
 model: IntervalMLP
 vanilla_loss_threshold: 0.03
-robust_loss_threshold: 10_000
+robust_loss_threshold: 10
 radius_multiplier: 1.0
+n_experiences: 5
+eps: 1e-4
 
 l1_lambda: 0.0
