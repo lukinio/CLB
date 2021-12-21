@@ -265,6 +265,9 @@ class IntervalTraining(BaseStrategy):
             self.model.freeze_task()
             self.make_optimizer()
 
+        self._accuracy.clear()
+        self._robust_accuracy.clear()
+
     def before_training_epoch(self, **kwargs: Any):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
