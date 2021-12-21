@@ -167,9 +167,9 @@ class IntervalTraining(BaseStrategy):
         vanilla: Tensor = torch.tensor(0.0)
         robust: Tensor = torch.tensor(0.0)
 
+        radius_penalty: Tensor = torch.tensor(0.0)
         robust_penalty: Tensor = torch.tensor(0.0)
         bounds_penalty: Tensor = torch.tensor(0.0)
-        radius_penalty: Tensor = torch.tensor(0.0)
 
         def __post_init__(self, device: torch.device):
             for field in fields(self):  # noqa
@@ -192,18 +192,6 @@ class IntervalTraining(BaseStrategy):
         if self.mode == Mode.VANILLA:
             self.losses.total = self.loss
         elif self.mode == Mode.EXPANSION:
-            # === Robust penalty ===
-            # Maintain an acceptable increase in worst-case loss
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
-                self.losses.robust_penalty = self.losses.robust * self._current_lambda
-
-            #     if self._lambda is None:
-            #         self._lambda = start_lambda
-            #     self.losses.robust_penalty = self.losses.robust * self._lambda
-            #     self._lambda *= 1.1
-            # else:
-            #     self._lambda = start_lambda
-
             # === Radius penalty ===
             # Maximize interval size up to `max_radius`
             radii: list[Tensor] = []
@@ -219,10 +207,22 @@ class IntervalTraining(BaseStrategy):
                 ]  # mean per layer
             ).mean()
 
+            # === Robust penalty ===
+            # Maintain an acceptable increase in worst-case loss
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+                self.losses.robust_penalty = self.losses.robust * self._current_lambda
+
+            #     if self._lambda is None:
+            #         self._lambda = start_lambda
+            #     self.losses.robust_penalty = self.losses.robust * self._lambda
+            #     self._lambda *= 1.1
+            # else:
+            #     self._lambda = start_lambda
+
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
-            self.losses.total = self.losses.robust_penalty + self.losses.radius_penalty
+            self.losses.total = self.losses.radius_penalty + self.losses.robust_penalty
         elif self.mode == Mode.CONTRACTION:
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
