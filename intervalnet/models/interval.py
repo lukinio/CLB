@@ -17,16 +17,22 @@ class Mode(Enum):
 
 
 class IntervalLinear(nn.Module):
-    def __init__(self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float) -> None:
+    def __init__(
+        self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool
+    ) -> None:
         super().__init__()
 
         self.in_features = in_features
         self.out_features = out_features
-        self.radius_multiplier: float = radius_multiplier
-        self.max_radius: float = max_radius
+        self.radius_multiplier = radius_multiplier
+        self.max_radius = max_radius
+        self.bias = bias
 
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
+
+        if self.bias:
+            in_features += 1
 
         self.weight = Parameter(torch.empty((out_features, in_features)))
         self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
@@ -61,6 +67,7 @@ class IntervalLinear(nn.Module):
 
     def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
+        # TODO: Adjust bias init
         with torch.no_grad():
             self._radius.zero_()
             self._shift.zero_()
@@ -115,16 +122,22 @@ class IntervalLinear(nn.Module):
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
 
-        w_lower_pos = w_lower.clamp(min=0)
-        w_lower_neg = w_lower.clamp(max=0)
-        w_upper_pos = w_upper.clamp(min=0)
-        w_upper_neg = w_upper.clamp(max=0)
-        w_middle_pos = w_middle.clamp(min=0)  # split only needed for numeric stability with asserts
-        w_middle_neg = w_middle.clamp(max=0)  # split only needed for numeric stability with asserts
+        w_lower_pos = (w_lower[:, :-1] if self.bias else w_lower).clamp(min=0)
+        w_lower_neg = (w_lower[:, :-1] if self.bias else w_lower).clamp(max=0)
+        w_upper_pos = (w_upper[:, :-1] if self.bias else w_upper).clamp(min=0)
+        w_upper_neg = (w_upper[:, :-1] if self.bias else w_upper).clamp(max=0)
+        # Further splits only needed for numeric stability with asserts
+        w_middle_pos = (w_middle[:, :-1] if self.bias else w_middle).clamp(min=0)
+        w_middle_neg = (w_middle[:, :-1] if self.bias else w_middle).clamp(max=0)
 
         lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
         upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
         middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
+
+        if self.bias:
+            lower = lower + w_lower[:, -1]
+            upper = upper + w_upper[:, -1]
+            middle = middle + w_middle[:, -1]
 
         assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
         assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
@@ -195,7 +208,13 @@ class IntervalModel(nn.Module):
 
 class IntervalMLP(IntervalModel):
     def __init__(
-        self, input_size: int, hidden_dim: int, output_classes: int, radius_multiplier: float, max_radius: float
+        self,
+        input_size: int,
+        hidden_dim: int,
+        output_classes: int,
+        radius_multiplier: float,
+        max_radius: float,
+        bias: bool,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
@@ -204,13 +223,13 @@ class IntervalMLP(IntervalModel):
         self.output_classes = output_classes
 
         self.fc1 = IntervalLinear(
-            self.input_size, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius
+            self.input_size, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
         self.fc2 = IntervalLinear(
-            self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius
+            self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
         self.last = IntervalLinear(
-            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius
+            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
 
     def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore

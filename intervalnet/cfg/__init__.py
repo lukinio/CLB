@@ -30,6 +30,8 @@ class OptimizerType(Enum):
 # Interval training settings
 @dataclass
 class IntervalSettings:
+    bias: bool = True
+
     vanilla_loss_threshold: float = 0.03
     expansion_learning_rate: float = 0.01
 

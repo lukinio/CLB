@@ -194,7 +194,6 @@ class IntervalTraining(BaseStrategy):
         elif self.mode == Mode.EXPANSION:
             # === Robust penalty ===
             # Maintain an acceptable increase in worst-case loss
-
             if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
 

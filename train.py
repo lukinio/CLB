@@ -78,6 +78,7 @@ class Experiment(AvalancheExperiment):
                 output_classes=self.n_output_classes,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
+                bias=self.cfg.interval.bias,
             )
             strategy_ = functools.partial(
                 IntervalTraining,

@@ -1,0 +1,12 @@
+defaults:
+  - settings_schema
+
+
+_tags_:
+  - benchmark
+  - SGD
+
+epochs: 30
+
+model: MLP
+optimizer: SGD

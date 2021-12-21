@@ -13,9 +13,9 @@ class MLP(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
 
-        self.fc1 = nn.Linear(self.input_size, self.hidden_dim, bias=False)
-        self.fc2 = nn.Linear(self.hidden_dim, self.hidden_dim, bias=False)
-        self.last = nn.Linear(self.hidden_dim, self.output_classes, bias=False)
+        self.fc1 = nn.Linear(self.input_size, self.hidden_dim)
+        self.fc2 = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.last = nn.Linear(self.hidden_dim, self.output_classes)
 
     def forward(self, x: Tensor):  # type: ignore
         x = x.flatten(1)

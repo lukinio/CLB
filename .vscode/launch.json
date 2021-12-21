@@ -23,7 +23,7 @@
                 // "tags=[SGD ]"
             ],
             "env": {
-                // "WANDB_MODE": "disabled",
+                "WANDB_MODE": "disabled",
                 "CUDA_VISIBLE_DEVICES": "0"
             }
         },

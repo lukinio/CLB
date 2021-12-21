@@ -121,3 +121,4 @@ wandb
 _old/
 ._benchmark/
 .vscode/typings
+multirun.yaml
