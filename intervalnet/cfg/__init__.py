@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import Optional
 
 import pytorch_yard
+from omegaconf import MISSING
 
 
 class DatasetType(Enum):
@@ -12,14 +14,15 @@ class DatasetType(Enum):
 
 
 class ScenarioType(Enum):
-    # INC_TASK = auto()
+    INC_TASK = auto()
     INC_DOMAIN = auto()
-    # INC_CLASS = auto()
+    INC_CLASS = auto()
 
 
-class ModelType(Enum):
-    MLP = auto()
-    IntervalMLP = auto()
+class StrategyType(Enum):
+    Naive = auto()
+    Interval = auto()
+    EWC = auto()
 
 
 class OptimizerType(Enum):
@@ -57,11 +60,11 @@ class Settings(pytorch_yard.Settings):
     visdom_reset_every_epoch: bool = False
 
     batch_size: int = 128
-    epochs: int = 5
-    learning_rate: float = 0.01
-    momentum: float = 0.9
+    epochs: int = MISSING
+    learning_rate: float = MISSING
+    momentum: Optional[float] = MISSING
 
-    optimizer: OptimizerType = OptimizerType.ADAM
+    optimizer: OptimizerType = MISSING
 
     # ----------------------------------------------------------------------------------------------
     # Dataset
@@ -75,11 +78,12 @@ class Settings(pytorch_yard.Settings):
     n_experiences: int = 5
 
     # ----------------------------------------------------------------------------------------------
-    # Model settings
+    # Strategy settings
     # ----------------------------------------------------------------------------------------------
-    model: ModelType = ModelType.MLP
+    strategy: StrategyType = MISSING
+    reg_lambda: Optional[float] = None
 
     # ----------------------------------------------------------------------------------------------
-    # IntervalNet settings
+    # IntervalNet specific settings
     # ----------------------------------------------------------------------------------------------
     interval: IntervalSettings = IntervalSettings()

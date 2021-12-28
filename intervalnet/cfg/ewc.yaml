@@ -4,11 +4,13 @@ defaults:
 
 _tags_:
   - benchmark
-  - ADAM
+  - EWC
 
 epochs: 30
 
 optimizer: ADAM
 learning_rate: 0.001
 momentum: ~
-strategy: Naive
+strategy: EWC
+
+reg_lambda: 100

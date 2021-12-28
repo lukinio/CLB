@@ -6,4 +6,7 @@ _tags_: ~
 
 epochs: 30
 
-model: IntervalMLP
+optimizer: ADAM
+learning_rate: 0.01
+momentum: ~
+strategy: Interval

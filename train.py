@@ -12,6 +12,7 @@ from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training import Naive
 from avalanche.training.plugins.evaluation import EvaluationPlugin
+from avalanche.training.strategies.strategy_wrappers import EWC
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from pytorch_yard.experiments.avalanche import AvalancheExperiment
@@ -19,7 +20,7 @@ from rich import print
 from torch import Tensor
 from torch.optim import SGD, Adam
 
-from intervalnet.cfg import DatasetType, ModelType, OptimizerType, Settings
+from intervalnet.cfg import DatasetType, OptimizerType, Settings, StrategyType
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
@@ -57,90 +58,19 @@ class Experiment(AvalancheExperiment):
         self.setup_dataset()
         self.setup_scenario()
 
-        # ------------------------------------------------------------------------------------------
-        # Experiment variants
-        # ------------------------------------------------------------------------------------------
-        if self.cfg.model == ModelType.MLP:
-            self.model = MLP(
-                input_size=28 * 28 * 1,
-                hidden_dim=400,
-                output_classes=self.n_output_classes,
-            )
-            strategy_ = functools.partial(
-                Naive,
-                criterion=nn.CrossEntropyLoss(),
-            )
+        if self.cfg.strategy is StrategyType.Naive:
+            self.setup_naive()
+        elif self.cfg.strategy is StrategyType.EWC:
+            self.setup_ewc()
         else:
-            assert self.cfg.model == ModelType.IntervalMLP
-            self.model = IntervalMLP(
-                input_size=28 * 28 * 1,
-                hidden_dim=400,
-                output_classes=self.n_output_classes,
-                radius_multiplier=self.cfg.interval.radius_multiplier,
-                max_radius=self.cfg.interval.max_radius,
-                bias=self.cfg.interval.bias,
-            )
-            strategy_ = functools.partial(
-                IntervalTraining,
-                enable_visdom=self.cfg.enable_visdom,
-                visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
-                cfg=self.cfg,
-            )
+            assert self.cfg.strategy is StrategyType.Interval
+            self.setup_interval()
 
         print(self.model)
 
-        if self.cfg.optimizer is OptimizerType.SGD:
-            optimizer = SGD(
-                self.model.parameters(),
-                lr=self.cfg.learning_rate,
-                momentum=self.cfg.momentum,
-            )
-        else:
-            assert self.cfg.optimizer == OptimizerType.ADAM
-            optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
-
-        print(optimizer)
-
-        # ------------------------------------------------------------------------------------------
-        # Setup
-        # ------------------------------------------------------------------------------------------
-        # Evaluation plugin
-        metrics: list[PluginMetric[Any]] = [
-            TotalLoss(),
-            TrainAccuracy(),
-            EvalAccuracy(),
-        ]
-
-        if self.cfg.model == ModelType.IntervalMLP:
-            assert isinstance(self.model, IntervalMLP)
-            metrics += interval_training_diagnostics(self.model)
-
-        eval_plugin = EvaluationPlugin(
-            *metrics,
-            benchmark=self.scenario,
-            loggers=[
-                RichLogger(
-                    ignore_metrics=[
-                        r"Diagnostics/(.*)",
-                        r"DiagnosticsHist/(.*)",
-                    ]
-                ),
-                self.wandb_logger,
-            ],
-        )
-
-        # Strategy
-        strategy = strategy_(
-            model=self.model,
-            optimizer=optimizer,
-            train_mb_size=self.cfg.batch_size,
-            train_epochs=self.cfg.epochs,
-            eval_mb_size=self.cfg.batch_size,
-            evaluator=eval_plugin,
-            device=self.device,
-            eval_every=1,
-        )
-        print(strategy)
+        self.setup_optimizer()
+        self.setup_evaluator()
+        self.setup_strategy()
 
         # ------------------------------------------------------------------------------------------
         # Experiment loop
@@ -158,7 +88,7 @@ class Experiment(AvalancheExperiment):
                 [], [], other_streams_datasets={"seen_test": [seen_test]}
             ).seen_test_stream  # type: ignore
 
-            strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+            self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
             info("Training completed")
 
     def setup_dataset(self):
@@ -175,6 +105,99 @@ class Experiment(AvalancheExperiment):
             self.transforms,
             self.cfg.n_experiences,
             self.n_classes,
+        )
+
+    def setup_optimizer(self):
+        if self.cfg.optimizer is OptimizerType.SGD:
+            self.optimizer = SGD(
+                self.model.parameters(),
+                lr=self.cfg.learning_rate,
+                momentum=self.cfg.momentum if self.cfg.momentum else 0,
+            )
+        else:
+            assert self.cfg.optimizer is OptimizerType.ADAM
+            self.optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+
+        print(self.optimizer)
+
+    def setup_evaluator(self):
+        metrics: list[PluginMetric[Any]] = [
+            TotalLoss(),
+            TrainAccuracy(),
+            EvalAccuracy(),
+        ]
+
+        if self.cfg.strategy is StrategyType.Interval:
+            assert isinstance(self.model, IntervalMLP)
+            metrics += interval_training_diagnostics(self.model)
+
+        self.evaluator = EvaluationPlugin(
+            *metrics,
+            benchmark=self.scenario,
+            loggers=[
+                RichLogger(
+                    ignore_metrics=[
+                        r"Diagnostics/(.*)",
+                        r"DiagnosticsHist/(.*)",
+                    ]
+                ),
+                self.wandb_logger,
+            ],
+        )
+
+    def setup_strategy(self):
+        self.strategy = self.strategy_(
+            model=self.model,
+            optimizer=self.optimizer,
+            train_mb_size=self.cfg.batch_size,
+            train_epochs=self.cfg.epochs,
+            eval_mb_size=self.cfg.batch_size,
+            evaluator=self.evaluator,
+            device=self.device,
+            eval_every=1,
+        )
+        print(self.strategy)
+
+    # ------------------------------------------------------------------------------------------
+    # Experiment variants
+    # ------------------------------------------------------------------------------------------
+    def setup_naive(self):
+        self.model = MLP(
+            input_size=28 * 28 * 1,
+            hidden_dim=400,
+            output_classes=self.n_output_classes,
+        )
+        self.strategy_ = functools.partial(
+            Naive,
+            criterion=nn.CrossEntropyLoss(),
+        )
+
+    def setup_ewc(self):
+        self.model = MLP(
+            input_size=28 * 28 * 1,
+            hidden_dim=400,
+            output_classes=self.n_output_classes,
+        )
+        self.strategy_ = functools.partial(
+            EWC,
+            criterion=nn.CrossEntropyLoss(),
+            ewc_lambda=self.cfg.reg_lambda,
+        )
+
+    def setup_interval(self):
+        self.model = IntervalMLP(
+            input_size=28 * 28 * 1,
+            hidden_dim=400,
+            output_classes=self.n_output_classes,
+            radius_multiplier=self.cfg.interval.radius_multiplier,
+            max_radius=self.cfg.interval.max_radius,
+            bias=self.cfg.interval.bias,
+        )
+        self.strategy_ = functools.partial(
+            IntervalTraining,
+            enable_visdom=self.cfg.enable_visdom,
+            visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
+            cfg=self.cfg,
         )
 
 
