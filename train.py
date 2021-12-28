@@ -75,6 +75,7 @@ class Experiment(AvalancheExperiment):
                 input_size=self.input_size,
                 hidden_dim=400,
                 output_classes=self.n_output_classes,
+                normalize_shift=self.cfg.normalize_shift
             )
             # optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
             optimizer_cls = Adam
@@ -88,7 +89,7 @@ class Experiment(AvalancheExperiment):
                 radius_multiplier=self.cfg.radius_multiplier,
                 optimizer_cls=optimizer_cls, learning_rate=learning_rate,
                 l1_lambda=self.cfg.l1_lambda, regression_task=self.regression_task,
-                eps=self.cfg.eps,
+                eps=self.cfg.eps, fisher_mode=self.cfg.fisher_mode,
             )
 
         print(self.model)

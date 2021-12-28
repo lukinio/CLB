@@ -60,9 +60,11 @@ class Settings(pytorch_yard.Settings):
     vanilla_loss_threshold: Optional[float] = None
     robust_loss_threshold: Optional[float] = None
     radius_multiplier: Optional[float] = None
+    normalize_shift: bool = False
 
     l1_lambda: Optional[float] = None
 
     enable_visdom: bool = False
 
     eps: float = 1e-5
+    fisher_mode: str = "fisher"

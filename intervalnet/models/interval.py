@@ -1,3 +1,4 @@
+import ipdb
 import math
 from enum import Enum
 from typing import Optional, cast
@@ -17,7 +18,7 @@ class Mode(Enum):
 
 
 class IntervalLinear(nn.Module):
-    def __init__(self, in_features: int, out_features: int) -> None:
+    def __init__(self, in_features: int, out_features: int, normalize_shift: bool) -> None:
         super().__init__()
 
         self.in_features = in_features
@@ -25,11 +26,12 @@ class IntervalLinear(nn.Module):
         self.weight = Parameter(torch.empty((out_features, in_features)))
         self.bias = Parameter(torch.empty(out_features))
         self._radius = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
-        self.radius = Parameter(torch.ones((out_features, in_features + 1)) * 1e8, requires_grad=False)
+        self.register_buffer("radius", torch.ones((out_features, in_features + 1)))
         self.radius_multiplier: Optional[Tensor] = None
 
         self._shift = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
         self._scale = Parameter(torch.empty((out_features, in_features + 1)), requires_grad=False)
+        self.normalize_shift = normalize_shift
 
         self.mode: Mode = Mode.VANILLA
 
@@ -46,12 +48,18 @@ class IntervalLinear(nn.Module):
     @property
     def shift(self) -> Tensor:
         """ Contracted interval middle shift (-1, 1). """
-        return self._shift.tanh()
+        if self.normalize_shift:
+            return (self._shift / (self.radius + 1e-8)).tanh()
+        else:
+            return self._shift.tanh()
 
     @property
     def scale(self) -> Tensor:
         """ Contracted interval scale (0, 1). """
-        return self._scale.sigmoid()
+        if True:
+            return torch.zeros_like(self._scale)
+        else:
+            return self._scale.sigmoid()
 
     def clamp_radii(self):
         with torch.no_grad():
@@ -94,6 +102,8 @@ class IntervalLinear(nn.Module):
 
     def freeze_task(self) -> None:
         with torch.no_grad():
+            self.prev_weight = self.weight.clone().detach()
+            self.prev_bias = self.bias.clone().detach()
             self.weight.copy_(
                     self.weight
                     + self.shift[:, :-1]
@@ -125,19 +135,29 @@ class IntervalLinear(nn.Module):
         else:
             assert self.mode == Mode.CONTRACTION
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), 'Scale must be in [0, 1] range.'
+            if not ((-1.0 <= self.shift).all() and (self.shift <= 1.0).all()):
+                ipdb.set_trace()
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), 'Shift must be in [-1, 1] range.'
 
             w_middle = (self.weight
                         + self.shift[:, :-1]
                         * (torch.tensor(1.0) - self.scale[:, :-1]) * self.radius[:, :-1])
-            w_lower = w_middle - self.scale[:, :-1] * self.radius[:, :-1]
-            w_upper = w_middle + self.scale[:, :-1] * self.radius[:, :-1]
+            if True:
+                w_lower = w_middle - self.radius[:, :-1]
+                w_upper = w_middle + self.radius[:, :-1]
+            else:
+                w_lower = w_middle - self.scale[:, :-1] * self.radius[:, :-1]
+                w_upper = w_middle + self.scale[:, :-1] * self.radius[:, :-1]
 
             b_middle = (self.bias
                         + self.shift[:, -1]
                         * (torch.tensor(1.0) - self.scale[:, -1]) * self.radius[:, -1])
-            b_lower = b_middle - self.scale[:, -1] * self.radius[:, -1]
-            b_upper = b_middle + self.scale[:, -1] * self.radius[:, -1]
+            if True:
+                b_lower = b_middle - self.radius[:, -1]
+                b_upper = b_middle + self.radius[:, -1]
+            else:
+                b_lower = b_middle - self.scale[:, -1] * self.radius[:, :-1]
+                b_upper = b_middle + self.scale[:, -1] * self.radius[:, -1]
 
         w_lower_pos = w_lower.clamp(min=0)
         w_lower_neg = w_lower.clamp(max=0)
@@ -204,16 +224,17 @@ class IntervalModel(nn.Module):
 
 
 class IntervalMLP(IntervalModel):
-    def __init__(self, input_size: int, hidden_dim: int, output_classes: int):
+    def __init__(self, input_size: int, hidden_dim: int, output_classes: int, normalize_shift: bool):
         super().__init__()
 
         self.input_size = input_size
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
+        self.normalize_shift = normalize_shift
 
-        self.fc1 = IntervalLinear(self.input_size, self.hidden_dim)
-        self.fc2 = IntervalLinear(self.hidden_dim, self.hidden_dim)
-        self.last = IntervalLinear(self.hidden_dim, self.output_classes)
+        self.fc1 = IntervalLinear(self.input_size, self.hidden_dim, normalize_shift=normalize_shift)
+        self.fc2 = IntervalLinear(self.hidden_dim, self.hidden_dim, normalize_shift=normalize_shift)
+        self.last = IntervalLinear(self.hidden_dim, self.output_classes, normalize_shift=normalize_shift)
 
     def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         if len(x.shape) == 4:

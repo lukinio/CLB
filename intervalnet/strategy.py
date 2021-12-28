@@ -1,5 +1,4 @@
 from typing import Any, Optional, Sequence, cast
-import ipdb
 
 import torch
 import torch.linalg
@@ -42,6 +41,7 @@ class IntervalTraining(BaseStrategy):
         optimizer_cls,
         learning_rate: float,
         eps: float,
+        fisher_mode: str,
     ):
 
         self.mb_output_all: dict[str, Tensor]
@@ -80,6 +80,7 @@ class IntervalTraining(BaseStrategy):
         self.l1_lambda = torch.tensor(l1_lambda)
         self.optimizer_cls = optimizer_cls
         self.learning_rate = learning_rate
+        self.fisher_mode = fisher_mode
 
         if regression_task:
             criterion = nn.MSELoss()
@@ -120,12 +121,37 @@ class IntervalTraining(BaseStrategy):
         bounds: Tensor = self.mb_output_all[layer_name].rename(None)  # type: ignore
         return bounds[:, 2, :] - bounds[:, 0, :]
 
-    def apply_fisher_scaling(self, inv_fisher, scale):
-        for n, m in self.model.named_interval_children():
-            m.radius[:, :-1] = torch.minimum(m.radius[:, :-1],
-                                             inv_fisher[n + "." + "weight"] * scale)
-            m.radius[:, -1] = torch.minimum(m.radius[:, -1],
-                                            inv_fisher[n + "." + "bias"] * scale)
+    def apply_fisher_scaling(self, inv_fisher, scale, first_time):
+        with torch.no_grad():
+            for n, m in self.model.named_interval_children():
+                if first_time:
+                    m.radius[:, :-1] = inv_fisher[n + "." + "weight"] * scale
+                    m.radius[:, -1] = inv_fisher[n + "." + "bias"] * scale
+                else:
+                    if True:
+                        prev_weight_lower = m.prev_weight - m.radius[:, :-1]
+                        prev_weight_upper = m.prev_weight + m.radius[:, :-1]
+                        assert (prev_weight_lower <= m.weight).all()
+                        assert (prev_weight_upper >= m.weight).all()
+                        max_weight_radius = torch.minimum(m.weight - prev_weight_lower,
+                                                          prev_weight_upper - m.weight)
+                        m.radius[:, :-1] = torch.minimum(max_weight_radius,
+                                                         inv_fisher[n + "." + "weight"] * scale)
+
+                        prev_bias_lower = m.prev_bias - m.radius[:, -1]
+                        prev_bias_upper = m.prev_bias + m.radius[:, -1]
+                        assert (prev_bias_lower <= m.bias).all()
+                        assert (prev_bias_upper >= m.bias).all()
+                        max_bias_radius = torch.minimum(m.bias - prev_bias_lower,
+                                                        prev_bias_upper - m.bias)
+                        m.radius[:, -1] = torch.minimum(max_bias_radius,
+                                                        inv_fisher[n + "." + "bias"] * scale)
+                                                   
+                    else:
+                        m.radius[:, :-1] = torch.minimum(m.radius[:, :-1],
+                                                         inv_fisher[n + "." + "weight"] * scale)
+                        m.radius[:, -1] = torch.minimum(m.radius[:, -1],
+                                                        inv_fisher[n + "." + "bias"] * scale)
 
     def before_backward(self, **kwargs: Any):
         super().before_backward(**kwargs)  # type: ignore
@@ -187,9 +213,9 @@ class IntervalTraining(BaseStrategy):
             # === Radius (contraction) penalty ===
             pass
 
-        weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
-        l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
-        self.l1_penalty += self.l1_lambda * l1
+        # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
+        # l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
+        # self.l1_penalty += self.l1_lambda * l1
 
         self.loss += self.l1_penalty
         self.loss += self.robust_penalty
@@ -229,6 +255,8 @@ class IntervalTraining(BaseStrategy):
 
     def compute_fisher(self):
         params = {n: p for n, p in self.model.named_parameters() if "weight" in n or "bias" in n}  # TODO: .weight, .bias
+        if self.fisher_mode == "identity":
+            return None, {n: torch.ones_like(p) for n, p in params.items()}
 
         fisher = {}
         for n, p in params.items():
@@ -257,11 +285,20 @@ class IntervalTraining(BaseStrategy):
 
             for n, p in fisher.items():
                 if params[n].grad is not None:
-                    p += ((params[n].grad ** 2 + self.eps) * len(input) / len(train_loader))
+                    p += params[n].grad ** 2
+            self.model.zero_grad()
 
-        inv_fisher = {n: 1 / p for n, p in fisher.items()}
+
+        for n, p in fisher.items():
+            eps_tensor = torch.tensor(self.eps).to(p.device)
+            max_val = torch.maximum(p / len(train_loader), eps_tensor)
+            fisher[n] = max_val.detach().clone()
+
+        inv_fisher = {n: 1 / p.detach().clone() for n, p in fisher.items()}
+        inv_sum_fisher = torch.cat([p.detach().ravel() for p in fisher.values()]).mean()
+        final_fisher = {n: 1 / (p.detach().clone() * inv_sum_fisher) for n, p in fisher.items()}
         self.model.train()
-        return fisher, inv_fisher
+        return final_fisher, inv_fisher
 
 
     def after_update(self, **kwargs: Any):
@@ -269,21 +306,27 @@ class IntervalTraining(BaseStrategy):
 
         # self.model.clamp_radii()
 
+    def after_training_exp(self, **kwargs: Any):
+        super().after_training_exp(**kwargs)
+        fisher, self.inv_fisher = self.compute_fisher()
+
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
 
         if self.training_exp_counter == 1:
             self.make_optimizer()
-            self.fisher, self.inv_fisher = self.compute_fisher()
             # TODO: adaptive choice of scale?
-            self.apply_fisher_scaling(self.inv_fisher, self.robust_loss_threshold)
+            self.apply_fisher_scaling(
+                    self.inv_fisher, self.robust_loss_threshold, first_time=True)
             self.model.switch_mode(Mode.CONTRACTION)
+            self.make_optimizer()
         elif self.training_exp_counter > 1:
             self.model.freeze_task()
             self.model.switch_mode(Mode.VANILLA)
-            self.fisher, self.inv_fisher = self.compute_fisher()
-            self.apply_fisher_scaling(self.inv_fisher, self.robust_loss_threshold)
+            self.apply_fisher_scaling(
+                    self.inv_fisher, self.robust_loss_threshold, first_time=False)
             self.model.switch_mode(Mode.CONTRACTION)
+            self.make_optimizer()
 
 
 
