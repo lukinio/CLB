@@ -227,14 +227,14 @@ class IntervalTraining(BaseStrategy):
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
-            # === Robust loss ===
-            #
-            pass
+            # === Robust penalty ===
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+                self.losses.robust_penalty = self.losses.robust * self._current_lambda
 
             # === Radius (contraction) penalty ===
             pass
 
-            self.losses.total = self.loss
+            self.losses.total = self.loss + self.losses.robust_penalty
 
         # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
         # l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
