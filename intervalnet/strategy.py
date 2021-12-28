@@ -14,6 +14,7 @@ from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore # noqa
 from torch import Tensor
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader, Subset
 from torchmetrics.functional.classification.accuracy import accuracy
 
 from intervalnet.cfg import Settings
@@ -177,6 +178,7 @@ class IntervalTraining(BaseStrategy):
                     # Move to device & clone, because we use immutable defaults (no default_factory)
                     setattr(self, field.name, getattr(self, field.name).clone().to(device))
 
+
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
@@ -198,12 +200,13 @@ class IntervalTraining(BaseStrategy):
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
+            # TODO: multiply by Fisher?
             self.losses.radius_penalty = torch.stack(
                 [
-                    F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
+                    F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius) * fisher[n]
                     .pow(self.cfg.interval.radius_exponent)
                     .mean()
-                    for r in radii
+                    for n, r in radii
                 ]  # mean per layer
             ).mean()
 
@@ -253,6 +256,57 @@ class IntervalTraining(BaseStrategy):
         super().after_update(**kwargs)  # type: ignore
 
         self.model.clamp_radii()
+
+    def compute_fisher(self):
+        params = {n: p for n, p in self.model.named_parameters() if "weight" in n or "bias" in n}  # TODO: .weight, .bias
+        if self.fisher_mode == "identity":
+            return None, {n: torch.ones_like(p) for n, p in params.items()}
+
+        fisher = {}
+        for n, p in params.items():
+            fisher[n] = p.clone().detach().fill_(0)
+
+        self.model.eval()
+
+        train_loader = DataLoader(Subset(self.experience.dataset, list(range(10000))), batch_size=1)
+        for i, (input, target, _) in enumerate(train_loader):
+            input = input.cuda()
+
+            preds = self.model(input)
+            _, m_pred, _ = preds['last'].unbind('bounds')
+            m_pred = m_pred.rename(None)
+
+
+            if self.regression_task:
+                loss = m_pred
+            else:
+                ind = m_pred.max(1)[1].flatten()
+                loss = self._criterion(m_pred, ind)
+
+            # empirical fisher?
+            self.model.zero_grad()
+            loss.backward()
+
+            for n, p in fisher.items():
+                if params[n].grad is not None:
+                    p += params[n].grad ** 2
+            self.model.zero_grad()
+
+
+        for n, p in fisher.items():
+            eps_tensor = torch.tensor(self.eps).to(p.device)
+            max_val = torch.maximum(p / len(train_loader), eps_tensor)
+            fisher[n] = max_val.detach().clone()
+
+        inv_fisher = {n: 1 / p.detach().clone() for n, p in fisher.items()}
+        inv_sum_fisher = torch.cat([p.detach().ravel() for p in fisher.values()]).mean()
+        final_fisher = {n: 1 / (p.detach().clone() * inv_sum_fisher) for n, p in fisher.items()}
+        self.model.train()
+        return final_fisher, inv_fisher
+
+    def after_training_exp(self, **kwargs: Any):
+        super().after_training_exp(**kwargs)
+        _, self.inv_fisher = self.compute_fisher()
 
     def before_training_exp(self, **kwargs: Any):
         """Switch mode or freeze on each consecutive experience."""
