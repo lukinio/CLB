@@ -185,22 +185,21 @@ class Experiment(AvalancheExperiment):
     # ------------------------------------------------------------------------------------------
     # Experiment variants
     # ------------------------------------------------------------------------------------------
-    def setup_naive(self):
-        self.model = MLP(
+    def _get_mlp_model(self):
+        return MLP(
             input_size=28 * 28 * 1,
             hidden_dim=400,
             output_classes=self.n_output_classes,
         )
+
+    def setup_naive(self):
+        self.model = self._get_mlp_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
         )
 
     def setup_ewc(self):
-        self.model = MLP(
-            input_size=28 * 28 * 1,
-            hidden_dim=400,
-            output_classes=self.n_output_classes,
-        )
+        self.model = self._get_mlp_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
             plugins=[EWCPlugin(self.cfg.reg_lambda)],
