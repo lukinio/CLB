@@ -15,6 +15,7 @@ from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.strategies.strategy_wrappers import EWC
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
+from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
 from pytorch_yard.experiments.avalanche import AvalancheExperiment
 from rich import print
 from torch import Tensor
@@ -111,19 +112,22 @@ class Experiment(AvalancheExperiment):
 
     def setup_scenario(self):
         if self.cfg.scenario is ScenarioType.INC_TASK:
-            pass
+            _setup = incremental_task
+            raise NotImplementedError
         elif self.cfg.scenario is ScenarioType.INC_DOMAIN:
-            self.scenario, self.n_output_classes = incremental_domain(
-                self.train,
-                self.test,
-                self.transforms,
-                self.cfg.n_experiences,
-                self.n_classes,
-            )
+            _setup = incremental_domain
         elif self.cfg.scenario is ScenarioType.INC_CLASS:
-            pass
+            _setup = incremental_class
         else:
             raise ValueError(f"Unknown scenario type: {self.cfg.scenario}")
+
+        self.scenario, self.n_output_classes = _setup(
+            self.train,
+            self.test,
+            self.transforms,
+            self.cfg.n_experiences,
+            self.n_classes,
+        )
 
     def setup_optimizer(self):
         if self.cfg.optimizer is OptimizerType.SGD:
