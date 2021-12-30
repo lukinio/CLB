@@ -20,7 +20,13 @@ from rich import print
 from torch import Tensor
 from torch.optim import SGD, Adam
 
-from intervalnet.cfg import DatasetType, OptimizerType, Settings, StrategyType
+from intervalnet.cfg import (
+    DatasetType,
+    OptimizerType,
+    ScenarioType,
+    Settings,
+    StrategyType,
+)
 from intervalnet.datasets import mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
@@ -62,9 +68,10 @@ class Experiment(AvalancheExperiment):
             self.setup_naive()
         elif self.cfg.strategy is StrategyType.EWC:
             self.setup_ewc()
-        else:
-            assert self.cfg.strategy is StrategyType.Interval
+        elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
+        else:
+            raise ValueError(f"Unknown strategy type: {self.cfg.strategy}")
 
         print(self.model)
 
@@ -91,21 +98,32 @@ class Experiment(AvalancheExperiment):
             self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
             info("Training completed")
 
+    # ------------------------------------------------------------------------------------------
+    # Setup
+    # ------------------------------------------------------------------------------------------
     def setup_dataset(self):
-        assert self.cfg.dataset in DatasetType
-        if self.cfg.dataset == DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST:
             self.train, self.test, self.transforms = mnist()
             self.n_classes = 10
             self.input_size = 28 * 28
+        else:
+            raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
     def setup_scenario(self):
-        self.scenario, self.n_output_classes = incremental_domain(
-            self.train,
-            self.test,
-            self.transforms,
-            self.cfg.n_experiences,
-            self.n_classes,
-        )
+        if self.cfg.scenario is ScenarioType.INC_TASK:
+            pass
+        elif self.cfg.scenario is ScenarioType.INC_DOMAIN:
+            self.scenario, self.n_output_classes = incremental_domain(
+                self.train,
+                self.test,
+                self.transforms,
+                self.cfg.n_experiences,
+                self.n_classes,
+            )
+        elif self.cfg.scenario is ScenarioType.INC_CLASS:
+            pass
+        else:
+            raise ValueError(f"Unknown scenario type: {self.cfg.scenario}")
 
     def setup_optimizer(self):
         if self.cfg.optimizer is OptimizerType.SGD:
@@ -114,9 +132,10 @@ class Experiment(AvalancheExperiment):
                 lr=self.cfg.learning_rate,
                 momentum=self.cfg.momentum if self.cfg.momentum else 0,
             )
-        else:
-            assert self.cfg.optimizer is OptimizerType.ADAM
+        elif self.cfg.optimizer is OptimizerType.ADAM:
             self.optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+        else:
+            raise ValueError(f"Unknown optimizer type: {self.cfg.optimizer}")
 
         print(self.optimizer)
 
