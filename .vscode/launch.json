@@ -12,7 +12,9 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                // "cfg=interval",
+                "cfg=sgd",
+                "cfg.scenario=INC_DOMAIN",
+                "cfg.epochs=3"
                 // "cfg.enable_visdom=true",
                 // "cfg.visdom_reset_every_epoch=true",
                 // "cfg.interval.radius_multiplier=1",

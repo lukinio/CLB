@@ -13,6 +13,7 @@ from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore # noqa
 from torch import Tensor
+from torch.nn.modules.loss import CrossEntropyLoss
 from torch.optim import Optimizer
 from torchmetrics.functional.classification.accuracy import accuracy
 
@@ -20,7 +21,66 @@ from intervalnet.cfg import Settings
 from intervalnet.models.interval import IntervalMLP, Mode
 
 
-class IntervalTraining(BaseStrategy):
+class VanillaTraining(BaseStrategy):
+    """Benchmark CL training."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: Optimizer,
+        train_mb_size: int = 1,
+        train_epochs: int = 1,
+        eval_mb_size: int = 1,
+        device: torch.device = torch.device("cpu"),
+        plugins: Optional[Sequence[StrategyPlugin]] = None,
+        evaluator: Optional[EvaluationPlugin] = None,
+        eval_every: int = -1,
+        *,
+        cfg: Settings,
+    ):
+        super().__init__(  # type: ignore
+            model,
+            optimizer,
+            criterion=nn.CrossEntropyLoss(),
+            train_mb_size=train_mb_size,
+            train_epochs=train_epochs,
+            eval_mb_size=eval_mb_size,
+            device=device,
+            plugins=plugins,
+            evaluator=evaluator,
+            eval_every=eval_every,
+        )
+
+        # Avalanche typing specifications
+        self.mb_it: int  # type: ignore
+        self.mb_output: Tensor  # type: ignore
+        self.loss: Tensor  # type: ignore
+        self.training_exp_counter: int  # type: ignore
+        self.optimizer: Optimizer
+        self._criterion: CrossEntropyLoss
+        self.device: torch.device
+
+        # Config values
+        self.cfg = cfg
+
+        self.valid_classes = 0
+
+    @property
+    def mb_y(self) -> Tensor:
+        """Current mini-batch target."""
+        return super().mb_y  # type: ignore
+
+    def criterion(self):
+        if self.is_training:
+            # Use class masking for training the same way as Continual Learning Benchmark
+            preds = self.mb_output[:, : self.valid_classes]
+        else:
+            preds = self.mb_output
+
+        return self._criterion(preds, self.mb_y)
+
+
+class IntervalTraining(VanillaTraining):
     """Main interval training strategy."""
 
     def __init__(
@@ -39,24 +99,23 @@ class IntervalTraining(BaseStrategy):
         *,
         cfg: Settings,
     ):
+        super().__init__(  # type: ignore
+            model,
+            optimizer,
+            train_mb_size=train_mb_size,
+            train_epochs=train_epochs,
+            eval_mb_size=eval_mb_size,
+            device=device,
+            plugins=plugins,
+            evaluator=evaluator,
+            eval_every=eval_every,
+            cfg=cfg,
+        )
 
         self.mb_output_all: dict[str, Tensor]
         """All model's outputs computed on the current mini-batch (lower, middle, upper bounds), per layer."""
 
-        # Avalanche typing specifications
-        self.mb_it: int  # type: ignore
-        self.mb_output: Union[dict[str, Tensor], Tensor]  # type: ignore
-        self.loss: Tensor  # type: ignore
-        self.training_exp_counter: int  # type: ignore
-        self.optimizer: Optimizer
-
-        self.device: torch.device
         self.model: IntervalMLP
-
-        self._criterion = nn.CrossEntropyLoss()
-
-        # Config values
-        self.cfg = cfg
 
         self._current_lambda = self.cfg.interval.robust_lambda
 
@@ -72,19 +131,6 @@ class IntervalTraining(BaseStrategy):
             maxlen=self.cfg.interval.metric_lookback
         )  # latest readings from the left
 
-        super().__init__(  # type: ignore
-            model,
-            optimizer,
-            criterion=self._criterion,
-            train_mb_size=train_mb_size,
-            train_epochs=train_epochs,
-            eval_mb_size=eval_mb_size,
-            device=device,
-            plugins=plugins,
-            evaluator=evaluator,
-            eval_every=eval_every,
-        )
-
         self.model.radius_multiplier = self.cfg.interval.radius_multiplier
         self.model.max_radius = self.cfg.interval.max_radius
 
@@ -92,11 +138,6 @@ class IntervalTraining(BaseStrategy):
         self.viz_debug = visdom.Visdom(env="debug") if enable_visdom else None
         self.viz_reset_every_epoch = visdom_reset_every_epoch
         self.windows: dict[str, str] = {}
-
-    @property
-    def mb_y(self) -> Tensor:
-        """Current mini-batch target."""
-        return super().mb_y  # type: ignore
 
     @property
     def mode(self):

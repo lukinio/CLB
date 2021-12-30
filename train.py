@@ -2,7 +2,6 @@ import functools
 from typing import Any, Iterable, Optional, Type, cast
 
 import pytorch_yard
-import torch.nn as nn
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     create_multi_dataset_generic_benchmark,
 )
@@ -10,9 +9,8 @@ from avalanche.benchmarks.scenarios.generic_cl_scenario import GenericScenarioSt
 from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
-from avalanche.training import Naive
 from avalanche.training.plugins.evaluation import EvaluationPlugin
-from avalanche.training.strategies.strategy_wrappers import EWC
+from avalanche.training.plugins.ewc import EWCPlugin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
@@ -33,7 +31,7 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
-from intervalnet.strategy import IntervalTraining
+from intervalnet.strategy import IntervalTraining, VanillaTraining
 
 assert pytorch_yard.__version__ == "2021.11.17", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -87,6 +85,8 @@ class Experiment(AvalancheExperiment):
         for i, experience in enumerate(cast(Iterable[NCExperience], self.scenario.train_stream)):
             info(f"Start of experience: {experience.current_experience}")
             info(f"Current classes: {experience.classes_in_this_experience}")
+
+            self.strategy.valid_classes = len(experience.classes_seen_so_far)
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
                 exp.dataset for exp in self.scenario.test_stream[0 : i + 1]  # type: ignore
@@ -178,6 +178,7 @@ class Experiment(AvalancheExperiment):
             evaluator=self.evaluator,
             device=self.device,
             eval_every=1,
+            cfg=self.cfg,
         )
         print(self.strategy)
 
@@ -191,8 +192,7 @@ class Experiment(AvalancheExperiment):
             output_classes=self.n_output_classes,
         )
         self.strategy_ = functools.partial(
-            Naive,
-            criterion=nn.CrossEntropyLoss(),
+            VanillaTraining,
         )
 
     def setup_ewc(self):
@@ -202,9 +202,8 @@ class Experiment(AvalancheExperiment):
             output_classes=self.n_output_classes,
         )
         self.strategy_ = functools.partial(
-            EWC,
-            criterion=nn.CrossEntropyLoss(),
-            ewc_lambda=self.cfg.reg_lambda,
+            VanillaTraining,
+            plugins=[EWCPlugin(self.cfg.reg_lambda)],
         )
 
     def setup_interval(self):
@@ -220,7 +219,6 @@ class Experiment(AvalancheExperiment):
             IntervalTraining,
             enable_visdom=self.cfg.enable_visdom,
             visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
-            cfg=self.cfg,
         )
 
 
