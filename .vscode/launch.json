@@ -13,8 +13,8 @@
             "justMyCode": false,
             "args": [
                 "cfg=sgd",
-                "cfg.scenario=INC_DOMAIN",
-                "cfg.epochs=3"
+                "cfg.scenario=INC_TASK",
+                "cfg.epochs=2"
                 // "cfg.enable_visdom=true",
                 // "cfg.visdom_reset_every_epoch=true",
                 // "cfg.interval.radius_multiplier=1",

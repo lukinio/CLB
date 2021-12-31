@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import InitVar, dataclass, field, fields
-from typing import Any, Optional, Sequence, Union, cast
+from typing import Any, Optional, Sequence, cast
 
 import numpy as np
 import torch
@@ -72,7 +72,7 @@ class VanillaTraining(BaseStrategy):
 
     def criterion(self):
         if self.is_training:
-            # Use class masking for training the same way as Continual Learning Benchmark
+            # Use class masking for incremental class training in the same way as Continual Learning Benchmark
             preds = self.mb_output[:, : self.valid_classes]
         else:
             preds = self.mb_output

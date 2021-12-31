@@ -33,7 +33,7 @@ from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining, VanillaTraining
 
-assert pytorch_yard.__version__ == "2021.11.17", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
+assert pytorch_yard.__version__ == "2021.12.31", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
 
 class Experiment(AvalancheExperiment):
@@ -52,7 +52,10 @@ class Experiment(AvalancheExperiment):
         """Model input size."""
 
         self.n_output_classes: int
-        """Number of distinct classes for evaluation purposes."""
+        """Number of classes for each head."""
+
+        self.n_heads: int
+        """Number of model heads."""
 
     def entry(self, root_cfg: pytorch_yard.RootConfig) -> None:
         super().entry(root_cfg)
@@ -89,7 +92,8 @@ class Experiment(AvalancheExperiment):
             self.strategy.valid_classes = len(experience.classes_seen_so_far)
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                exp.dataset for exp in self.scenario.test_stream[0 : i + 1]  # type: ignore
+                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore
+                for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
             seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
@@ -113,15 +117,17 @@ class Experiment(AvalancheExperiment):
     def setup_scenario(self):
         if self.cfg.scenario is ScenarioType.INC_TASK:
             _setup = incremental_task
-            raise NotImplementedError
+            self.n_heads = self.cfg.n_experiences
         elif self.cfg.scenario is ScenarioType.INC_DOMAIN:
             _setup = incremental_domain
+            self.n_heads = 1
         elif self.cfg.scenario is ScenarioType.INC_CLASS:
             _setup = incremental_class
+            self.n_heads = 1
         else:
             raise ValueError(f"Unknown scenario type: {self.cfg.scenario}")
 
-        self.scenario, self.n_output_classes = _setup(
+        self.scenario, self.n_classes_per_head = _setup(
             self.train,
             self.test,
             self.transforms,
@@ -189,7 +195,8 @@ class Experiment(AvalancheExperiment):
         return MLP(
             input_size=28 * 28 * 1,
             hidden_dim=400,
-            output_classes=self.n_output_classes,
+            output_classes=self.n_classes_per_head,
+            heads=self.n_heads,
         )
 
     def setup_naive(self):
@@ -209,7 +216,7 @@ class Experiment(AvalancheExperiment):
         self.model = IntervalMLP(
             input_size=28 * 28 * 1,
             hidden_dim=400,
-            output_classes=self.n_output_classes,
+            output_classes=self.n_classes_per_head,
             radius_multiplier=self.cfg.interval.radius_multiplier,
             max_radius=self.cfg.interval.max_radius,
             bias=self.cfg.interval.bias,
