@@ -33,7 +33,7 @@ from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategy import IntervalTraining, VanillaTraining
 
-assert pytorch_yard.__version__ == "2021.12.31", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
+assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
 
 class Experiment(AvalancheExperiment):
