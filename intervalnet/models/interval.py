@@ -155,10 +155,13 @@ class IntervalModel(MultiTaskModule):
         self._max_radius = max_radius
 
     def interval_children(self) -> list[IntervalLinear]:
-        return [m for m in self.children() if isinstance(m, IntervalLinear)]
+        return [m for m in self.modules() if isinstance(m, IntervalLinear)]
 
     def named_interval_children(self) -> list[tuple[str, IntervalLinear]]:
-        return [(n, m) for n, m in self.named_children() if isinstance(m, IntervalLinear)]
+        # TODO: hack
+        return [("last" if "last" in n else n, m)
+                for n, m in self.named_modules()
+                if isinstance(m, IntervalLinear)]
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
@@ -230,16 +233,20 @@ class IntervalMLP(IntervalModel):
         self.fc2 = IntervalLinear(
             self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
-        self.last = nn.ModuleList([
-            IntervalLinear(
-                self.hidden_dim,
-                self.output_classes,
-                radius_multiplier=radius_multiplier,
-                max_radius=max_radius,
-                bias=bias
-            )
-            for _ in range(heads)
-        ])
+        if heads > 1:
+            # Incremental task, we don't have to use intervals
+            self.last = nn.ModuleList([
+                nn.Linear(self.hidden_dim, self.output_classes) for _ in range(heads)
+            ])
+        else:
+            self.last = nn.ModuleList([
+                IntervalLinear(
+                    self.hidden_dim,
+                    self.output_classes,
+                    radius_multiplier=radius_multiplier,
+                    max_radius=max_radius,
+                    bias=bias
+            )])
 
     # MW: this is a modified function from avalanche
     def forward(self, x: torch.Tensor, task_labels: torch.Tensor) -> torch.Tensor:

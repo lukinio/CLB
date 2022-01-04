@@ -70,14 +70,14 @@ class VanillaTraining(BaseStrategy):
         """Current mini-batch target."""
         return super().mb_y  # type: ignore
 
-    def criterion(self):
-        if self.is_training:
-            # Use class masking for incremental class training in the same way as Continual Learning Benchmark
-            preds = self.mb_output[:, : self.valid_classes]
-        else:
-            preds = self.mb_output
+    # def criterion(self):
+    #     if self.is_training:
+    #         # Use class masking for incremental class training in the same way as Continual Learning Benchmark
+    #         preds = self.mb_output[:, : self.valid_classes]
+    #     else:
+    #         preds = self.mb_output
 
-        return self._criterion(preds, self.mb_y)
+    #     return self._criterion(preds, self.mb_y)
 
 
 class IntervalTraining(VanillaTraining):
@@ -347,7 +347,7 @@ class IntervalTraining(VanillaTraining):
 
         """
         output_lower, _, output_higher = self.mb_output_all["last"].unbind("bounds")
-        y_oh = F.one_hot(self.mb_y)  # type: ignore
+        y_oh = F.one_hot(self.mb_y, num_classes=self.model.output_classes)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
 
     def bounds_width(self, layer_name: str):
