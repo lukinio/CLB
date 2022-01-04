@@ -34,6 +34,7 @@ class IntervalLinear(nn.Module):
         self.normalize_shift = normalize_shift
 
         self.mode: Mode = Mode.VANILLA
+        self.previous_intervals = []
 
         self.reset_parameters()
 
@@ -102,6 +103,7 @@ class IntervalLinear(nn.Module):
 
     def freeze_task(self) -> None:
         with torch.no_grad():
+
             self.prev_weight = self.weight.clone().detach()
             self.prev_bias = self.bias.clone().detach()
             self.weight.copy_(
@@ -112,9 +114,39 @@ class IntervalLinear(nn.Module):
                     self.bias
                     + self.shift[:, -1]
                     * (torch.tensor(1.0) - self.scale[:, -1]) * self.radius[:, -1])
+            for (weight_interval, bias_interval) in self.previous_intervals:
+                try:
+                    assert (weight_interval[0] - 1e-5 <= self.weight).all()
+                    assert (weight_interval[1] + 1e-5 >= self.weight).all()
+                    assert (bias_interval[0] - 1e-5 <= self.bias).all()
+                    assert (bias_interval[1] + 1e-5 >= self.bias).all()
+                except AssertionError:
+                    ipdb.set_trace()
+
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(5)
+
+    def save_intervals(self):
+        lower_weight_interval = self.weight - self.radius[:, :-1]
+        upper_weight_interval = self.weight + self.radius[:, :-1]
+        weight_interval = torch.stack(
+                [lower_weight_interval, upper_weight_interval],
+                dim=0)
+        lower_bias_interval = self.bias - self.radius[:, -1]
+        upper_bias_interval = self.bias + self.radius[:, -1]
+        bias_interval = torch.stack(
+                [lower_bias_interval, upper_bias_interval],
+                dim=0)
+        self.previous_intervals += [(weight_interval, bias_interval)]
+        for (prev_weight_interval, prev_bias_interval) in self.previous_intervals[:-1]:
+            try:
+                assert (prev_weight_interval[0] - 1e-5 <= lower_weight_interval).all()
+                assert (prev_weight_interval[1] + 1e-5 >= upper_weight_interval).all()
+                assert (prev_bias_interval[0] - 1e-5 <= lower_bias_interval).all()
+                assert (prev_bias_interval[1] + 1e-5 >= upper_bias_interval).all()
+            except AssertionError:
+                ipdb.set_trace()
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names('N', 'bounds', 'features')  # type: ignore
@@ -207,6 +239,10 @@ class IntervalModel(nn.Module):
     def freeze_task(self) -> None:
         for m in self.interval_children():
             m.freeze_task()
+
+    def save_intervals(self) -> None:
+        for m in self.interval_children():
+            m.save_intervals()
 
     def set_radius_multiplier(self, multiplier: Tensor) -> None:
         for m in self.interval_children():

@@ -308,27 +308,23 @@ class IntervalTraining(BaseStrategy):
 
     def after_training_exp(self, **kwargs: Any):
         super().after_training_exp(**kwargs)
-        fisher, self.inv_fisher = self.compute_fisher()
+        if self.training_exp_counter == 0:
+            fisher, self.inv_fisher = self.compute_fisher()
+            self.apply_fisher_scaling(
+                    self.inv_fisher, self.robust_loss_threshold, first_time=True)
+        else:
+            self.model.freeze_task()
+            self.model.switch_mode(Mode.VANILLA)
+            fisher, self.inv_fisher = self.compute_fisher()
+            self.apply_fisher_scaling(
+                    self.inv_fisher, self.robust_loss_threshold, first_time=False)
+        self.model.switch_mode(Mode.CONTRACTION)
+        self.model.save_intervals()
 
     def before_training_exp(self, **kwargs: Any):
         super().before_training_exp(**kwargs)  # type: ignore
 
-        if self.training_exp_counter == 1:
-            self.make_optimizer()
-            # TODO: adaptive choice of scale?
-            self.apply_fisher_scaling(
-                    self.inv_fisher, self.robust_loss_threshold, first_time=True)
-            self.model.switch_mode(Mode.CONTRACTION)
-            self.make_optimizer()
-        elif self.training_exp_counter > 1:
-            self.model.freeze_task()
-            self.model.switch_mode(Mode.VANILLA)
-            self.apply_fisher_scaling(
-                    self.inv_fisher, self.robust_loss_threshold, first_time=False)
-            self.model.switch_mode(Mode.CONTRACTION)
-            self.make_optimizer()
-
-
+        self.make_optimizer()
 
     def before_training_epoch(self, **kwargs: Any):
         super().before_training_epoch(**kwargs)  # type: ignore
