@@ -5,6 +5,7 @@ from typing import cast
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from avalanche.models import MultiTaskModule
 from rich import print
 from torch import Tensor
 from torch.nn.parameter import Parameter
@@ -145,7 +146,7 @@ class IntervalLinear(nn.Module):
         return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
 
 
-class IntervalModel(nn.Module):
+class IntervalModel(MultiTaskModule):
     def __init__(self, radius_multiplier: float, max_radius: float):
         super().__init__()
 
@@ -215,6 +216,7 @@ class IntervalMLP(IntervalModel):
         radius_multiplier: float,
         max_radius: float,
         bias: bool,
+        heads: int,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
@@ -228,13 +230,50 @@ class IntervalMLP(IntervalModel):
         self.fc2 = IntervalLinear(
             self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
-        self.last = IntervalLinear(
-            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
-        )
+        self.last = nn.ModuleList([
+            IntervalLinear(
+                self.hidden_dim,
+                self.output_classes,
+                radius_multiplier=radius_multiplier,
+                max_radius=max_radius,
+                bias=bias
+            )
+            for _ in range(heads)
+        ])
 
-    def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
+    # MW: this is a modified function from avalanche
+    def forward(self, x: torch.Tensor, task_labels: torch.Tensor) -> torch.Tensor:
+        """ compute the output given the input `x` and task labels.
+
+        :param x:
+        :param task_labels: task labels for each sample.
+        :return:
+        """
+        if isinstance(task_labels, int):
+            # fast path. mini-batch is single task.
+            return self.forward_single_task(x, task_labels)
+        else:
+            unique_tasks = torch.unique(task_labels)
+
+        full_out = {}
+        for task in unique_tasks:
+            task_mask = task_labels == task
+            x_task = x[task_mask]
+            out_task = self.forward_single_task(x_task, task.item())
+
+            if not full_out:
+                for key, val in out_task.items():
+                    full_out[key] = torch.empty(x.shape[0], *val.shape[1:],
+                                                device=val.device).rename(None)
+            for key, val in out_task.items():
+                full_out[key][task_mask] = val.rename(None)
+
+        for key, val in full_out.items():
+            full_out[key] = val.refine_names("N", "bounds", "features")
+        return full_out
+
+    def forward_base(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         x = x.refine_names("N", "C", "H", "W")  # type: ignore  # expected input shape
-
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)
         x = x.unflatten(1, (1, -1))  # type: ignore  # (N, bounds, features)
@@ -244,13 +283,17 @@ class IntervalMLP(IntervalModel):
 
         fc1 = F.relu(self.fc1(x))
         fc2 = F.relu(self.fc2(fc1))
-        last = self.last(fc2)
 
         return {
             "fc1": fc1,
             "fc2": fc2,
-            "last": last,
         }
+
+    def forward_single_task(self, x: Tensor, task_id: int) -> dict[str, Tensor]:
+        # Get activations from the second-to-last layer
+        activation_dict = self.forward_base(x)
+        activation_dict["last"] = self.last[task_id](activation_dict["fc2"])
+        return activation_dict
 
     @property
     def device(self):

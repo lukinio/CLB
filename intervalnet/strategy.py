@@ -218,6 +218,15 @@ class IntervalTraining(VanillaTraining):
                     # Move to device & clone, because we use immutable defaults (no default_factory)
                     setattr(self, field.name, getattr(self, field.name).clone().to(device))
 
+    # def criterion(self, ):
+    #     if self.is_training:
+    #         # Use class masking for incremental class training in the same way as Continual Learning Benchmark
+    #         preds = self.mb_output[:, : self.valid_classes]
+    #     else:
+    #         preds = self.mb_output
+
+    #     return self._criterion(preds, self.mb_y)
+
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
