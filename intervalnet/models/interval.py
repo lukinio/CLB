@@ -48,6 +48,26 @@ class PointLinear(nn.Module):
 
         return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
 
+    def switch_mode(self, mode: Mode) -> None:
+        self.mode = mode
+
+        def enable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_()
+
+        def disable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_(False)
+                p.grad = None
+
+        disable([self.weight, self.bias])
+
+        if mode == Mode.VANILLA:
+            enable([self.weight, self.bias])
+        elif mode == Mode.EXPANSION:
+            pass
+        elif mode == Mode.CONTRACTION:
+            enable([self.weight, self.bias])
 
 class IntervalLinear(nn.Module):
     def __init__(
@@ -123,6 +143,8 @@ class IntervalLinear(nn.Module):
         if mode == Mode.VANILLA:
             enable([self.weight])
         elif mode == Mode.EXPANSION:
+            with torch.no_grad():
+                self._radius.fill_(self.max_radius)
             enable([self._radius])
         elif mode == Mode.CONTRACTION:
             enable([self._shift, self._scale])
@@ -206,6 +228,10 @@ class IntervalModel(MultiTaskModule):
         self.mode = mode
         for m in self.interval_children():
             m.switch_mode(mode)
+
+        for m in self.last:
+            if isinstance(m, PointLinear):
+                m.switch_mode(mode)
 
     def freeze_task(self) -> None:
         for m in self.interval_children():

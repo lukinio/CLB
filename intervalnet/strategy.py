@@ -261,6 +261,8 @@ class IntervalTraining(VanillaTraining):
             # Maintain an acceptable increase in worst-case loss
             if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
+            else:
+                self.losses.robust_penalty = self.losses.robust * 0.
 
             #     if self._lambda is None:
             #         self._lambda = start_lambda
@@ -272,7 +274,7 @@ class IntervalTraining(VanillaTraining):
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
-            self.losses.total = self.losses.radius_penalty + self.losses.robust_penalty
+            self.losses.total = self.losses.robust_penalty
         elif self.mode == Mode.CONTRACTION:
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
