@@ -16,6 +16,38 @@ class Mode(Enum):
     EXPANSION = 1
     CONTRACTION = 2
 
+class PointLinear(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        self.weight = Parameter(torch.empty((out_features, in_features)))
+        self.bias = Parameter(torch.empty(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
+        with torch.no_grad():
+            self.bias.zero_()
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", "features")  # type: ignore
+        assert (x.rename(None) >= 0.0).all(), "All input features must be non-negative."  # type: ignore
+
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        assert (x_lower <= x_middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (x_middle <= x_upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        w_middle_pos = self.weight.clamp(min=0)
+        w_middle_neg = self.weight.clamp(max=0)
+
+        lower = x_lower @ w_middle_pos.t() + x_upper @ w_middle_neg.t() + self.bias
+        upper = x_upper @ w_middle_pos.t() + x_lower @ w_middle_neg.t() + self.bias
+        middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t() + self.bias
+
+        assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
+
 
 class IntervalLinear(nn.Module):
     def __init__(
@@ -236,7 +268,7 @@ class IntervalMLP(IntervalModel):
         if heads > 1:
             # Incremental task, we don't have to use intervals
             self.last = nn.ModuleList([
-                nn.Linear(self.hidden_dim, self.output_classes) for _ in range(heads)
+                PointLinear(self.hidden_dim, self.output_classes) for _ in range(heads)
             ])
         else:
             self.last = nn.ModuleList([
