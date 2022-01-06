@@ -97,7 +97,7 @@ class IntervalLinear(nn.Module):
         self.reset_parameters()
 
     def radius_transform(self, params: Tensor):
-        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius)
+        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius + 0.1)
 
     @property
     def radius(self) -> Tensor:
@@ -106,7 +106,7 @@ class IntervalLinear(nn.Module):
     @property
     def shift(self) -> Tensor:
         """Contracted interval middle shift (-1, 1)."""
-        return self._shift.tanh()
+        return (self._shift / (self.radius + 1e-8)).tanh()
 
     @property
     def scale(self) -> Tensor:

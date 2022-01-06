@@ -248,6 +248,7 @@ class IntervalTraining(VanillaTraining):
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
+            # TODO: is this the best approach?
             self.losses.radius_penalty = torch.stack(
                 [
                     F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
@@ -280,7 +281,7 @@ class IntervalTraining(VanillaTraining):
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust penalty ===
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold and self.accuracy(self.cfg.interval.metric_lookback) > self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
 
             # === Radius (contraction) penalty ===
