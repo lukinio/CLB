@@ -338,7 +338,7 @@ class IntervalTraining(VanillaTraining):
 
         """
         output_lower, _, output_higher = self.mb_output_all["last"].unbind("bounds")
-        y_oh = F.one_hot(self.mb_y)  # type: ignore
+        y_oh = F.one_hot(self.mb_y, num_classes=self.model.output_classes)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
 
     def bounds_width(self, layer_name: str):

@@ -26,11 +26,11 @@ from intervalnet.cfg import (
     Settings,
     StrategyType,
 )
-from intervalnet.datasets import mnist
+from intervalnet.datasets import mnist, cifar10, cifar100
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
-from intervalnet.models.interval import IntervalMLP
-from intervalnet.models.mlp import MLP
+from intervalnet.models.interval import IntervalMLP, IntervalCNN, IntervalModel
+from intervalnet.models.standard import MLP, CNN
 from intervalnet.strategy import IntervalTraining, VanillaTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
@@ -38,10 +38,10 @@ assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with differe
 
 class Experiment(AvalancheExperiment):
     def __init__(
-        self,
-        config_path: str,
-        settings_cls: Type[Settings],
-        settings_group: Optional[str] = None,
+            self,
+            config_path: str,
+            settings_cls: Type[Settings],
+            settings_group: Optional[str] = None,
     ) -> None:
         super().__init__(config_path, settings_cls, settings_group=settings_group)
 
@@ -92,8 +92,9 @@ class Experiment(AvalancheExperiment):
             self.strategy.valid_classes = len(experience.classes_seen_so_far)
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore
-                for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
+                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)
+                # type: ignore
+                for t, exp in enumerate(self.scenario.test_stream[0: i + 1])  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
             seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
@@ -111,6 +112,14 @@ class Experiment(AvalancheExperiment):
             self.train, self.test, self.transforms = mnist()
             self.n_classes = 10
             self.input_size = 28 * 28
+        elif self.cfg.dataset is DatasetType.CIFAR100:
+            self.train, self.test, self.transforms = cifar100()
+            self.n_classes = 100
+            self.input_size = 32 * 32 * 3
+        elif self.cfg.dataset is DatasetType.CIFAR10:
+            self.train, self.test, self.transforms = cifar10()
+            self.n_classes = 10
+            self.input_size = 32 * 32 * 3
         else:
             raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
@@ -157,7 +166,7 @@ class Experiment(AvalancheExperiment):
         ]
 
         if self.cfg.strategy is StrategyType.Interval:
-            assert isinstance(self.model, IntervalMLP)
+            assert isinstance(self.model, IntervalModel)
             metrics += interval_training_diagnostics(self.model)
 
         self.evaluator = EvaluationPlugin(
@@ -199,13 +208,26 @@ class Experiment(AvalancheExperiment):
             heads=self.n_heads,
         )
 
+    def _get_cnn_model(self, out_dim):
+        return CNN(
+            in_channels=3,
+            out_dim=out_dim,
+            heads=self.n_heads,
+        )
+
     def setup_naive(self):
-        self.model = self._get_mlp_model()
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = self._get_mlp_model()
+        elif self.cfg.dataset is DatasetType.CIFAR100:
+            self.model = self._get_cnn_model(100)
+        elif self.cfg.dataset is DatasetType.CIFAR10:
+            self.model = self._get_cnn_model(10)
         self.strategy_ = functools.partial(
             VanillaTraining,
         )
 
     def setup_ewc(self):
+        # TODO cnn
         self.model = self._get_mlp_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
@@ -213,14 +235,32 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_interval(self):
-        self.model = IntervalMLP(
-            input_size=28 * 28 * 1,
-            hidden_dim=400,
-            output_classes=self.n_classes_per_head,
-            radius_multiplier=self.cfg.interval.radius_multiplier,
-            max_radius=self.cfg.interval.max_radius,
-            bias=self.cfg.interval.bias,
-        )
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = IntervalMLP(
+                input_size=28 * 28 * 1,
+                hidden_dim=400,
+                output_classes=self.n_classes_per_head,
+                radius_multiplier=self.cfg.interval.radius_multiplier,
+                max_radius=self.cfg.interval.max_radius,
+                bias=self.cfg.interval.bias,
+            )
+        elif self.cfg.dataset is DatasetType.CIFAR100:
+            self.model = IntervalCNN(
+                in_channels=3,
+                output_classes=self.n_classes_per_head,
+                radius_multiplier=self.cfg.interval.radius_multiplier,
+                max_radius=self.cfg.interval.max_radius,
+                bias=self.cfg.interval.bias
+            )
+        elif self.cfg.dataset is DatasetType.CIFAR10:
+            self.model = IntervalCNN(
+                in_channels=3,
+                output_classes=self.n_classes_per_head,
+                radius_multiplier=self.cfg.interval.radius_multiplier,
+                max_radius=self.cfg.interval.max_radius,
+                bias=self.cfg.interval.bias
+            )
+
         self.strategy_ = functools.partial(
             IntervalTraining,
             enable_visdom=self.cfg.enable_visdom,
