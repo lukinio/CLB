@@ -313,6 +313,7 @@ class IntervalTraining(VanillaTraining):
 
         if self.training_exp_counter == 1:
             self.model.switch_mode(Mode.CONTRACTION)
+            self.model.freeze_task()
             self.make_optimizer()
         elif self.training_exp_counter > 1:
             self.model.freeze_task()
@@ -390,7 +391,7 @@ class IntervalTraining(VanillaTraining):
         radii: list[Tensor] = []
 
         for name, module in self.model.named_interval_children():
-            radii.append(module.radius.detach().cpu().flatten())
+            radii.append((module.radius * module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
             self.status.bounds_width_[name] = self.bounds_width(name).mean()
 

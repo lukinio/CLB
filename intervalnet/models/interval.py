@@ -71,7 +71,8 @@ class PointLinear(nn.Module):
 
 class IntervalLinear(nn.Module):
     def __init__(
-        self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool
+        self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool,
+        normalize_shift: bool, scale_init: float = -5.
     ) -> None:
         super().__init__()
 
@@ -80,6 +81,8 @@ class IntervalLinear(nn.Module):
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
         self.bias = bias
+        self.normalize_shift = normalize_shift
+        self.scale_init = scale_init
 
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
@@ -106,7 +109,11 @@ class IntervalLinear(nn.Module):
     @property
     def shift(self) -> Tensor:
         """Contracted interval middle shift (-1, 1)."""
-        return (self._shift / (self.radius + 1e-8)).tanh()
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._shift.device)
+            return (self._shift / torch.max(self.radius, eps)).tanh()
+        else:
+            return self._shift.tanh()
 
     @property
     def scale(self) -> Tensor:
@@ -154,7 +161,7 @@ class IntervalLinear(nn.Module):
             self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
-            self._scale.fill_(5)
+            self._scale.fill_(self.scale_init)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names("N", "bounds", "features")  # type: ignore
@@ -165,6 +172,7 @@ class IntervalLinear(nn.Module):
         assert (x_middle <= x_upper).all(), "Middle bound must be less than or equal to upper bound."
 
         if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
+
             w_middle: Tensor = self.weight
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
@@ -172,6 +180,10 @@ class IntervalLinear(nn.Module):
             assert self.mode == Mode.CONTRACTION
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
+
+            # TODO: reparam?
+            # self.weight + self.shift * self.radius
+            # w_lower = w_middle - self.scale * (1 - torch.abs(self.shift))
 
             w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
             w_lower = w_middle - self.scale * self.radius
@@ -278,18 +290,25 @@ class IntervalMLP(IntervalModel):
         max_radius: float,
         bias: bool,
         heads: int,
+        normalize_shift: bool,
+        scale_init: float,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
         self.input_size = input_size
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
+        self.normalize_shift = normalize_shift
 
         self.fc1 = IntervalLinear(
-            self.input_size, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
+            self.input_size, self.hidden_dim,
+            radius_multiplier=radius_multiplier, max_radius=max_radius,
+            bias=bias, normalize_shift=normalize_shift, scale_init=scale_init
         )
         self.fc2 = IntervalLinear(
-            self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
+            self.hidden_dim, self.hidden_dim,
+            radius_multiplier=radius_multiplier, max_radius=max_radius,
+            bias=bias, normalize_shift=normalize_shift, scale_init=scale_init,
         )
         if heads > 1:
             # Incremental task, we don't have to use intervals
@@ -303,7 +322,9 @@ class IntervalMLP(IntervalModel):
                     self.output_classes,
                     radius_multiplier=radius_multiplier,
                     max_radius=max_radius,
-                    bias=bias
+                    bias=bias,
+                    normalize_shift=normalize_shift,
+                    scale_init=scale_init,
             )])
 
     # MW: this is a modified function from avalanche

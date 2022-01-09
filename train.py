@@ -221,6 +221,8 @@ class Experiment(AvalancheExperiment):
             max_radius=self.cfg.interval.max_radius,
             bias=self.cfg.interval.bias,
             heads=self.n_heads,
+            normalize_shift=self.cfg.interval.normalize_shift,
+            scale_init=self.cfg.interval.scale_init,
         )
         self.strategy_ = functools.partial(
             IntervalTraining,
