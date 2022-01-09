@@ -14,7 +14,9 @@ from torch.nn.parameter import Parameter
 class Mode(Enum):
     VANILLA = 0
     EXPANSION = 1
-    CONTRACTION = 2
+    CONTRACTION_SHIFT = 2
+    CONTRACTION_SCALE = 3
+
 
 class PointLinear(nn.Module):
     def __init__(self, in_features: int, out_features: int):
@@ -66,8 +68,10 @@ class PointLinear(nn.Module):
             enable([self.weight, self.bias])
         elif mode == Mode.EXPANSION:
             pass
-        elif mode == Mode.CONTRACTION:
+        elif mode == Mode.CONTRACTION_SHIFT:
             enable([self.weight, self.bias])
+        elif mode == Mode.CONTRACTION_SCALE:
+            pass
 
 class IntervalLinear(nn.Module):
     def __init__(
@@ -118,7 +122,7 @@ class IntervalLinear(nn.Module):
     @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
-        return self._scale.sigmoid()
+        return self._scale.sigmoid() * (1.0 - torch.abs(self.shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
@@ -153,12 +157,14 @@ class IntervalLinear(nn.Module):
             with torch.no_grad():
                 self._radius.fill_(self.max_radius)
             enable([self._radius])
-        elif mode == Mode.CONTRACTION:
-            enable([self._shift, self._scale])
+        elif mode == Mode.CONTRACTION_SHIFT:
+            enable([self._shift])
+        elif mode == Mode.CONTRACTION_SCALE:
+            enable([self._scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():
-            self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
+            self.weight.copy_(self.weight + self.shift * self.radius)
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
@@ -177,15 +183,11 @@ class IntervalLinear(nn.Module):
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
         else:
-            assert self.mode == Mode.CONTRACTION
+            assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
 
-            # TODO: reparam?
-            # self.weight + self.shift * self.radius
-            # w_lower = w_middle - self.scale * (1 - torch.abs(self.shift))
-
-            w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
+            w_middle = self.weight + self.shift * self.radius
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
 
@@ -234,8 +236,10 @@ class IntervalModel(MultiTaskModule):
             print("\n[bold cyan]» :green_circle: Switching to vanilla training phase...")
         elif mode == Mode.EXPANSION:
             print("\n[bold cyan]» :yellow circle: Switching to interval expansion phase...")
-        elif mode == Mode.CONTRACTION:
-            print("\n[bold cyan]» :heavy_large_circle: Switching to interval contraction phase...")
+        elif mode == Mode.CONTRACTION_SHIFT:
+            print("\n[bold cyan]» :heavy_large_circle: Switching to shift contraction phase...")
+        elif mode == Mode.CONTRACTION_SCALE:
+            print("\n[bold cyan]» :heavy_large_circle: Switching to scale contraction phase...")
 
         self.mode = mode
         for m in self.interval_children():

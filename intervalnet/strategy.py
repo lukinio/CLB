@@ -276,18 +276,18 @@ class IntervalTraining(VanillaTraining):
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
             self.losses.total = self.losses.robust_penalty
-        elif self.mode == Mode.CONTRACTION:
+        elif self.mode == Mode.CONTRACTION_SHIFT:
+            self.losses.total = self.loss
+        elif self.mode == Mode.CONTRACTION_SCALE:
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust penalty ===
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold and self.accuracy(self.cfg.interval.metric_lookback) > self.cfg.interval.robust_accuracy_threshold:
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
-
-            # === Radius (contraction) penalty ===
-            pass
-
-            self.losses.total = self.loss + self.losses.robust_penalty
+            else:
+                self.losses.robust_penalty = self.losses.robust * 0.
+            self.losses.total = self.losses.robust_penalty
 
         # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
         # l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
@@ -312,10 +312,11 @@ class IntervalTraining(VanillaTraining):
         super().before_training_exp(**kwargs)  # type: ignore
 
         if self.training_exp_counter == 1:
-            self.model.switch_mode(Mode.CONTRACTION)
+            self.model.switch_mode(Mode.CONTRACTION_SHIFT)
             self.model.freeze_task()
             self.make_optimizer()
         elif self.training_exp_counter > 1:
+            self.model.switch_mode(Mode.CONTRACTION_SHIFT)
             self.model.freeze_task()
             self.make_optimizer()
 
@@ -334,6 +335,9 @@ class IntervalTraining(VanillaTraining):
             self.model.switch_mode(Mode.EXPANSION)
             self.make_optimizer()
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
+
+        if self.mode == Mode.CONTRACTION_SHIFT and self.epoch == self.train_epochs // 2:
+            self.model.switch_mode(Mode.CONTRACTION_SCALE)
 
         if self.viz_debug:
             self.reset_viz_debug()
