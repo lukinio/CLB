@@ -76,7 +76,7 @@ class PointLinear(nn.Module):
 class IntervalLinear(nn.Module):
     def __init__(
         self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool,
-        normalize_shift: bool, scale_init: float = -5.
+        normalize_shift: bool, normalize_scale: bool, scale_init: float = -5.
     ) -> None:
         super().__init__()
 
@@ -86,6 +86,7 @@ class IntervalLinear(nn.Module):
         self.max_radius = max_radius
         self.bias = bias
         self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
         self.scale_init = scale_init
 
         assert self.radius_multiplier > 0
@@ -122,7 +123,13 @@ class IntervalLinear(nn.Module):
     @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
-        return self._scale.sigmoid() * (1.0 - torch.abs(self.shift))
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._shift.device)
+            scale = (self._scale / torch.max(self.radius, eps)).sigmoid()
+        else:
+            scale = self._scale.sigmoid()
+
+        return scale * (1.0 - torch.abs(self.shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
@@ -295,6 +302,7 @@ class IntervalMLP(IntervalModel):
         bias: bool,
         heads: int,
         normalize_shift: bool,
+        normalize_scale: bool,
         scale_init: float,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
@@ -303,16 +311,19 @@ class IntervalMLP(IntervalModel):
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
         self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
 
         self.fc1 = IntervalLinear(
             self.input_size, self.hidden_dim,
             radius_multiplier=radius_multiplier, max_radius=max_radius,
-            bias=bias, normalize_shift=normalize_shift, scale_init=scale_init
+            bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
+            scale_init=scale_init
         )
         self.fc2 = IntervalLinear(
             self.hidden_dim, self.hidden_dim,
             radius_multiplier=radius_multiplier, max_radius=max_radius,
-            bias=bias, normalize_shift=normalize_shift, scale_init=scale_init,
+            bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
+            scale_init=scale_init,
         )
         if heads > 1:
             # Incremental task, we don't have to use intervals
@@ -328,6 +339,7 @@ class IntervalMLP(IntervalModel):
                     max_radius=max_radius,
                     bias=bias,
                     normalize_shift=normalize_shift,
+                    normalize_scale=normalize_scale,
                     scale_init=scale_init,
             )])
 

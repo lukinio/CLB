@@ -222,6 +222,7 @@ class Experiment(AvalancheExperiment):
             bias=self.cfg.interval.bias,
             heads=self.n_heads,
             normalize_shift=self.cfg.interval.normalize_shift,
+            normalize_scale=self.cfg.interval.normalize_scale,
             scale_init=self.cfg.interval.scale_init,
         )
         self.strategy_ = functools.partial(

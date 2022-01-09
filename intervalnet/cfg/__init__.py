@@ -48,6 +48,7 @@ class IntervalSettings:
     robust_accuracy_threshold: float = 0.9
 
     normalize_shift: bool = False
+    normalize_scale: bool = False
     scale_init: float = -5.
 
 
