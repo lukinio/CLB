@@ -218,6 +218,10 @@ class IntervalTraining(VanillaTraining):
                     # Move to device & clone, because we use immutable defaults (no default_factory)
                     setattr(self, field.name, getattr(self, field.name).clone().to(device))
 
+    def criterion(self):
+        preds = self.mb_output
+        return self._criterion(preds, self.mb_y)
+
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
@@ -239,6 +243,7 @@ class IntervalTraining(VanillaTraining):
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
+            # TODO: is this the best approach?
             self.losses.radius_penalty = torch.stack(
                 [
                     F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
@@ -252,6 +257,8 @@ class IntervalTraining(VanillaTraining):
             # Maintain an acceptable increase in worst-case loss
             if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
+            else:
+                self.losses.robust_penalty = self.losses.robust * 0.
 
             #     if self._lambda is None:
             #         self._lambda = start_lambda
@@ -338,7 +345,7 @@ class IntervalTraining(VanillaTraining):
 
         """
         output_lower, _, output_higher = self.mb_output_all["last"].unbind("bounds")
-        y_oh = F.one_hot(self.mb_y)  # type: ignore
+        y_oh = F.one_hot(self.mb_y, num_classes=self.model.output_classes)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
 
     def bounds_width(self, layer_name: str):
@@ -378,7 +385,7 @@ class IntervalTraining(VanillaTraining):
         radii: list[Tensor] = []
 
         for name, module in self.model.named_interval_children():
-            radii.append(module.radius.detach().cpu().flatten())
+            radii.append((module.radius * module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
             self.status.bounds_width_[name] = self.bounds_width(name).mean()
 

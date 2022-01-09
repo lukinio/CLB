@@ -5,6 +5,7 @@ from typing import cast
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from avalanche.models import MultiTaskModule
 from rich import print
 from torch import Tensor
 from torch.nn.parameter import Parameter
@@ -15,6 +16,59 @@ class Mode(Enum):
     EXPANSION = 1
     CONTRACTION = 2
 
+
+class PointLinear(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        self.weight = Parameter(torch.empty((out_features, in_features)))
+        self.bias = Parameter(torch.empty(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
+        with torch.no_grad():
+            self.bias.zero_()
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", "features")  # type: ignore
+        assert (x.rename(None) >= 0.0).all(), "All input features must be non-negative."  # type: ignore
+
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        assert (x_lower <= x_middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (x_middle <= x_upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        w_middle_pos = self.weight.clamp(min=0)
+        w_middle_neg = self.weight.clamp(max=0)
+
+        lower = x_lower @ w_middle_pos.t() + x_upper @ w_middle_neg.t() + self.bias
+        upper = x_upper @ w_middle_pos.t() + x_lower @ w_middle_neg.t() + self.bias
+        middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t() + self.bias
+
+        assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
+
+    def switch_mode(self, mode: Mode) -> None:
+        self.mode = mode
+
+        def enable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_()
+
+        def disable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_(False)
+                p.grad = None
+
+        disable([self.weight, self.bias])
+
+        if mode == Mode.VANILLA:
+            enable([self.weight, self.bias])
+        elif mode == Mode.EXPANSION:
+            pass
+        elif mode == Mode.CONTRACTION:
+            enable([self.weight, self.bias])
 
 class IntervalLinear(nn.Module):
     def __init__(
@@ -145,7 +199,7 @@ class IntervalLinear(nn.Module):
         return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
 
 
-class IntervalModel(nn.Module):
+class IntervalModel(MultiTaskModule):
     def __init__(self, radius_multiplier: float, max_radius: float):
         super().__init__()
 
@@ -154,10 +208,13 @@ class IntervalModel(nn.Module):
         self._max_radius = max_radius
 
     def interval_children(self) -> list[IntervalLinear]:
-        return [m for m in self.children() if isinstance(m, IntervalLinear)]
+        return [m for m in self.modules() if isinstance(m, IntervalLinear)]
 
     def named_interval_children(self) -> list[tuple[str, IntervalLinear]]:
-        return [(n, m) for n, m in self.named_children() if isinstance(m, IntervalLinear)]
+        # TODO: hack
+        return [("last" if "last" in n else n, m)
+                for n, m in self.named_modules()
+                if isinstance(m, IntervalLinear)]
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
@@ -170,6 +227,10 @@ class IntervalModel(nn.Module):
         self.mode = mode
         for m in self.interval_children():
             m.switch_mode(mode)
+
+        for m in self.last:
+            if isinstance(m, PointLinear):
+                m.switch_mode(mode)
 
     def freeze_task(self) -> None:
         for m in self.interval_children():
@@ -215,6 +276,7 @@ class IntervalMLP(IntervalModel):
         radius_multiplier: float,
         max_radius: float,
         bias: bool,
+        heads: int,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
@@ -228,13 +290,54 @@ class IntervalMLP(IntervalModel):
         self.fc2 = IntervalLinear(
             self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
         )
-        self.last = IntervalLinear(
-            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
-        )
+        if heads > 1:
+            # Incremental task, we don't have to use intervals
+            self.last = nn.ModuleList([
+                PointLinear(self.hidden_dim, self.output_classes) for _ in range(heads)
+            ])
+        else:
+            self.last = nn.ModuleList([
+                IntervalLinear(
+                    self.hidden_dim,
+                    self.output_classes,
+                    radius_multiplier=radius_multiplier,
+                    max_radius=max_radius,
+                    bias=bias,
+            )])
 
-    def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
+    # MW: this is a modified function from avalanche
+    def forward(self, x: torch.Tensor, task_labels: torch.Tensor) -> torch.Tensor:
+        """ compute the output given the input `x` and task labels.
+
+        :param x:
+        :param task_labels: task labels for each sample.
+        :return:
+        """
+        if isinstance(task_labels, int):
+            # fast path. mini-batch is single task.
+            return self.forward_single_task(x, task_labels)
+        else:
+            unique_tasks = torch.unique(task_labels)
+
+        full_out = {}
+        for task in unique_tasks:
+            task_mask = task_labels == task
+            x_task = x[task_mask]
+            out_task = self.forward_single_task(x_task, task.item())
+
+            if not full_out:
+                for key, val in out_task.items():
+                    full_out[key] = torch.empty(x.shape[0], *val.shape[1:],
+                                                device=val.device).rename(None)
+            for key, val in out_task.items():
+                full_out[key][task_mask] = val.rename(None)
+
+        for key, val in full_out.items():
+            full_out[key] = val.refine_names("N", "bounds", "features")
+        return full_out
+
+    def forward_base(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         x = x.refine_names("N", "C", "H", "W")  # type: ignore  # expected input shape
-
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)
         x = x.unflatten(1, (1, -1))  # type: ignore  # (N, bounds, features)
@@ -244,13 +347,17 @@ class IntervalMLP(IntervalModel):
 
         fc1 = F.relu(self.fc1(x))
         fc2 = F.relu(self.fc2(fc1))
-        last = self.last(fc2)
 
         return {
             "fc1": fc1,
             "fc2": fc2,
-            "last": last,
         }
+
+    def forward_single_task(self, x: Tensor, task_id: int) -> dict[str, Tensor]:
+        # Get activations from the second-to-last layer
+        activation_dict = self.forward_base(x)
+        activation_dict["last"] = self.last[task_id](activation_dict["fc2"])
+        return activation_dict
 
     @property
     def device(self):
