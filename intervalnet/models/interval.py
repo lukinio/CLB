@@ -140,9 +140,9 @@ class IntervalLinear(nn.Module):
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         # TODO: Adjust bias init
         with torch.no_grad():
-            self._radius.zero_()
+            self._radius.fill_(self.max_radius)
             self._shift.zero_()
-            self._scale.fill_(5)
+            self._scale.fill_(self.scale_init)
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
