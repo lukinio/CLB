@@ -3,12 +3,11 @@ defaults:
 
 
 _tags_:
-  - benchmark
-  - SGD
+  - ADAM
 
 epochs: 30
 
-optimizer: SGD
+optimizer: ADAM
 learning_rate: 0.01
-momentum: 0
+momentum: ~
 strategy: Naive

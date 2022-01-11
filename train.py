@@ -110,7 +110,7 @@ class Experiment(AvalancheExperiment):
         if self.cfg.dataset is DatasetType.MNIST:
             self.train, self.test, self.transforms = mnist()
             self.n_classes = 10
-            self.input_size = 32 * 32
+            self.input_size = 28 * 28
         else:
             raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
