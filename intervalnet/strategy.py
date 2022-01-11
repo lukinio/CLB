@@ -70,14 +70,14 @@ class VanillaTraining(BaseStrategy):
         """Current mini-batch target."""
         return super().mb_y  # type: ignore
 
-    def criterion(self):
-        if self.is_training:
-            # Use class masking for incremental class training in the same way as Continual Learning Benchmark
-            preds = self.mb_output[:, : self.valid_classes]
-        else:
-            preds = self.mb_output
+    # def criterion(self):
+    #     if self.is_training:
+    #         # Use class masking for incremental class training in the same way as Continual Learning Benchmark
+    #         preds = self.mb_output[:, : self.valid_classes]
+    #     else:
+    #         preds = self.mb_output
 
-        return self._criterion(preds, self.mb_y)
+    #     return self._criterion(preds, self.mb_y)
 
 
 class IntervalTraining(VanillaTraining):
@@ -218,6 +218,15 @@ class IntervalTraining(VanillaTraining):
                     # Move to device & clone, because we use immutable defaults (no default_factory)
                     setattr(self, field.name, getattr(self, field.name).clone().to(device))
 
+    # def criterion(self, ):
+    #     if self.is_training:
+    #         # Use class masking for incremental class training in the same way as Continual Learning Benchmark
+    #         preds = self.mb_output[:, : self.valid_classes]
+    #     else:
+    #         preds = self.mb_output
+
+    #     return self._criterion(preds, self.mb_y)
+
     def before_backward(self, **kwargs: Any):
         """Compute interval training losses."""
         super().before_backward(**kwargs)  # type: ignore
@@ -239,6 +248,7 @@ class IntervalTraining(VanillaTraining):
             for module in self.model.interval_children():
                 radii.append(module.radius.flatten())
 
+            # TODO: is this the best approach?
             self.losses.radius_penalty = torch.stack(
                 [
                     F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
@@ -252,6 +262,8 @@ class IntervalTraining(VanillaTraining):
             # Maintain an acceptable increase in worst-case loss
             if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
+            else:
+                self.losses.robust_penalty = self.losses.robust * 0.
 
             #     if self._lambda is None:
             #         self._lambda = start_lambda
@@ -263,19 +275,19 @@ class IntervalTraining(VanillaTraining):
             # === Bounds penalty ===
             # bounds = [self.bounds_width(name).flatten() for name, _ in self.model.named_children()]
             # self.bounds_penalty = torch.cat(bounds).pow(2).mean().sqrt()
-            self.losses.total = self.losses.radius_penalty + self.losses.robust_penalty
-        elif self.mode == Mode.CONTRACTION:
+            self.losses.total = self.losses.robust_penalty
+        elif self.mode == Mode.CONTRACTION_SHIFT:
+            self.losses.total = self.loss
+        elif self.mode == Mode.CONTRACTION_SCALE:
             # ---------------------------------------------------------------------------------------------------------
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust penalty ===
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < (self.cfg.interval.robust_accuracy_threshold * self.accuracy(self.cfg.interval.metric_lookback)):
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
-
-            # === Radius (contraction) penalty ===
-            pass
-
-            self.losses.total = self.loss + self.losses.robust_penalty
+            else:
+                self.losses.robust_penalty = self.losses.robust * 0.
+            self.losses.total = self.losses.robust_penalty
 
         # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
         # l1: Tensor = torch.linalg.vector_norm(weights, ord=1) / weights.shape[0]  # type: ignore
@@ -300,9 +312,11 @@ class IntervalTraining(VanillaTraining):
         super().before_training_exp(**kwargs)  # type: ignore
 
         if self.training_exp_counter == 1:
-            self.model.switch_mode(Mode.CONTRACTION)
+            self.model.switch_mode(Mode.CONTRACTION_SHIFT)
+            self.model.freeze_task()
             self.make_optimizer()
         elif self.training_exp_counter > 1:
+            self.model.switch_mode(Mode.CONTRACTION_SHIFT)
             self.model.freeze_task()
             self.make_optimizer()
 
@@ -313,14 +327,10 @@ class IntervalTraining(VanillaTraining):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if (
-            self.mode == Mode.VANILLA
-            and self.losses
-            and self.losses.vanilla < self.cfg.interval.vanilla_loss_threshold
-        ):
-            self.model.switch_mode(Mode.EXPANSION)
-            self.make_optimizer()
+        if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
+        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 20:
+            self.model.switch_mode(Mode.CONTRACTION_SCALE)
 
         if self.viz_debug:
             self.reset_viz_debug()
@@ -338,7 +348,7 @@ class IntervalTraining(VanillaTraining):
 
         """
         output_lower, _, output_higher = self.mb_output_all["last"].unbind("bounds")
-        y_oh = F.one_hot(self.mb_y)  # type: ignore
+        y_oh = F.one_hot(self.mb_y, num_classes=self.model.output_classes)  # type: ignore
         return torch.where(y_oh.bool(), output_lower.rename(None), output_higher.rename(None))  # type: ignore
 
     def bounds_width(self, layer_name: str):
@@ -378,7 +388,7 @@ class IntervalTraining(VanillaTraining):
         radii: list[Tensor] = []
 
         for name, module in self.model.named_interval_children():
-            radii.append(module.radius.detach().cpu().flatten())
+            radii.append((module.radius * module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
             self.status.bounds_width_[name] = self.bounds_width(name).mean()
 

@@ -47,6 +47,10 @@ class IntervalSettings:
     metric_lookback: int = 10
     robust_accuracy_threshold: float = 0.9
 
+    normalize_shift: bool = False
+    normalize_scale: bool = False
+    scale_init: float = -5.
+
 
 # General experiment settings validation schema & default values
 @dataclass
