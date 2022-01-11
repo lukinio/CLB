@@ -283,7 +283,7 @@ class IntervalTraining(VanillaTraining):
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust penalty ===
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < (self.cfg.interval.robust_accuracy_threshold * self.accuracy(self.cfg.interval.metric_lookback)):
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
             else:
                 self.losses.robust_penalty = self.losses.robust * 0.
