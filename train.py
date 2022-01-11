@@ -110,7 +110,7 @@ class Experiment(AvalancheExperiment):
         if self.cfg.dataset is DatasetType.MNIST:
             self.train, self.test, self.transforms = mnist()
             self.n_classes = 10
-            self.input_size = 28 * 28
+            self.input_size = 32 * 32
         else:
             raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
@@ -193,7 +193,7 @@ class Experiment(AvalancheExperiment):
     # ------------------------------------------------------------------------------------------
     def _get_mlp_model(self):
         return MLP(
-            input_size=28 * 28 * 1,
+            input_size=self.input_size * 1,
             hidden_dim=400,
             output_classes=self.n_classes_per_head,
             heads=self.n_heads,
@@ -214,7 +214,7 @@ class Experiment(AvalancheExperiment):
 
     def setup_interval(self):
         self.model = IntervalMLP(
-            input_size=28 * 28 * 1,
+            input_size=self.input_size * 1,
             hidden_dim=400,
             output_classes=self.n_classes_per_head,
             radius_multiplier=self.cfg.interval.radius_multiplier,
