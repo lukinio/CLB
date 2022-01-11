@@ -145,7 +145,7 @@ class IntervalLinear(nn.Module):
         return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
 
 
-class IntervalDropout2d(nn.Module):
+class IntervalDropout(nn.Module):
     def __init__(self, p=0.5):
         super().__init__()
         self.p = p
@@ -179,14 +179,28 @@ class IntervalMaxPool2d(nn.MaxPool2d):
                                                                              "W")  # type: ignore
 
 
+class IntervalAdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
+    def __init__(self, output_size):
+        super().__init__(output_size)
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", ...)
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        x_lower = super().forward(x_lower)
+        x_middle = super().forward(x_middle)
+        x_upper = super().forward(x_upper)
+        return torch.stack([x_lower, x_middle, x_upper], dim=1).refine_names("N", "bounds", "C", "H",
+                                                                             "W")  # type: ignore
+
+
 class IntervalConv2d(nn.Conv2d):
     def __init__(
             self,
-            radius_multiplier: float,
-            max_radius: float,
             in_channels: int,
             out_channels: int,
             kernel_size: int,
+            radius_multiplier: float,
+            max_radius: float,
             stride: int = 1,
             padding: int = 0,
             dilation: int = 1,
@@ -458,6 +472,8 @@ class IntervalMLP(IntervalModel):
 
 
 class IntervalCNN(IntervalModel):
+    P_DROPOUT: float = 0.25
+
     def __init__(
             self,
             in_channels: int,
@@ -473,38 +489,42 @@ class IntervalCNN(IntervalModel):
                            out_channels=32, kernel_size=3,
                            stride=1, padding=1),
             nn.ReLU(),
+            IntervalDropout(self.P_DROPOUT),
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=32, out_channels=32,
                            kernel_size=3, stride=1,
                            padding=1),
             nn.ReLU(),
+            IntervalDropout(self.P_DROPOUT),
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=32, out_channels=64,
                            kernel_size=3, stride=1,
                            padding=1),
             nn.ReLU(),
             IntervalMaxPool2d(2, stride=2, padding=0),
-            IntervalDropout2d(0.25))
+            IntervalDropout(self.P_DROPOUT))
         self.c2 = nn.Sequential(
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=64, out_channels=64,
                            kernel_size=3, stride=1,
                            padding=1),
             nn.ReLU(),
+            IntervalDropout(self.P_DROPOUT),
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=64, out_channels=128,
                            kernel_size=3, stride=1,
                            padding=1),
             nn.ReLU(),
             IntervalMaxPool2d(2, stride=2, padding=0),
-            IntervalDropout2d(0.25))
+            IntervalDropout(self.P_DROPOUT))
         self.c3 = nn.Sequential(
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=128,
                            out_channels=128, kernel_size=3,
                            stride=1, padding=1),
             nn.ReLU(),
+            IntervalDropout(self.P_DROPOUT),
             IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=128,
                            out_channels=128, kernel_size=3,
                            stride=1, padding=1),
             nn.ReLU(),
             IntervalMaxPool2d(2, stride=2, padding=1),
-            IntervalDropout2d(0.25))
+            IntervalDropout(self.P_DROPOUT))
         self.n_feat = 256
         self.fc1 = nn.Sequential(
             IntervalLinear(128 * 5 * 5, self.n_feat, radius_multiplier=radius_multiplier, max_radius=max_radius,
@@ -536,3 +556,65 @@ class IntervalCNN(IntervalModel):
     @property
     def device(self):
         return self.fc1.weight.device
+
+
+class IntervalVGG(IntervalModel):
+    CFG = {
+        'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+        'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+        'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+        'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M']
+    }
+
+    def __init__(self,
+                 variant: str,
+                 in_channels: int,
+                 output_classes: int,
+                 radius_multiplier: float,
+                 max_radius: float,
+                 bias: bool = True, ):
+        super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
+        self.in_channels = in_channels
+        self.output_classes = output_classes
+        self.radius_multiplier = radius_multiplier
+        self.max_radius = max_radius
+        self.bias = bias
+        self.features = self.make_layers(self.CFG[variant])
+        self.classifier = nn.Sequential(
+            IntervalLinear(512, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True),
+            nn.ReLU(),
+            IntervalDropout(),
+            IntervalLinear(4096, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True),
+            nn.ReLU(),
+            IntervalDropout()
+        )
+        self.last = IntervalLinear(4096, output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius,
+                                   bias=bias)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.unsqueeze(1).tile(1, 3, 1, 1, 1)
+        x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore  # expected input shape
+        features = x = self.features(x)
+        x = x.rename(None).flatten(2).refine_names("N", "bounds", "features")
+        x = self.classifier(x)
+        x = self.last(x)
+        return {
+            "features": features,
+            "last": x,
+        }
+
+    def make_layers(self, cfg, batch_norm=False):
+        layers = []
+        input_channel = self.in_channels
+        for l in cfg:
+            if l == 'M':
+                layers += [IntervalMaxPool2d(kernel_size=2, stride=2)]
+                continue
+            layers += [
+                IntervalConv2d(input_channel, l, kernel_size=3, padding=1, radius_multiplier=self.radius_multiplier,
+                               max_radius=self.max_radius, bias=self.bias)]
+            if batch_norm:
+                raise NotImplementedError()
+            layers += [nn.ReLU()]
+            input_channel = l
+        return nn.Sequential(*layers)

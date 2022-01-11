@@ -1,0 +1,19 @@
+defaults:
+  - settings_schema
+
+
+_tags_: ~
+
+epochs: 100
+
+optimizer: ADAM
+learning_rate: 0.0001
+momentum: ~
+strategy: Interval
+
+interval:
+  robust_accuracy_threshold: 0.75
+  robust_lambda: 0.002
+  radius_multiplier: 1.0
+  max_radius: 1.0
+  radius_exponent: 0.5

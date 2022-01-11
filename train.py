@@ -29,8 +29,8 @@ from intervalnet.cfg import (
 from intervalnet.datasets import mnist, cifar10, cifar100
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
-from intervalnet.models.interval import IntervalMLP, IntervalCNN, IntervalModel
-from intervalnet.models.standard import MLP, CNN
+from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalVGG
+from intervalnet.models.standard import MLP, VGG
 from intervalnet.strategy import IntervalTraining, VanillaTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
@@ -209,9 +209,10 @@ class Experiment(AvalancheExperiment):
         )
 
     def _get_cnn_model(self, out_dim):
-        return CNN(
+        return VGG(
+            variant='A',
             in_channels=3,
-            out_dim=out_dim,
+            output_classes=out_dim,
             heads=self.n_heads,
         )
 
@@ -245,7 +246,8 @@ class Experiment(AvalancheExperiment):
                 bias=self.cfg.interval.bias,
             )
         elif self.cfg.dataset is DatasetType.CIFAR100:
-            self.model = IntervalCNN(
+            self.model = IntervalVGG(
+                variant='A',
                 in_channels=3,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
@@ -253,7 +255,8 @@ class Experiment(AvalancheExperiment):
                 bias=self.cfg.interval.bias
             )
         elif self.cfg.dataset is DatasetType.CIFAR10:
-            self.model = IntervalCNN(
+            self.model = IntervalVGG(
+                variant='A',
                 in_channels=3,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
