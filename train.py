@@ -244,6 +244,10 @@ class Experiment(AvalancheExperiment):
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
                 bias=self.cfg.interval.bias,
+                heads=self.n_heads,
+                normalize_shift=self.cfg.interval.normalize_shift,
+                normalize_scale=self.cfg.interval.normalize_scale,
+                scale_init=self.cfg.interval.scale_init,
             )
         elif self.cfg.dataset is DatasetType.CIFAR100:
             self.model = IntervalVGG(
@@ -252,7 +256,11 @@ class Experiment(AvalancheExperiment):
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
-                bias=self.cfg.interval.bias
+                bias=self.cfg.interval.bias,
+                heads=self.n_heads,
+                normalize_shift=self.cfg.interval.normalize_shift,
+                normalize_scale=self.cfg.interval.normalize_scale,
+                scale_init=self.cfg.interval.scale_init,
             )
         elif self.cfg.dataset is DatasetType.CIFAR10:
             self.model = IntervalVGG(
@@ -261,7 +269,11 @@ class Experiment(AvalancheExperiment):
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
-                bias=self.cfg.interval.bias
+                bias=self.cfg.interval.bias,
+                heads=self.n_heads,
+                normalize_shift=self.cfg.interval.normalize_shift,
+                normalize_scale=self.cfg.interval.normalize_scale,
+                scale_init=self.cfg.interval.scale_init,
             )
 
         self.strategy_ = functools.partial(

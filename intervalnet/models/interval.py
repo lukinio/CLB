@@ -1,10 +1,12 @@
 import math
+from abc import ABC
 from enum import Enum
 from typing import cast
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from avalanche.models import MultiTaskModule
 from rich import print
 from torch import Tensor
 from torch.nn.parameter import Parameter
@@ -13,20 +15,85 @@ from torch.nn.parameter import Parameter
 class Mode(Enum):
     VANILLA = 0
     EXPANSION = 1
-    CONTRACTION = 2
+    CONTRACTION_SHIFT = 2
+    CONTRACTION_SCALE = 3
 
 
-class IntervalLinear(nn.Module):
-    def __init__(
-            self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool
-    ) -> None:
+class IntervalModuleWithWeights(nn.Module, ABC):
+    def __init__(self):
         super().__init__()
 
+
+class PointLinear(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        self.weight = Parameter(torch.empty((out_features, in_features)))
+        self.bias = Parameter(torch.empty(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
+        with torch.no_grad():
+            self.bias.zero_()
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", "features")  # type: ignore
+        assert (x.rename(None) >= 0.0).all(), "All input features must be non-negative."  # type: ignore
+
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        assert (x_lower <= x_middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (x_middle <= x_upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        w_middle_pos = self.weight.clamp(min=0)
+        w_middle_neg = self.weight.clamp(max=0)
+
+        lower = x_lower @ w_middle_pos.t() + x_upper @ w_middle_neg.t() + self.bias
+        upper = x_upper @ w_middle_pos.t() + x_lower @ w_middle_neg.t() + self.bias
+        middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t() + self.bias
+
+        assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
+        assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
+
+        return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "features")  # type: ignore
+
+    def switch_mode(self, mode: Mode) -> None:
+        self.mode = mode
+
+        def enable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_()
+
+        def disable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_(False)
+                p.grad = None
+
+        disable([self.weight, self.bias])
+
+        if mode == Mode.VANILLA:
+            enable([self.weight, self.bias])
+        elif mode == Mode.EXPANSION:
+            pass
+        elif mode == Mode.CONTRACTION_SHIFT:
+            enable([self.weight, self.bias])
+        elif mode == Mode.CONTRACTION_SCALE:
+            pass
+
+
+class IntervalLinear(IntervalModuleWithWeights):
+    def __init__(
+            self, in_features: int, out_features: int, radius_multiplier: float, max_radius: float, bias: bool,
+            normalize_shift: bool, normalize_scale: bool, scale_init: float = -5.
+    ) -> None:
+        super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
         self.bias = bias
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
+        self.scale_init = scale_init
 
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
@@ -44,7 +111,7 @@ class IntervalLinear(nn.Module):
         self.reset_parameters()
 
     def radius_transform(self, params: Tensor):
-        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius)
+        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius + 0.1)
 
     @property
     def radius(self) -> Tensor:
@@ -53,12 +120,22 @@ class IntervalLinear(nn.Module):
     @property
     def shift(self) -> Tensor:
         """Contracted interval middle shift (-1, 1)."""
-        return self._shift.tanh()
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._shift.device)
+            return (self._shift / torch.max(self.radius, eps)).tanh()
+        else:
+            return self._shift.tanh()
 
     @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
-        return self._scale.sigmoid()
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._shift.device)
+            scale = (self._scale / torch.max(self.radius, eps)).sigmoid()
+        else:
+            scale = self._scale.sigmoid()
+
+        return scale * (1.0 - torch.abs(self.shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
@@ -69,9 +146,9 @@ class IntervalLinear(nn.Module):
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
         # TODO: Adjust bias init
         with torch.no_grad():
-            self._radius.zero_()
+            self._radius.fill_(self.max_radius)
             self._shift.zero_()
-            self._scale.fill_(5)
+            self._scale.fill_(self.scale_init)
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
@@ -90,16 +167,20 @@ class IntervalLinear(nn.Module):
         if mode == Mode.VANILLA:
             enable([self.weight])
         elif mode == Mode.EXPANSION:
+            with torch.no_grad():
+                self._radius.fill_(self.max_radius)
             enable([self._radius])
-        elif mode == Mode.CONTRACTION:
-            enable([self._shift, self._scale])
+        elif mode == Mode.CONTRACTION_SHIFT:
+            enable([self._shift])
+        elif mode == Mode.CONTRACTION_SCALE:
+            enable([self._scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():
-            self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
+            self.weight.copy_(self.weight + self.shift * self.radius)
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
-            self._scale.fill_(5)
+            self._scale.fill_(self.scale_init)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names("N", "bounds", "features")  # type: ignore
@@ -114,11 +195,11 @@ class IntervalLinear(nn.Module):
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
         else:
-            assert self.mode == Mode.CONTRACTION
+            assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
 
-            w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
+            w_middle = self.weight + self.shift * self.radius
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
 
@@ -193,7 +274,7 @@ class IntervalAdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
                                                                              "W")  # type: ignore
 
 
-class IntervalConv2d(nn.Conv2d):
+class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
     def __init__(
             self,
             in_channels: int,
@@ -207,7 +288,8 @@ class IntervalConv2d(nn.Conv2d):
             groups: int = 1,
             bias: bool = True,
     ) -> None:
-        super().__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
+        IntervalModuleWithWeights.__init__(self)
+        nn.Conv2d.__init__(self,in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
 
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
@@ -359,7 +441,7 @@ class IntervalConv2d(nn.Conv2d):
         return torch.stack([lower, middle, upper], dim=1).refine_names("N", "bounds", "C", "H", "W")  # type: ignore
 
 
-class IntervalModel(nn.Module):
+class IntervalModel(MultiTaskModule):
     def __init__(self, radius_multiplier: float, max_radius: float):
         super().__init__()
 
@@ -367,23 +449,32 @@ class IntervalModel(nn.Module):
         self._radius_multiplier = radius_multiplier
         self._max_radius = max_radius
 
-    def interval_children(self) -> list[IntervalLinear]:
-        return [m for m in self.children() if isinstance(m, IntervalLinear)]
+    def interval_children(self) -> list[IntervalModuleWithWeights]:
+        return [m for m in self.modules() if isinstance(m, IntervalModuleWithWeights)]
 
-    def named_interval_children(self) -> list[tuple[str, IntervalLinear]]:
-        return [(n, m) for n, m in self.named_children() if isinstance(m, IntervalLinear)]
+    def named_interval_children(self) -> list[tuple[str, IntervalModuleWithWeights]]:
+        # TODO: hack
+        return [("last" if "last" in n else n, m)
+                for n, m in self.named_modules()
+                if isinstance(m, IntervalModuleWithWeights)]
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
             print("\n[bold cyan]» :green_circle: Switching to vanilla training phase...")
         elif mode == Mode.EXPANSION:
             print("\n[bold cyan]» :yellow circle: Switching to interval expansion phase...")
-        elif mode == Mode.CONTRACTION:
-            print("\n[bold cyan]» :heavy_large_circle: Switching to interval contraction phase...")
+        elif mode == Mode.CONTRACTION_SHIFT:
+            print("\n[bold cyan]» :heavy_large_circle: Switching to shift contraction phase...")
+        elif mode == Mode.CONTRACTION_SCALE:
+            print("\n[bold cyan]» :heavy_large_circle: Switching to scale contraction phase...")
 
         self.mode = mode
         for m in self.interval_children():
             m.switch_mode(mode)
+
+        for m in self.last:
+            if isinstance(m, PointLinear):
+                m.switch_mode(mode)
 
     def freeze_task(self) -> None:
         for m in self.interval_children():
@@ -429,26 +520,82 @@ class IntervalMLP(IntervalModel):
             radius_multiplier: float,
             max_radius: float,
             bias: bool,
+            heads: int,
+            normalize_shift: bool,
+            normalize_scale: bool,
+            scale_init: float,
     ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
 
         self.input_size = input_size
         self.hidden_dim = hidden_dim
         self.output_classes = output_classes
-
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
+        self.output_names = ['fc1', 'fc2']
         self.fc1 = IntervalLinear(
-            self.input_size, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
+            self.input_size, self.hidden_dim,
+            radius_multiplier=radius_multiplier, max_radius=max_radius,
+            bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
+            scale_init=scale_init
         )
         self.fc2 = IntervalLinear(
-            self.hidden_dim, self.hidden_dim, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
+            self.hidden_dim, self.hidden_dim,
+            radius_multiplier=radius_multiplier, max_radius=max_radius,
+            bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
+            scale_init=scale_init,
         )
-        self.last = IntervalLinear(
-            self.hidden_dim, self.output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
-        )
+        if heads > 1:
+            # Incremental task, we don't have to use intervals
+            self.last = nn.ModuleList([
+                PointLinear(self.hidden_dim, self.output_classes) for _ in range(heads)
+            ])
+        else:
+            self.last = nn.ModuleList([
+                IntervalLinear(
+                    self.hidden_dim,
+                    self.output_classes,
+                    radius_multiplier=radius_multiplier,
+                    max_radius=max_radius,
+                    bias=bias,
+                    normalize_shift=normalize_shift,
+                    normalize_scale=normalize_scale,
+                    scale_init=scale_init,
+                )])
 
-    def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
+    # MW: this is a modified function from avalanche
+    def forward(self, x: torch.Tensor, task_labels: torch.Tensor) -> torch.Tensor:
+        """ compute the output given the input `x` and task labels.
+
+        :param x:
+        :param task_labels: task labels for each sample.
+        :return:
+        """
+        if isinstance(task_labels, int):
+            # fast path. mini-batch is single task.
+            return self.forward_single_task(x, task_labels)
+        else:
+            unique_tasks = torch.unique(task_labels)
+
+        full_out = {}
+        for task in unique_tasks:
+            task_mask = task_labels == task
+            x_task = x[task_mask]
+            out_task = self.forward_single_task(x_task, task.item())
+
+            if not full_out:
+                for key, val in out_task.items():
+                    full_out[key] = torch.empty(x.shape[0], *val.shape[1:],
+                                                device=val.device).rename(None)
+            for key, val in out_task.items():
+                full_out[key][task_mask] = val.rename(None)
+
+        for key, val in full_out.items():
+            full_out[key] = val.refine_names("N", "bounds", "features")
+        return full_out
+
+    def forward_base(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
         x = x.refine_names("N", "C", "H", "W")  # type: ignore  # expected input shape
-
         x = x.rename(None)  # type: ignore  # drop names for unsupported operations
         x = x.flatten(1)  # (N, features)
         x = x.unflatten(1, (1, -1))  # type: ignore  # (N, bounds, features)
@@ -458,100 +605,17 @@ class IntervalMLP(IntervalModel):
 
         fc1 = F.relu(self.fc1(x))
         fc2 = F.relu(self.fc2(fc1))
-        last = self.last(fc2)
 
         return {
             "fc1": fc1,
             "fc2": fc2,
-            "last": last,
         }
 
-    @property
-    def device(self):
-        return self.fc1.weight.device
-
-
-class IntervalCNN(IntervalModel):
-    P_DROPOUT: float = 0.25
-
-    def __init__(
-            self,
-            in_channels: int,
-            output_classes: int,
-            radius_multiplier: float,
-            max_radius: float,
-            bias: bool,
-    ):
-        super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
-        self.output_classes = output_classes
-        self.c1 = nn.Sequential(
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=in_channels,
-                           out_channels=32, kernel_size=3,
-                           stride=1, padding=1),
-            nn.ReLU(),
-            IntervalDropout(self.P_DROPOUT),
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=32, out_channels=32,
-                           kernel_size=3, stride=1,
-                           padding=1),
-            nn.ReLU(),
-            IntervalDropout(self.P_DROPOUT),
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=32, out_channels=64,
-                           kernel_size=3, stride=1,
-                           padding=1),
-            nn.ReLU(),
-            IntervalMaxPool2d(2, stride=2, padding=0),
-            IntervalDropout(self.P_DROPOUT))
-        self.c2 = nn.Sequential(
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=64, out_channels=64,
-                           kernel_size=3, stride=1,
-                           padding=1),
-            nn.ReLU(),
-            IntervalDropout(self.P_DROPOUT),
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=64, out_channels=128,
-                           kernel_size=3, stride=1,
-                           padding=1),
-            nn.ReLU(),
-            IntervalMaxPool2d(2, stride=2, padding=0),
-            IntervalDropout(self.P_DROPOUT))
-        self.c3 = nn.Sequential(
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=128,
-                           out_channels=128, kernel_size=3,
-                           stride=1, padding=1),
-            nn.ReLU(),
-            IntervalDropout(self.P_DROPOUT),
-            IntervalConv2d(radius_multiplier=radius_multiplier, max_radius=max_radius, in_channels=128,
-                           out_channels=128, kernel_size=3,
-                           stride=1, padding=1),
-            nn.ReLU(),
-            IntervalMaxPool2d(2, stride=2, padding=1),
-            IntervalDropout(self.P_DROPOUT))
-        self.n_feat = 256
-        self.fc1 = nn.Sequential(
-            IntervalLinear(128 * 5 * 5, self.n_feat, radius_multiplier=radius_multiplier, max_radius=max_radius,
-                           bias=True),
-            nn.ReLU())
-        self.last = IntervalLinear(
-            self.n_feat, output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=bias
-        )
-
-    def forward(self, x: Tensor) -> dict[str, Tensor]:  # type: ignore
-        x = x.unsqueeze(1).tile(1, 3, 1, 1, 1)
-        x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore  # expected input shape
-
-        c1 = self.c1(x)
-        c2 = self.c2(c1)
-        c3 = self.c3(c2)
-        x = c3.rename(None).flatten(2).refine_names("N", "bounds", "features")
-        fc1 = self.fc1(x)
-        last = self.last(fc1)
-
-        return {
-            "c1": c1,
-            "c2": c2,
-            "c3": c3,
-            "fc1": fc1,
-            "last": last,
-        }
+    def forward_single_task(self, x: Tensor, task_id: int) -> dict[str, Tensor]:
+        # Get activations from the second-to-last layer
+        activation_dict = self.forward_base(x)
+        activation_dict["last"] = self.last[task_id](activation_dict["fc2"])
+        return activation_dict
 
     @property
     def device(self):
@@ -572,36 +636,85 @@ class IntervalVGG(IntervalModel):
                  output_classes: int,
                  radius_multiplier: float,
                  max_radius: float,
-                 bias: bool = True, ):
+                 bias: bool,
+                 heads: int,
+                 normalize_shift: bool,
+                 normalize_scale: bool,
+                 scale_init: float,
+                 ):
         super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
         self.in_channels = in_channels
         self.output_classes = output_classes
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
         self.bias = bias
+        self.output_names = ['features', 'classifier']
         self.features = self.make_layers(self.CFG[variant])
         self.classifier = nn.Sequential(
-            IntervalLinear(512, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True),
+            IntervalLinear(512, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True,
+                           normalize_shift=normalize_shift, normalize_scale=normalize_scale, scale_init=scale_init),
             nn.ReLU(),
             IntervalDropout(),
-            IntervalLinear(4096, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True),
+            IntervalLinear(4096, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True,
+                           normalize_shift=normalize_shift, normalize_scale=normalize_scale, scale_init=scale_init),
             nn.ReLU(),
             IntervalDropout()
         )
-        self.last = IntervalLinear(4096, output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius,
-                                   bias=bias)
+        if heads > 1:
+            # Incremental task, we don't have to use intervals
+            self.last = nn.ModuleList([
+                PointLinear(4096, self.output_classes) for _ in range(heads)
+            ])
+        else:
+            self.last = nn.ModuleList([
+                IntervalLinear(
+                    4096, output_classes, radius_multiplier=radius_multiplier, max_radius=max_radius,
+                    bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
+                    scale_init=scale_init
+                )])
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, task_labels: torch.Tensor) -> Tensor:
+        if isinstance(task_labels, int):
+            # fast path. mini-batch is single task.
+            return self.forward_single_task(x, task_labels)
+        else:
+            unique_tasks = torch.unique(task_labels)
+
+        full_out = {}
+        for task in unique_tasks:
+            task_mask = task_labels == task
+            x_task = x[task_mask]
+            out_task = self.forward_single_task(x_task, task.item())
+
+            if not full_out:
+                for key, val in out_task.items():
+                    full_out[key] = torch.empty(x.shape[0], *val.shape[1:],
+                                                device=val.device).rename(None)
+            for key, val in out_task.items():
+                full_out[key][task_mask] = val.rename(None)
+
+        for key, val in full_out.items():
+            full_out[key] = val.refine_names("N", "bounds", ...)
+        return full_out
+
+    def forward_base(self, x: Tensor) -> dict[str, Tensor]:
         x = x.unsqueeze(1).tile(1, 3, 1, 1, 1)
         x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore  # expected input shape
         features = x = self.features(x)
         x = x.rename(None).flatten(2).refine_names("N", "bounds", "features")
         x = self.classifier(x)
-        x = self.last(x)
         return {
             "features": features,
-            "last": x,
+            "classifier": x,
         }
+
+    def forward_single_task(self, x: Tensor, task_id: int) -> dict[str, Tensor]:
+        # Get activations from the second-to-last layer
+        activation_dict = self.forward_base(x)
+        activation_dict["last"] = self.last[task_id](activation_dict["classifier"])
+        return activation_dict
 
     def make_layers(self, cfg, batch_norm=False):
         layers = []
