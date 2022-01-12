@@ -7,6 +7,8 @@ import torch
 import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import SGD, Adam
+
 import visdom
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
@@ -307,9 +309,19 @@ class IntervalTraining(VanillaTraining):
 
         self.model.clamp_radii()
 
+    def make_optimizer(self):
+        # we reset the optimizer's state after each experience.
+        # This allows to add new parameters (new heads) and
+        # freezing old units during the model's adaptation phase.
+        if self.model.mode in [Mode.CONTRACTION_SHIFT, Mode.VANILLA]:
+            self.optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+        elif self.model.mode == Mode.CONTRACTION_SCALE:
+            self.optimizer = SGD(self.model.parameters(), lr=self.cfg.learning_rate)
+
     def before_training_exp(self, **kwargs: Any):
         """Switch mode or freeze on each consecutive experience."""
         super().before_training_exp(**kwargs)  # type: ignore
+
 
         if self.training_exp_counter == 1:
             self.model.switch_mode(Mode.CONTRACTION_SHIFT)
@@ -327,10 +339,11 @@ class IntervalTraining(VanillaTraining):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
-            self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
         if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 20:
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
+            self.make_optimizer()
+        if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
+            self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
 
         if self.viz_debug:
             self.reset_viz_debug()
