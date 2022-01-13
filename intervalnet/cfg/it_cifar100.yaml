@@ -1,0 +1,14 @@
+defaults:
+  - settings_schema
+
+dataset: CIFAR100
+
+_tags_: ~
+
+epochs: 100
+
+optimizer: SGD
+learning_rate: 0.05
+momentum: ~
+scenario: INC_TASK
+strategy: Naive

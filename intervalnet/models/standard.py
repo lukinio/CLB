@@ -31,7 +31,7 @@ class MLP(MultiTaskModule):
         return self.fc1.weight.device
 
 
-class VGG(nn.Module):
+class VGG(MultiTaskModule):
     CFG = {
         'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
         'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -55,13 +55,21 @@ class VGG(nn.Module):
             nn.Dropout()
         )
         self.last = nn.ModuleList(nn.Linear(4096, output_classes) for _ in range(heads))
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
 
-    def forward(self, x: Tensor, task_id: int) -> Tensor:
-        output = self.features(x)
-        output = output.view(output.size()[0], -1)
-        output = self.classifier(output)
+    def forward_single_task(self, x: Tensor, task_id: int):  # type: ignore
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
         x = self.last[task_id](x)
-        return output
+        return x
 
     @staticmethod
     def make_layers(cfg, in_channels, batch_norm=False):
