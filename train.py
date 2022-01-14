@@ -31,7 +31,7 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
-from intervalnet.strategy import IntervalTraining, VanillaTraining
+from intervalnet.strategy import IntervalTraining, JointTraining, VanillaTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -72,6 +72,8 @@ class Experiment(AvalancheExperiment):
             self.setup_ewc()
         elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
+        elif self.cfg.strategy is StrategyType.Joint:
+            self.setup_joint()
         else:
             raise ValueError(f"Unknown strategy type: {self.cfg.strategy}")
 
@@ -91,6 +93,10 @@ class Experiment(AvalancheExperiment):
 
             self.strategy.valid_classes = len(experience.classes_seen_so_far)
 
+            if self.cfg.strategy is StrategyType.Joint:
+                i = len(self.scenario.train_stream) - 1  # test on all data
+                self.strategy.valid_classes = self.scenario.n_classes
+
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
                 AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore
                 for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
@@ -100,7 +106,12 @@ class Experiment(AvalancheExperiment):
                 [], [], other_streams_datasets={"seen_test": [seen_test]}
             ).seen_test_stream  # type: ignore
 
-            self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+            if self.cfg.strategy is StrategyType.Joint:
+                self.strategy.train(self.scenario.train_stream, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+                break  # only one valid experience in joint training
+            else:
+                self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+
             info("Training completed")
 
     # ------------------------------------------------------------------------------------------
@@ -203,6 +214,12 @@ class Experiment(AvalancheExperiment):
         self.model = self._get_mlp_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
+        )
+
+    def setup_joint(self):
+        self.model = self._get_mlp_model()
+        self.strategy_ = functools.partial(
+            JointTraining,
         )
 
     def setup_ewc(self):

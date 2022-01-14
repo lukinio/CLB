@@ -3,11 +3,11 @@ defaults:
 
 
 _tags_:
-  - SGD
+  - JOINT
 
-epochs: 30
+epochs: 100
 
-optimizer: SGD
+optimizer: ADAM
 learning_rate: 0.001
 momentum: 0
-strategy: Naive
+strategy: Joint

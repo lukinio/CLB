@@ -21,6 +21,7 @@ class ScenarioType(Enum):
 
 class StrategyType(Enum):
     Naive = auto()
+    Joint = auto()
     Interval = auto()
     EWC = auto()
 
@@ -49,7 +50,7 @@ class IntervalSettings:
 
     normalize_shift: bool = False
     normalize_scale: bool = False
-    scale_init: float = -5.
+    scale_init: float = -5.0
 
 
 # General experiment settings validation schema & default values

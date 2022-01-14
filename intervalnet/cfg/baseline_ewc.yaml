@@ -8,7 +8,7 @@ _tags_:
 epochs: 30
 
 optimizer: ADAM
-learning_rate: 0.01
+learning_rate: 0.001
 momentum: ~
 strategy: EWC
 

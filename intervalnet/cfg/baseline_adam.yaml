@@ -1,13 +1,12 @@
 defaults:
   - settings_schema
 
-
 _tags_:
   - ADAM
 
 epochs: 30
 
 optimizer: ADAM
-learning_rate: 0.01
+learning_rate: 0.001
 momentum: ~
 strategy: Naive
