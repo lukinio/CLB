@@ -4,7 +4,7 @@ trap "kill 0" INT
 
 # Joint training
 for cfg in joint; do
-    for seed in 2001 2002 2003 2004 2005; do
+    for seed in 2002 2003 2004 2005; do
         for lr in 0.001; do
             for optimizer in SGD ADAM; do
                 for scenario in INC_TASK INC_DOMAIN INC_CLASS; do

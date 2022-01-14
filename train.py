@@ -31,7 +31,8 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
-from intervalnet.strategy import IntervalTraining, JointTraining, VanillaTraining
+from intervalnet.strategies import JointTraining, VanillaTraining
+from intervalnet.strategy import IntervalTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -98,7 +99,7 @@ class Experiment(AvalancheExperiment):
                 self.strategy.valid_classes = self.scenario.n_classes
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore
+                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore # noqa
                 for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
@@ -107,7 +108,7 @@ class Experiment(AvalancheExperiment):
             ).seen_test_stream  # type: ignore
 
             if self.cfg.strategy is StrategyType.Joint:
-                self.strategy.train(self.scenario.train_stream, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+                self.strategy.train(self.scenario.train_stream, [self.scenario.test_stream, seen_test_stream])  # type: ignore # noqa
                 break  # only one valid experience in joint training
             else:
                 self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
