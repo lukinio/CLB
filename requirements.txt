@@ -5,7 +5,7 @@ ipywidgets
 matplotlib
 opencv-python-headless
 python-dotenv
-pytorch-yard==2021.10.11
+git+https://github.com/karolpiczak/pytorch-yard.git@eval_transform
 rich
 torchmetrics
 tqdm

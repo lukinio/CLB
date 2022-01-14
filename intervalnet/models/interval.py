@@ -98,16 +98,18 @@ class IntervalLinear(IntervalModuleWithWeights):
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
 
-        if self.bias:
-            in_features += 1
-
         self.weight = Parameter(torch.empty((out_features, in_features)))
         self._radius = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self._shift = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
         self._scale = Parameter(torch.empty((out_features, in_features)), requires_grad=False)
 
+        # TODO test and fix so that it still works with bias=False
+        if bias:
+            self.bias = Parameter(torch.empty(out_features), requires_grad=True)
+            self._bias_radius = Parameter(torch.empty_like(self.bias), requires_grad=False)
+            self._bias_shift = Parameter(torch.empty_like(self.bias), requires_grad=False)
+            self._bias_scale = Parameter(torch.empty_like(self.bias), requires_grad=False)
         self.mode: Mode = Mode.VANILLA
-
         self.reset_parameters()
 
     def radius_transform(self, params: Tensor):
@@ -116,6 +118,10 @@ class IntervalLinear(IntervalModuleWithWeights):
     @property
     def radius(self) -> Tensor:
         return self.radius_transform(self._radius)
+
+    @property
+    def bias_radius(self) -> Tensor:
+        return self.radius_transform(self._bias_radius)
 
     @property
     def shift(self) -> Tensor:
@@ -127,28 +133,51 @@ class IntervalLinear(IntervalModuleWithWeights):
             return self._shift.tanh()
 
     @property
+    def bias_shift(self) -> Tensor:
+        """Contracted interval middle shift (-1, 1)."""
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._bias_shift.device)
+            return (self._bias_shift / torch.max(self.bias_radius, eps)).tanh()
+        else:
+            return self._bias_shift.tanh()
+
+    @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
         if self.normalize_scale:
-            eps = torch.tensor(1e-8).to(self._shift.device)
+            eps = torch.tensor(1e-8).to(self._scale.device)
             scale = (self._scale / torch.max(self.radius, eps)).sigmoid()
         else:
             scale = self._scale.sigmoid()
-
         return scale * (1.0 - torch.abs(self.shift))
+
+    @property
+    def bias_scale(self) -> Tensor:
+        """Contracted interval scale (0, 1)."""
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._bias_scale.device)
+            scale = (self._bias_scale / torch.max(self.radius, eps)).sigmoid()
+        else:
+            scale = self._bias_scale.sigmoid()
+        return scale * (1.0 - torch.abs(self.bias_shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
             max = self.max_radius / self.radius_multiplier
             self._radius.clamp_(min=0, max=max)
+            self._bias_radius.clamp_(min=0, max=max)
 
     def reset_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
-        # TODO: Adjust bias init
         with torch.no_grad():
+            nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
             self._radius.fill_(self.max_radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
+            if hasattr(self, 'bias'):
+                self.bias.zero_()
+                self._bias_radius.fill_(self.max_radius)
+                self._bias_shift.zero_()
+                self._bias_scale.fill_(self.scale_init)
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
@@ -162,18 +191,19 @@ class IntervalLinear(IntervalModuleWithWeights):
                 p.requires_grad_(False)
                 p.grad = None
 
-        disable([self.weight, self._radius, self._shift, self._scale])
+        disable([self.weight, self.bias, self._radius, self._shift, self._scale, self._bias_radius, self._bias_shift,
+                 self._bias_scale])
 
         if mode == Mode.VANILLA:
-            enable([self.weight])
+            enable([self.weight, self.bias])
         elif mode == Mode.EXPANSION:
             with torch.no_grad():
                 self._radius.fill_(self.max_radius)
-            enable([self._radius])
+            enable([self._radius, self._bias_radius])
         elif mode == Mode.CONTRACTION_SHIFT:
-            enable([self._shift])
+            enable([self._shift, self._bias_shift])
         elif mode == Mode.CONTRACTION_SCALE:
-            enable([self._scale])
+            enable([self._scale, self._bias_scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():
@@ -181,6 +211,11 @@ class IntervalLinear(IntervalModuleWithWeights):
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
+            if hasattr(self, 'bias'):
+                self.bias.copy_(self.bias + self.bias_shift * self.bias_radius)
+                self._bias_radius.copy_(self.bias_scale * self._bias_radius)
+                self._bias_shift.zero_()
+                self._bias_scale.fill_(self.scale_init)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names("N", "bounds", "features")  # type: ignore
@@ -203,22 +238,25 @@ class IntervalLinear(IntervalModuleWithWeights):
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
 
-        w_lower_pos = (w_lower[:, :-1] if self.bias else w_lower).clamp(min=0)
-        w_lower_neg = (w_lower[:, :-1] if self.bias else w_lower).clamp(max=0)
-        w_upper_pos = (w_upper[:, :-1] if self.bias else w_upper).clamp(min=0)
-        w_upper_neg = (w_upper[:, :-1] if self.bias else w_upper).clamp(max=0)
+        w_lower_pos = w_lower.clamp(min=0)
+        w_lower_neg = w_lower.clamp(max=0)
+        w_upper_pos = w_upper.clamp(min=0)
+        w_upper_neg = w_upper.clamp(max=0)
         # Further splits only needed for numeric stability with asserts
-        w_middle_pos = (w_middle[:, :-1] if self.bias else w_middle).clamp(min=0)
-        w_middle_neg = (w_middle[:, :-1] if self.bias else w_middle).clamp(max=0)
+        w_middle_pos = w_middle.clamp(min=0)
+        w_middle_neg = w_middle.clamp(max=0)
 
         lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
         upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
         middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
 
-        if self.bias:
-            lower = lower + w_lower[:, -1]
-            upper = upper + w_upper[:, -1]
-            middle = middle + w_middle[:, -1]
+        if hasattr(self, 'bias'):
+            b_middle = self.bias + self.bias_shift * self.bias_radius
+            b_lower = b_middle - self.bias_scale * self.bias_radius
+            b_upper = b_middle + self.bias_scale * self.bias_radius
+            lower = lower + b_lower
+            upper = upper + b_upper
+            middle = middle + b_middle
 
         assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
         assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
@@ -287,12 +325,17 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             dilation: int = 1,
             groups: int = 1,
             bias: bool = True,
+            normalize_shift: bool = True,
+            normalize_scale: bool = False,
+            scale_init: float = -5.
     ) -> None:
         IntervalModuleWithWeights.__init__(self)
-        nn.Conv2d.__init__(self,in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
-
+        nn.Conv2d.__init__(self, in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
+        self.scale_init = scale_init
 
         assert self.radius_multiplier > 0
         assert self.max_radius > 0
@@ -300,13 +343,12 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         self._radius = Parameter(torch.empty_like(self.weight), requires_grad=False)
         self._shift = Parameter(torch.empty_like(self.weight), requires_grad=False)
         self._scale = Parameter(torch.empty_like(self.weight), requires_grad=False)
-
-        self._bias_radius = Parameter(torch.empty_like(self.bias), requires_grad=False)
-        self._bias_shift = Parameter(torch.empty_like(self.bias), requires_grad=False)
-        self._bias_scale = Parameter(torch.empty_like(self.bias), requires_grad=False)
-
+        # TODO test and fix so that it still works with bias=False
+        if bias:
+            self._bias_radius = Parameter(torch.empty_like(self.bias), requires_grad=False)
+            self._bias_shift = Parameter(torch.empty_like(self.bias), requires_grad=False)
+            self._bias_scale = Parameter(torch.empty_like(self.bias), requires_grad=False)
         self.mode: Mode = Mode.VANILLA
-
         self.init_parameters()
 
     # TODO abstract away this logic in a common base class?
@@ -324,20 +366,40 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
     @property
     def shift(self) -> Tensor:
         """Contracted interval middle shift (-1, 1)."""
-        return self._shift.tanh()
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._shift.device)
+            return (self._shift / torch.max(self.radius, eps)).tanh()
+        else:
+            return self._shift.tanh()
 
     @property
     def bias_shift(self) -> Tensor:
-        return self._bias_shift.tanh()
+        """Contracted interval middle shift (-1, 1)."""
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._bias_shift.device)
+            return (self._bias_shift / torch.max(self.bias_radius, eps)).tanh()
+        else:
+            return self._bias_shift.tanh()
 
     @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
-        return self._scale.sigmoid()
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._scale.device)
+            scale = (self._scale / torch.max(self.radius, eps)).sigmoid()
+        else:
+            scale = self._scale.sigmoid()
+        return scale * (1.0 - torch.abs(self.shift))
 
     @property
     def bias_scale(self) -> Tensor:
-        return self._bias_scale.sigmoid()
+        """Contracted interval scale (0, 1)."""
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._bias_scale.device)
+            scale = (self._bias_scale / torch.max(self.radius, eps)).sigmoid()
+        else:
+            scale = self._bias_scale.sigmoid()
+        return scale * (1.0 - torch.abs(self.shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
@@ -346,15 +408,16 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             self._bias_radius.clamp_(min=0, max=max)
 
     def init_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
-        # TODO: Adjust bias init
         with torch.no_grad():
+            nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
             self._radius.zero_()
             self._shift.zero_()
             self._scale.fill_(5)
-            self._bias_radius.zero_()
-            self._bias_shift.zero_()
-            self._bias_scale.fill_(5)
+            if hasattr(self, 'bias'):
+                self.bias.zero_()
+                self._bias_radius.zero_()
+                self._bias_shift.zero_()
+                self._bias_scale.fill_(5)
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
@@ -368,29 +431,31 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
                 p.requires_grad_(False)
                 p.grad = None
 
-        disable([self.weight, self._radius, self._shift, self._scale, self._bias_radius, self._bias_shift,
+        disable([self.weight, self.bias, self._radius, self._shift, self._scale, self._bias_radius, self._bias_shift,
                  self._bias_scale])
 
         if mode == Mode.VANILLA:
-            enable([self.weight])
+            enable([self.weight, self.bias])
         elif mode == Mode.EXPANSION:
             with torch.no_grad():
                 self._radius.fill_(self.max_radius)
-            enable([self._radius])
+            enable([self._radius, self._bias_radius])
         elif mode == Mode.CONTRACTION_SHIFT:
-            enable([self._shift])
+            enable([self._shift, self._bias_shift])
         elif mode == Mode.CONTRACTION_SCALE:
-            enable([self._scale])
+            enable([self._scale, self._bias_scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():
-            self.weight.copy_(self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius)
+            self.weight.copy_(self.weight + self.shift * self.radius)
             self._radius.copy_(self.scale * self._radius)
-            self._bias_radius.copy_(self.bias_scale * self._bias_radius)
             self._shift.zero_()
-            self._bias_shift.zero_()
             self._scale.fill_(5)
-            self._bias_scale.fill_(5)
+            if hasattr(self, 'bias'):
+                self.bias.copy_(self.bias + self.bias_shift * self.bias_radius)
+                self._bias_radius.copy_(self.bias_scale * self._bias_radius)
+                self._bias_shift.zero_()
+                self._bias_scale.fill_(5)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names("N", "bounds", "C", "H", "W")
@@ -403,14 +468,21 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             w_middle: Tensor = self.weight
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
+            if hasattr(self, 'bias'):
+                b_middle = self.bias
+                b_lower = b_middle - self.bias_radius
+                b_upper = b_middle + self.bias_radius
         else:
-            assert self.mode == Mode.CONTRACTION
+            assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
             assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
-
-            w_middle = self.weight + self.shift * (torch.tensor(1.0) - self.scale) * self.radius
+            w_middle = self.weight + self.shift * self.radius
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
+            if hasattr(self, 'bias'):
+                b_middle = self.bias + self.bias_shift * self.bias_radius
+                b_lower = b_middle - self.bias_scale * self.bias_radius
+                b_upper = b_middle + self.bias_scale * self.bias_radius
 
         w_lower_pos = w_lower.clamp(min=0)
         w_lower_neg = w_lower.clamp(max=0)
@@ -431,10 +503,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         upper = u_up + l_un
         middle = m_mp + m_mn
 
-        if isinstance(self.bias, Parameter):
-            b_middle = self.bias + self.bias_shift * (torch.tensor(1.0) - self.bias_scale) * self.bias_radius
-            b_lower = b_middle - self.bias_scale * self.bias_radius
-            b_upper = b_middle + self.bias_scale * self.bias_radius
+        if hasattr(self, 'bias'):
             lower = lower + b_lower.view(1, b_lower.size(0), 1, 1)
             upper = upper + b_upper.view(1, b_upper.size(0), 1, 1)
             middle = middle + b_middle.view(1, b_middle.size(0), 1, 1)
@@ -651,9 +720,10 @@ class IntervalVGG(IntervalModel):
         self.output_classes = output_classes
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
+        self.bias = bias
         self.normalize_shift = normalize_shift
         self.normalize_scale = normalize_scale
-        self.bias = bias
+        self.scale_init = scale_init
         self.output_names = ['features', 'classifier']
         self.features = self.make_layers(self.CFG[variant])
         self.classifier = nn.Sequential(
@@ -678,6 +748,15 @@ class IntervalVGG(IntervalModel):
                     bias=bias, normalize_shift=normalize_shift, normalize_scale=normalize_scale,
                     scale_init=scale_init
                 )])
+        for m in self.modules():
+            if isinstance(m, IntervalConv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, IntervalLinear) or isinstance(m, PointLinear):
+                nn.init.normal_(m.weight, 0, 0.01)
+            if hasattr(m, 'bias') and isinstance(m.bias, torch.Tensor):
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x: Tensor, task_labels: torch.Tensor) -> Tensor:
         if isinstance(task_labels, int):
@@ -729,7 +808,8 @@ class IntervalVGG(IntervalModel):
                 continue
             layers += [
                 IntervalConv2d(input_channel, l, kernel_size=3, padding=1, radius_multiplier=self.radius_multiplier,
-                               max_radius=self.max_radius, bias=self.bias)]
+                               max_radius=self.max_radius, bias=self.bias, normalize_shift=self.normalize_shift,
+                               normalize_scale=self.normalize_scale, scale_init=self.scale_init)]
             if batch_norm:
                 raise NotImplementedError()
             layers += [nn.ReLU()]

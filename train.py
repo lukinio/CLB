@@ -109,15 +109,15 @@ class Experiment(AvalancheExperiment):
     # ------------------------------------------------------------------------------------------
     def setup_dataset(self):
         if self.cfg.dataset is DatasetType.MNIST:
-            self.train, self.test, self.transforms = mnist()
+            self.train, self.test, self.train_transform, self.eval_transform = mnist()
             self.n_classes = 10
             self.input_size = 28 * 28
         elif self.cfg.dataset is DatasetType.CIFAR100:
-            self.train, self.test, self.transforms = cifar100()
+            self.train, self.test, self.train_transform, self.eval_transform = cifar100()
             self.n_classes = 100
             self.input_size = 32 * 32 * 3
         elif self.cfg.dataset is DatasetType.CIFAR10:
-            self.train, self.test, self.transforms = cifar10()
+            self.train, self.test, self.train_transform, self.eval_transform = cifar10()
             self.n_classes = 10
             self.input_size = 32 * 32 * 3
         else:
@@ -139,7 +139,8 @@ class Experiment(AvalancheExperiment):
         self.scenario, self.n_classes_per_head = _setup(
             self.train,
             self.test,
-            self.transforms,
+            self.train_transform,
+            self.eval_transform,
             self.cfg.n_experiences,
             self.n_classes,
         )

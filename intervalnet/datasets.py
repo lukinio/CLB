@@ -13,15 +13,14 @@ def mnist():
         warnings.simplefilter('ignore')
         mnist_train = MNIST(root=os.getenv('DATA_DIR', ''), train=True, download=True)
         mnist_test = MNIST(root=os.getenv('DATA_DIR', ''), train=False, download=True)
-
-    mnist_transforms = transforms.Compose([
+    mnist_train_transform = transforms.Compose([
         # transforms.Pad(2, fill=0, padding_mode='constant'),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=(0.1307,), std=(0.3081,)),
-        # transforms.Normalize(mean=(0.1000,), std=(0.2752,)),
     ])
-
-    return mnist_train, mnist_test, mnist_transforms
+    mnist_eval_transform = transforms.Compose([        # transforms.Pad(2, fill=0, padding_mode='constant'),
+        transforms.ToTensor(),
+    ])
+    return mnist_train, mnist_test, mnist_train_transform, mnist_eval_transform
 
 
 def cifar100():
@@ -29,11 +28,15 @@ def cifar100():
         warnings.simplefilter('ignore')
         cifar_train = CIFAR100(root=os.getenv('DATA_DIR', ''), train=True, download=True)
         cifar_test = CIFAR100(root=os.getenv('DATA_DIR', ''), train=False, download=True)
-    cifar_transforms = transforms.Compose([
+    cifar_train_transform = transforms.Compose([
+        transforms.TrivialAugmentWide(),
+        transforms.ToTensor(),
+    ])
+    cifar_eval_transform = transforms.Compose([
         transforms.ToTensor(),
 
     ])
-    return cifar_train, cifar_test, cifar_transforms
+    return cifar_train, cifar_test, cifar_train_transform, cifar_eval_transform
 
 
 def cifar10():
@@ -41,8 +44,11 @@ def cifar10():
         warnings.simplefilter('ignore')
         cifar_train = CIFAR10(root=os.getenv('DATA_DIR', ''), train=True, download=True)
         cifar_test = CIFAR10(root=os.getenv('DATA_DIR', ''), train=False, download=True)
-    cifar_transforms = transforms.Compose([
+    cifar_train_transform = transforms.Compose([
+        transforms.TrivialAugmentWide(),
         transforms.ToTensor(),
-
     ])
-    return cifar_train, cifar_test, cifar_transforms
+    cifar_eval_transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+    return cifar_train, cifar_test, cifar_train_transform, cifar_eval_transform
