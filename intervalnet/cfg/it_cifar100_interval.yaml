@@ -5,7 +5,7 @@ dataset: CIFAR100
 
 _tags_: ~
 
-epochs: 160
+epochs: 200
 
 optimizer: SGD
 learning_rate: 0.05

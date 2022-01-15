@@ -399,7 +399,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             scale = (self._bias_scale / torch.max(self.radius, eps)).sigmoid()
         else:
             scale = self._bias_scale.sigmoid()
-        return scale * (1.0 - torch.abs(self.shift))
+        return scale * (1.0 - torch.abs(self.bias_shift))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
@@ -749,7 +749,7 @@ class IntervalVGG(IntervalModel):
                     scale_init=scale_init
                 )])
         for m in self.modules():
-            if isinstance(m, IntervalConv2d):
+            if isinstance(m, IntervalConv2d) or isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
