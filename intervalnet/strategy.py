@@ -329,7 +329,7 @@ class IntervalTraining(VanillaTraining):
 
         if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
-        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 20:
+        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 5:
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
 
         if self.viz_debug:
@@ -388,7 +388,7 @@ class IntervalTraining(VanillaTraining):
         radii: list[Tensor] = []
 
         for name, module in self.model.named_interval_children():
-            radii.append((module.radius * module.scale).detach().cpu().flatten())
+            radii.append((module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
             self.status.bounds_width_[name] = self.bounds_width(name).mean()
 

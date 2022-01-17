@@ -105,7 +105,7 @@ class IntervalLinear(nn.Module):
         self.reset_parameters()
 
     def radius_transform(self, params: Tensor):
-        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius + 0.1)
+        return params.clamp(min=0, max=self.max_radius)
 
     @property
     def radius(self) -> Tensor:
@@ -123,18 +123,14 @@ class IntervalLinear(nn.Module):
     @property
     def scale(self) -> Tensor:
         """Contracted interval scale (0, 1)."""
-        if self.normalize_scale:
-            eps = torch.tensor(1e-8).to(self._shift.device)
-            scale = (self._scale / torch.max(self.radius, eps)).sigmoid()
-        else:
-            scale = self._scale.sigmoid()
-
-        return scale * (1.0 - torch.abs(self.shift))
+        # TODO: small eps?
+        zero = torch.zeros_like(self.radius)
+        return self._scale.clamp(zero, self.radius * (1. - torch.abs(self.shift)))
 
     def clamp_radii(self) -> None:
         with torch.no_grad():
-            max = self.max_radius / self.radius_multiplier
-            self._radius.clamp_(min=0, max=max)
+            zero = torch.zeros_like(self.radius)
+            self._scale.clamp(zero, self.radius * (1. - torch.abs(self.shift)) - 1e-8)
 
     def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
@@ -142,7 +138,7 @@ class IntervalLinear(nn.Module):
         with torch.no_grad():
             self._radius.fill_(self.max_radius)
             self._shift.zero_()
-            self._scale.fill_(self.scale_init)
+            self._scale.fill_(self.max_radius)
 
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
@@ -172,9 +168,9 @@ class IntervalLinear(nn.Module):
     def freeze_task(self) -> None:
         with torch.no_grad():
             self.weight.copy_(self.weight + self.shift * self.radius)
-            self._radius.copy_(self.scale * self._radius)
+            self._radius.copy_(self.scale)
             self._shift.zero_()
-            self._scale.fill_(self.scale_init)
+            self._scale.copy_(self._radius - 1e-8)
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = x.refine_names("N", "bounds", "features")  # type: ignore
@@ -191,12 +187,13 @@ class IntervalLinear(nn.Module):
             w_upper = self.weight + self.radius
         else:
             assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
-            assert (0.0 <= self.scale).all() and (self.scale <= 1.0).all(), "Scale must be in [0, 1] range."
             assert (-1.0 <= self.shift).all() and (self.shift <= 1.0).all(), "Shift must be in [-1, 1] range."
 
             w_middle = self.weight + self.shift * self.radius
-            w_lower = w_middle - self.scale * self.radius
-            w_upper = w_middle + self.scale * self.radius
+            w_lower = w_middle - self.scale
+            w_upper = w_middle + self.scale
+
+            assert (w_lower + 1e-6 >= self.weight - self.radius).all() and (w_upper <= self.weight + self.radius + 1e-6).all(), "Scale outside of range."
 
         w_lower_pos = (w_lower[:, :-1] if self.bias else w_lower).clamp(min=0)
         w_lower_neg = (w_lower[:, :-1] if self.bias else w_lower).clamp(max=0)
