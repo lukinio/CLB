@@ -51,7 +51,10 @@ class Experiment(AvalancheExperiment):
         self.input_size: int
         """Model input size."""
 
-        self.n_output_classes: int
+        self.channels: int
+        """Model input number of channels."""
+
+        self.n_classes: int
         """Number of classes for each head."""
 
         self.n_heads: int
@@ -91,6 +94,10 @@ class Experiment(AvalancheExperiment):
 
             self.strategy.valid_classes = len(experience.classes_seen_so_far)
 
+            if self.cfg.offline is True:
+                i = len(self.scenario.train_stream) - 1  # test on all data
+                self.strategy.valid_classes = self.scenario.n_classes
+
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
                 AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)
                 # type: ignore
@@ -101,7 +108,12 @@ class Experiment(AvalancheExperiment):
                 [], [], other_streams_datasets={"seen_test": [seen_test]}
             ).seen_test_stream  # type: ignore
 
-            self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+            if self.cfg.offline is True:
+                self.strategy.train(self.scenario.train_stream, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+                break  # only one valid experience in joint training
+            else:
+                self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+
             info("Training completed")
 
     # ------------------------------------------------------------------------------------------
@@ -111,15 +123,17 @@ class Experiment(AvalancheExperiment):
         if self.cfg.dataset is DatasetType.MNIST:
             self.train, self.test, self.train_transform, self.eval_transform = mnist()
             self.n_classes = 10
-            self.input_size = 28 * 28
+            self.input_size = 28
+            self.channels = 1
         elif self.cfg.dataset is DatasetType.CIFAR100:
             self.train, self.test, self.train_transform, self.eval_transform = cifar100()
             self.n_classes = 100
-            self.input_size = 32 * 32 * 3
+            self.input_size = 32
+            self.channels = 3
         elif self.cfg.dataset is DatasetType.CIFAR10:
             self.train, self.test, self.train_transform, self.eval_transform = cifar10()
-            self.n_classes = 10
-            self.input_size = 32 * 32 * 3
+            self.input_size = 32
+            self.channels = 3
         else:
             raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
@@ -203,17 +217,17 @@ class Experiment(AvalancheExperiment):
     # ------------------------------------------------------------------------------------------
     def _get_mlp_model(self):
         return MLP(
-            input_size=28 * 28 * 1,
+            input_size=self.input_size ** 2 * self.channels,
             hidden_dim=400,
             output_classes=self.n_classes_per_head,
             heads=self.n_heads,
         )
 
-    def _get_cnn_model(self, out_dim):
+    def _get_cnn_model(self):
         return VGG(
             variant='A',
             in_channels=3,
-            output_classes=out_dim,
+            output_classes=self.n_classes,
             heads=self.n_heads,
         )
 
@@ -221,16 +235,18 @@ class Experiment(AvalancheExperiment):
         if self.cfg.dataset is DatasetType.MNIST:
             self.model = self._get_mlp_model()
         elif self.cfg.dataset is DatasetType.CIFAR100:
-            self.model = self._get_cnn_model(100)
+            self.model = self._get_cnn_model()
         elif self.cfg.dataset is DatasetType.CIFAR10:
-            self.model = self._get_cnn_model(10)
+            self.model = self._get_cnn_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
         )
 
     def setup_ewc(self):
-        # TODO cnn
-        self.model = self._get_mlp_model()
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = self._get_mlp_model()
+        else:
+            self.model = self._get_cnn_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
             plugins=[EWCPlugin(self.cfg.reg_lambda)],
@@ -239,7 +255,7 @@ class Experiment(AvalancheExperiment):
     def setup_interval(self):
         if self.cfg.dataset is DatasetType.MNIST:
             self.model = IntervalMLP(
-                input_size=28 * 28 * 1,
+                input_size=self.input_size ** 2 * self.channels,
                 hidden_dim=400,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
@@ -253,7 +269,7 @@ class Experiment(AvalancheExperiment):
         elif self.cfg.dataset is DatasetType.CIFAR100:
             self.model = IntervalVGG(
                 variant='A',
-                in_channels=3,
+                in_channels=self.channels,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
@@ -266,7 +282,7 @@ class Experiment(AvalancheExperiment):
         elif self.cfg.dataset is DatasetType.CIFAR10:
             self.model = IntervalVGG(
                 variant='A',
-                in_channels=3,
+                in_channels=self.channels,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,

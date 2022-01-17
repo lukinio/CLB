@@ -502,6 +502,8 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         lower = l_lp + u_ln
         upper = u_up + l_un
         middle = m_mp + m_mn
+        # numerically unstable?
+        # middle = F.conv2d(x_middle, w_middle, None, self.stride, self.padding, self.dilation, self.groups)
 
         if hasattr(self, 'bias'):
             lower = lower + b_lower.view(1, b_lower.size(0), 1, 1)

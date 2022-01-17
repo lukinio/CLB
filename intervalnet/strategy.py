@@ -1,6 +1,7 @@
 from collections import deque
 from dataclasses import InitVar, dataclass, field, fields
-from typing import Any, Optional, Sequence, cast
+from types import MethodType
+from typing import Any, Optional, Sequence, Union, cast
 
 import numpy as np
 import torch
@@ -8,6 +9,8 @@ import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
+from avalanche.benchmarks.scenarios import Experience
+from avalanche.benchmarks.utils import AvalancheConcatDataset
 from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
@@ -25,18 +28,18 @@ class VanillaTraining(BaseStrategy):
     """Benchmark CL training."""
 
     def __init__(
-        self,
-        model: nn.Module,
-        optimizer: Optimizer,
-        train_mb_size: int = 1,
-        train_epochs: int = 1,
-        eval_mb_size: int = 1,
-        device: torch.device = torch.device("cpu"),
-        plugins: Optional[Sequence[StrategyPlugin]] = None,
-        evaluator: Optional[EvaluationPlugin] = None,
-        eval_every: int = -1,
-        *,
-        cfg: Settings,
+            self,
+            model: nn.Module,
+            optimizer: Optimizer,
+            train_mb_size: int = 1,
+            train_epochs: int = 1,
+            eval_mb_size: int = 1,
+            device: torch.device = torch.device("cpu"),
+            plugins: Optional[Sequence[StrategyPlugin]] = None,
+            evaluator: Optional[EvaluationPlugin] = None,
+            eval_every: int = -1,
+            *,
+            cfg: Settings,
     ):
         super().__init__(  # type: ignore
             model,
@@ -65,39 +68,70 @@ class VanillaTraining(BaseStrategy):
 
         self.valid_classes = 0
 
+        if self.cfg.offline is True:
+
+            def train(
+                    self,
+                    experiences: Union[Experience, Sequence[Experience]],
+                    eval_streams: Optional[Sequence[Union[Experience, Sequence[Experience]]]] = None,
+                    **kwargs: Any,
+            ):
+                """Repurposed code from Avalanche."""
+                self.is_training = True
+                self.model.train()
+                self.model.to(self.device)
+
+                # Normalize training and eval data.
+                if isinstance(experiences, Experience):
+                    experiences = [experiences]
+                if eval_streams is None:
+                    eval_streams = [experiences]
+                for i, exp in enumerate(eval_streams):
+                    if isinstance(exp, Experience):
+                        eval_streams[i] = [exp]  # type: ignore
+
+                self._experiences = experiences
+                self.before_training(**kwargs)  # type: ignore
+                for exp in experiences:
+                    self.train_exp(exp, eval_streams, **kwargs)  # type: ignore
+                    # Joint training only needs a single step because
+                    # it concatenates all the data at once.
+                    break
+                self.after_training(**kwargs)  # type: ignore
+
+            self.train = MethodType(train, self)
+
+            def train_dataset_adaptation(self, **kwargs: Any):
+                self.adapted_dataset = AvalancheConcatDataset(
+                    [exp.dataset for exp in self._experiences])  # type: ignore
+                self.adapted_dataset = self.adapted_dataset.train()  # type: ignore
+
+            self.train_dataset_adaptation = MethodType(train_dataset_adaptation, self)
+
     @property
     def mb_y(self) -> Tensor:
         """Current mini-batch target."""
         return super().mb_y  # type: ignore
-
-    # def criterion(self):
-    #     if self.is_training:
-    #         # Use class masking for incremental class training in the same way as Continual Learning Benchmark
-    #         preds = self.mb_output[:, : self.valid_classes]
-    #     else:
-    #         preds = self.mb_output
-
-    #     return self._criterion(preds, self.mb_y)
 
 
 class IntervalTraining(VanillaTraining):
     """Main interval training strategy."""
 
     def __init__(
-        self,
-        model: nn.Module,
-        optimizer: Optimizer,
-        train_mb_size: int = 1,
-        train_epochs: int = 1,
-        eval_mb_size: int = 1,
-        device: torch.device = torch.device("cpu"),
-        plugins: Optional[Sequence[StrategyPlugin]] = None,
-        evaluator: Optional[EvaluationPlugin] = None,
-        eval_every: int = -1,
-        enable_visdom: bool = False,
-        visdom_reset_every_epoch: bool = False,
-        *,
-        cfg: Settings,
+            self,
+            model: nn.Module,
+            optimizer: Optimizer,
+            train_mb_size: int = 1,
+            train_epochs: int = 1,
+            eval_mb_size: int = 1,
+            device: torch.device = torch.device("cpu"),
+            plugins: Optional[Sequence[StrategyPlugin]] = None,
+            evaluator: Optional[EvaluationPlugin] = None,
+            eval_every: int = -1,
+            enable_visdom: bool = False,
+            visdom_reset_every_epoch: bool = False,
+            *,
+            cfg: Settings,
     ):
         super().__init__(  # type: ignore
             model,
@@ -252,8 +286,8 @@ class IntervalTraining(VanillaTraining):
             self.losses.radius_penalty = torch.stack(
                 [
                     F.relu(torch.tensor(1.0) - r / self.cfg.interval.max_radius)
-                    .pow(self.cfg.interval.radius_exponent)
-                    .mean()
+                        .pow(self.cfg.interval.radius_exponent)
+                        .mean()
                     for r in radii
                 ]  # mean per layer
             ).mean()
@@ -263,7 +297,7 @@ class IntervalTraining(VanillaTraining):
             if self.robust_accuracy(self.cfg.interval.metric_lookback) < self.cfg.interval.robust_accuracy_threshold:
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
             else:
-                self.losses.robust_penalty = self.losses.robust * 0.
+                self.losses.robust_penalty = self.losses.robust * 0.0
 
             #     if self._lambda is None:
             #         self._lambda = start_lambda
@@ -283,10 +317,12 @@ class IntervalTraining(VanillaTraining):
             # Contraction phase
             # ---------------------------------------------------------------------------------------------------------
             # === Robust penalty ===
-            if self.robust_accuracy(self.cfg.interval.metric_lookback) < (self.cfg.interval.robust_accuracy_threshold * self.accuracy(self.cfg.interval.metric_lookback)):
+            if self.robust_accuracy(self.cfg.interval.metric_lookback) < (
+                    self.cfg.interval.robust_accuracy_threshold * self.accuracy(self.cfg.interval.metric_lookback)
+            ):
                 self.losses.robust_penalty = self.losses.robust * self._current_lambda
             else:
-                self.losses.robust_penalty = self.losses.robust * 0.
+                self.losses.robust_penalty = self.losses.robust * 0.0
             self.losses.total = self.losses.robust_penalty
 
         # weights = torch.cat([m.weight.flatten() for m in self.model.interval_children()])
@@ -329,7 +365,8 @@ class IntervalTraining(VanillaTraining):
 
         if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
-        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == self.train_epochs - 10:
+        if self.mode in [Mode.VANILLA,
+                         Mode.CONTRACTION_SHIFT] and self.epoch == self.train_epochs - self.cfg.interval.epochs:
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
 
         if self.viz_debug:
@@ -411,13 +448,13 @@ class IntervalTraining(VanillaTraining):
 
         if self.viz_debug:
             for (
-                metric,
-                name,
-                window,
-                _,
-                color,
-                dash,
-                yrange,
+                    metric,
+                    name,
+                    window,
+                    _,
+                    color,
+                    dash,
+                    yrange,
             ) in self.get_debug_metrics():
                 self.append_viz_debug(metric, name, window, color, dash, yrange)
 
@@ -532,13 +569,13 @@ class IntervalTraining(VanillaTraining):
         return metrics
 
     def append_viz_debug(
-        self,
-        val: Tensor,
-        name: str,
-        window_name: str,
-        color: tuple[int, int, int],
-        dash: str,
-        yrange: tuple[float, float],
+            self,
+            val: Tensor,
+            name: str,
+            window_name: str,
+            color: tuple[int, int, int],
+            dash: str,
+            yrange: tuple[float, float],
     ):
         """Append single value to a Visdom line plot."""
 
@@ -571,13 +608,13 @@ class IntervalTraining(VanillaTraining):
         assert self.viz_debug
 
         for (
-            _,
-            name,
-            window_name,
-            title,
-            color,
-            dash,
-            yrange,
+                _,
+                name,
+                window_name,
+                title,
+                color,
+                dash,
+                yrange,
         ) in self.get_debug_metrics():
             if self.viz_reset_every_epoch:
                 window_name = f"{window_name}_{(self.epoch or 0) + 1}"
