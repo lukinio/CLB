@@ -13,3 +13,4 @@ momentum: ~
 strategy: EWC
 
 ewc_lambda: 100
+ewc_mode: "separate"

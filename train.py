@@ -230,10 +230,10 @@ class Experiment(AvalancheExperiment):
 
     def setup_ewc(self):
         self.model = self._get_mlp_model()
-        assert self.cfg.ewc_lambda
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
         self.strategy_ = functools.partial(
             VanillaTraining,
-            plugins=[EWCPlugin(self.cfg.ewc_lambda)],
+            plugins=[EWCPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode)],
         )
 
     def setup_si(self):
