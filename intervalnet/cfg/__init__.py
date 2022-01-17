@@ -24,6 +24,8 @@ class StrategyType(Enum):
     Joint = auto()
     Interval = auto()
     EWC = auto()
+    SI = auto()
+    LWF = auto()
 
 
 class OptimizerType(Enum):
@@ -86,7 +88,10 @@ class Settings(pytorch_yard.Settings):
     # Strategy settings
     # ----------------------------------------------------------------------------------------------
     strategy: StrategyType = MISSING
-    reg_lambda: Optional[float] = None
+    ewc_lambda: Optional[float] = None
+    si_lambda: Optional[float] = None
+    lwf_alpha: Optional[float] = None
+    lwf_temperature: Optional[float] = None
 
     # ----------------------------------------------------------------------------------------------
     # IntervalNet specific settings

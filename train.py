@@ -10,6 +10,8 @@ from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training.plugins.evaluation import EvaluationPlugin
+from avalanche.training.plugins.lwf import LwFPlugin
+from avalanche.training.plugins.synaptic_intelligence import SynapticIntelligencePlugin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
@@ -70,6 +72,10 @@ class Experiment(AvalancheExperiment):
             self.setup_naive()
         elif self.cfg.strategy is StrategyType.EWC:
             self.setup_ewc()
+        elif self.cfg.strategy is StrategyType.SI:
+            self.setup_si()
+        elif self.cfg.strategy is StrategyType.LWF:
+            self.setup_lwf()
         elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
         elif self.cfg.strategy is StrategyType.Joint:
@@ -224,10 +230,26 @@ class Experiment(AvalancheExperiment):
 
     def setup_ewc(self):
         self.model = self._get_mlp_model()
-        assert self.cfg.reg_lambda
+        assert self.cfg.ewc_lambda
         self.strategy_ = functools.partial(
             VanillaTraining,
-            plugins=[EWCPlugin(self.cfg.reg_lambda)],
+            plugins=[EWCPlugin(self.cfg.ewc_lambda)],
+        )
+
+    def setup_si(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.si_lambda
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[SynapticIntelligencePlugin(self.cfg.si_lambda)],
+        )
+
+    def setup_lwf(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.lwf_alpha and self.cfg.lwf_temperature
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[LwFPlugin(self.cfg.lwf_alpha, self.cfg.lwf_temperature)],
         )
 
     def setup_interval(self):
