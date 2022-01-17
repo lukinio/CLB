@@ -284,6 +284,7 @@ class IntervalDropout(nn.Module):
             return x
 
 
+
 class IntervalMaxPool2d(nn.MaxPool2d):
     def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False):
         super().__init__(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
@@ -296,6 +297,121 @@ class IntervalMaxPool2d(nn.MaxPool2d):
         x_upper = super().forward(x_upper)
         return torch.stack([x_lower, x_middle, x_upper], dim=1).refine_names("N", "bounds", "C", "H",
                                                                              "W")  # type: ignore
+
+class IntervalBatchNorm2d(nn.Module):
+    def __init__(self, num_features):
+        super().__init__()
+        self.num_features = num_features
+        self.gamma = nn.Parameter(torch.ones(num_features))
+        self.beta = nn.Parameter(torch.zeros(num_features))
+
+        self.scale = nn.Parameter(torch.ones(num_features) * 0.1)
+        self.epsilon = 1e-5
+
+        self.interval_statistics = False
+        self.affine = False
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+
+        # TODO: eval version
+
+        if self.interval_statistics:
+            # Calculating whitening nominator: x - E[x]
+            mean_lower = x_lower.mean(0)
+            mean_middle = x_middle.mean(0)
+            mean_upper = x_upper.mean(0)
+
+            nominator_upper = x_upper - mean_lower
+            nominator_middle = x_middle - mean_middle
+            nominator_lower = x_lower - mean_upper
+
+            # Calculating denominator: sqrt(Var[x] + eps)
+            # Var(x) = E[x^2] - E[x]^2
+            mean_squared_lower = torch.where(
+                    torch.logical_and(x_lower <= 0, 0 <= x_upper),
+                    torch.zeros_like(x_middle),
+                    torch.minimum(x_upper ** 2, x_lower ** 2)).mean(0)
+            mean_squared_middle = (x_middle ** 2).mean(0)
+            mean_squared_upper = torch.maximum(x_upper ** 2, x_lower ** 2).mean(0)
+
+            squared_mean_lower = torch.where(
+                    torch.logical_and(mean_lower <= 0, 0 <= mean_upper),
+                    torch.zeros_like(mean_middle),
+                    torch.minimum(mean_lower ** 2, mean_upper ** 2))
+            squared_mean_middle = mean_middle ** 2
+            squared_mean_upper = torch.maximum(mean_lower ** 2, mean_upper ** 2)
+
+            var_lower = mean_squared_lower - squared_mean_upper
+            var_middle = mean_squared_middle - squared_mean_middle
+            var_upper = mean_squared_upper - squared_mean_lower
+
+            # TODO: Just clip?
+            assert torch.all(var_lower <= var_middle)
+            assert torch.all(var_middle <= var_upper)
+
+            var_lower = torch.clamp(var_lower, min=0)
+            assert torch.all(var_lower >= 0.), "Variance has to be non-negative"
+            assert torch.all(var_middle >= 0.), "Variance has to be non-negative"
+            assert torch.all(var_upper >= 0.), "Variance has to be non-negative"
+
+            denominator_lower = (var_lower + self.epsilon).sqrt()
+            denominator_middle = (var_middle + self.epsilon).sqrt()
+            denominator_upper = (var_upper + self.epsilon).sqrt()
+
+            # Dividing nominator by denominator
+            whitened_lower = torch.where(nominator_lower > 0,
+                                         nominator_lower / denominator_upper,
+                                         nominator_lower / denominator_lower)
+            whitened_middle = nominator_middle / denominator_middle
+            whitened_upper = torch.where(nominator_upper > 0,
+                                         nominator_upper / denominator_lower,
+                                         nominator_upper / denominator_upper)
+
+        else:
+            nominator_lower = x_lower - x_middle.mean(0)
+            nominator_middle = x_middle - x_middle.mean(0)
+            nominator_upper = x_upper - x_middle.mean(0)
+
+            denominator = (x_middle.var(0) + self.epsilon).sqrt()
+
+            whitened_lower = nominator_lower / denominator
+            whitened_middle = nominator_middle / denominator
+            whitened_upper = nominator_upper / denominator
+
+        assert (whitened_lower <= whitened_middle).all()
+        assert (whitened_middle <= whitened_upper).all()
+
+        # TODO: proper gamma radius
+        if self.affine:
+            gamma_lower = (self.gamma - self.scale).view(1, -1, 1, 1)
+            gamma_middle = self.gamma.view(1, -1, 1, 1)
+            gamma_upper = (self.gamma + self.scale).view(1, -1, 1, 1)
+
+            gammafied_all = torch.stack([
+                gamma_lower * whitened_lower,
+                gamma_lower * whitened_upper,
+                gamma_upper * whitened_lower,
+                gamma_upper * whitened_upper], dim=-1)
+            gammafied_lower, _ = gammafied_all.min(-1)
+            gammafied_middle = gamma_middle * whitened_middle
+            gammafied_upper, _ = gammafied_all.max(-1)
+
+            beta_lower = (self.beta - self.scale).view(1, -1, 1, 1)
+            beta_middle = self.beta.view(1, -1, 1, 1)
+            beta_upper = (self.beta + self.scale).view(1, -1, 1, 1)
+
+            final_lower = gammafied_lower + beta_lower
+            final_middle = gammafied_middle + beta_middle
+            final_upper = gammafied_upper + beta_upper
+
+            assert (final_lower <= final_middle).all()
+            assert (final_middle <= final_upper).all()
+
+            return torch.stack([final_lower, final_middle, final_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
+        else:
+            return torch.stack([whitened_lower, whitened_middle, whitened_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
 
 
 class IntervalAdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
@@ -814,7 +930,7 @@ class IntervalVGG(IntervalModel):
                                max_radius=self.max_radius, bias=self.bias, normalize_shift=self.normalize_shift,
                                normalize_scale=self.normalize_scale, scale_init=self.scale_init)]
             if batch_norm:
-                raise NotImplementedError()
+                layers += [IntervalBatchNorm2d(l)]
             layers += [nn.ReLU()]
             input_channel = l
         return nn.Sequential(*layers)
