@@ -327,10 +327,10 @@ class IntervalTraining(VanillaTraining):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
+        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 30:
+            self.model.switch_mode(Mode.CONTRACTION_SCALE)
         if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
-        if self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT] and self.epoch == 20:
-            self.model.switch_mode(Mode.CONTRACTION_SCALE)
 
         if self.viz_debug:
             self.reset_viz_debug()
