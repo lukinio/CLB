@@ -1,7 +1,9 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from avalanche.models import MultiTaskModule
 from torch import Tensor
+
+# from avalanche.models import MultiTaskModule
+from .dynamic import MultiTaskModule
 
 
 class MLP(MultiTaskModule):

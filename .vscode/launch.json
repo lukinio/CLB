@@ -12,10 +12,10 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "cfg=baseline_ewc",
-                "cfg.scenario=INC_DOMAIN",
-                "cfg.ewc_lambda=2048",
-                "cfg.ewc_mode=online",
+                "cfg=baseline_lwf",
+                "cfg.scenario=INC_TASK",
+                "cfg.lwf_alpha=1",
+                "cfg.lwf_temperature=2",
                 "cfg.epochs=2"
                 // "cfg.enable_visdom=true",
                 // "cfg.visdom_reset_every_epoch=true",

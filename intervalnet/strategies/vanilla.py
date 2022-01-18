@@ -12,6 +12,7 @@ from torch.nn.modules.loss import CrossEntropyLoss
 from torch.optim import Optimizer
 
 from intervalnet.cfg import Settings
+from intervalnet.models.dynamic import MultiTaskModule
 
 
 class VanillaTraining(BaseStrategy):
@@ -62,6 +63,22 @@ class VanillaTraining(BaseStrategy):
     def mb_y(self) -> Tensor:
         """Current mini-batch target."""
         return super().mb_y  # type: ignore
+
+    @property
+    def mb_x(self) -> Tensor:
+        """Current mini-batch."""
+        return super().mb_x  # type: ignore
+
+    @property
+    def mb_task_id(self) -> Tensor:
+        """Current mini-batch task labels."""
+        return super().mb_task_id  # type: ignore
+
+    def forward(self):
+        if isinstance(self.model, MultiTaskModule):
+            return self.model(self.mb_x, self.mb_task_id)
+        else:  # no task labels
+            return self.model(self.mb_x)
 
     # def criterion(self):
     #     if self.is_training:

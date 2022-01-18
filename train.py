@@ -10,7 +10,6 @@ from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training.plugins.evaluation import EvaluationPlugin
-from avalanche.training.plugins.lwf import LwFPlugin
 from avalanche.training.plugins.synaptic_intelligence import SynapticIntelligencePlugin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
@@ -32,7 +31,7 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
-from intervalnet.strategies import EWCPlugin, JointTraining, VanillaTraining
+from intervalnet.strategies import EWCPlugin, JointTraining, LwFPlugin, VanillaTraining
 from intervalnet.strategy import IntervalTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
