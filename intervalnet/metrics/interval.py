@@ -203,7 +203,16 @@ def interval_training_diagnostics(model: IntervalModel):
             Reporter(f"Status/{field.name}{layer}", "status", field.name, layer)
             for layer, _ in model.named_interval_children()
             for field in fields(status)
-            if isinstance(field.type, GenericAlias) and issubclass(field.type.__origin__, dict)
+            if field.name == 'radius_mean_'
+        ]
+    )
+
+    metrics.extend(
+        [
+            Reporter(f"Status/{field.name}{act_name}", "status", field.name, act_name)
+            for act_name in model.output_names
+            for field in fields(status)
+            if field.name == 'bounds_width_'
         ]
     )
 

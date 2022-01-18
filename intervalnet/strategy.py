@@ -390,7 +390,6 @@ class IntervalTraining(VanillaTraining):
         for name, module in self.model.named_interval_children():
             radii.append((module.radius * module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
-            self.status.bounds_width_[name] = self.bounds_width(name).mean()
 
             if self.viz and self.mb_it == len(self.dataloader) - 1:  # type: ignore
                 self.windows[f"{name}.radius"] = self.viz.heatmap(
@@ -404,6 +403,9 @@ class IntervalTraining(VanillaTraining):
                     win=self.windows.get(f"{name}.weight"),
                     opts={"title": f"{name}.weight.abs() (w/o outliers) --> epoch {(self.epoch or 0) + 1}"},
                 )
+
+        for name in self.mb_output_all.keys():
+            self.status.bounds_width_[name] = self.bounds_width(name).mean()
 
         self.status.radius_mean = torch.cat(radii).mean()
 

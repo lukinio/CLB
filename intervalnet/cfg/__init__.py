@@ -8,9 +8,10 @@ from omegaconf import MISSING
 
 class DatasetType(Enum):
     MNIST = auto()
+    CIFAR100 = auto()
+    CIFAR10 = auto()
     # FASHION_MNIST = auto()
     # CELEBA = auto()
-    # CIFAR100 = auto()
 
 
 class ScenarioType(Enum):
