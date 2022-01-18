@@ -276,9 +276,9 @@ class IntervalDropout(nn.Module):
             x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)),
                                              x.unbind("bounds"))  # type: ignore
             mask = torch.bernoulli(self.p * torch.ones_like(x_middle)).long()
-            x_lower = x_lower.where(mask != 1, torch.zeros_like(x_lower))
-            x_middle = x_middle.where(mask != 1, torch.zeros_like(x_middle))
-            x_upper = x_upper.where(mask != 1, torch.zeros_like(x_upper))
+            x_lower = x_lower.where(mask != 1, torch.zeros_like(x_lower)) * self.scale
+            x_middle = x_middle.where(mask != 1, torch.zeros_like(x_middle)) * self.scale
+            x_upper = x_upper.where(mask != 1, torch.zeros_like(x_upper)) * self.scale
             return torch.stack([x_lower, x_middle, x_upper], dim=1)
         else:
             return x

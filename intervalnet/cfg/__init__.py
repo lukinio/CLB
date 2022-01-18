@@ -53,7 +53,7 @@ class IntervalSettings:
     normalize_scale: bool = False
     scale_init: float = -5.0
 
-    epochs: int = 10
+    contraction_epochs: int = 10
 
 
 # General experiment settings validation schema & default values

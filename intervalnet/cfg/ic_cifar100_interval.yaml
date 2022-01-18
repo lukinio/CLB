@@ -10,7 +10,8 @@ epochs: 200
 optimizer: SGD
 learning_rate: 0.1
 momentum: ~
-scenario: INC_TASK
+scenario: INC_CLASS
+offline: False
 strategy: Interval
 
 interval:
@@ -23,4 +24,4 @@ interval:
   expansion_learning_rate: 0.1
   normalize_shift: True
   normalize_scale: False
-  radius_epochs: 20
+  contraction_epochs: 25
