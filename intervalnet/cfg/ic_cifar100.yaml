@@ -11,5 +11,5 @@ optimizer: SGD
 learning_rate: 0.05
 momentum: ~
 scenario: INC_CLASS
-strategy: Naive
 offline: False
+strategy: Naive

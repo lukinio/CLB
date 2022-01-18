@@ -229,6 +229,7 @@ class Experiment(AvalancheExperiment):
             in_channels=3,
             output_classes=self.n_classes,
             heads=self.n_heads,
+            batch_norm=self.cfg.batchnorm,
         )
 
     def setup_naive(self):
@@ -275,6 +276,7 @@ class Experiment(AvalancheExperiment):
                 max_radius=self.cfg.interval.max_radius,
                 bias=self.cfg.interval.bias,
                 heads=self.n_heads,
+                batch_norm=self.cfg.batchnorm,
                 normalize_shift=self.cfg.interval.normalize_shift,
                 normalize_scale=self.cfg.interval.normalize_scale,
                 scale_init=self.cfg.interval.scale_init,
@@ -288,6 +290,7 @@ class Experiment(AvalancheExperiment):
                 max_radius=self.cfg.interval.max_radius,
                 bias=self.cfg.interval.bias,
                 heads=self.n_heads,
+                batch_norm=self.cfg.batchnorm,
                 normalize_shift=self.cfg.interval.normalize_shift,
                 normalize_scale=self.cfg.interval.normalize_scale,
                 scale_init=self.cfg.interval.scale_init,

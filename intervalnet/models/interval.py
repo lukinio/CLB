@@ -713,6 +713,7 @@ class IntervalVGG(IntervalModel):
                  max_radius: float,
                  bias: bool,
                  heads: int,
+                 batch_norm: bool,
                  normalize_shift: bool,
                  normalize_scale: bool,
                  scale_init: float,
@@ -727,7 +728,7 @@ class IntervalVGG(IntervalModel):
         self.normalize_scale = normalize_scale
         self.scale_init = scale_init
         self.output_names = ['features', 'classifier']
-        self.features = self.make_layers(self.CFG[variant])
+        self.features = self.make_layers(self.CFG[variant], batch_norm=batch_norm)
         self.classifier = nn.Sequential(
             IntervalLinear(512, 4096, radius_multiplier=radius_multiplier, max_radius=max_radius, bias=True,
                            normalize_shift=normalize_shift, normalize_scale=normalize_scale, scale_init=scale_init),
@@ -801,7 +802,7 @@ class IntervalVGG(IntervalModel):
         activation_dict["last"] = self.last[task_id](activation_dict["classifier"])
         return activation_dict
 
-    def make_layers(self, cfg, batch_norm=False):
+    def make_layers(self, cfg, batch_norm):
         layers = []
         input_channel = self.in_channels
         for l in cfg:

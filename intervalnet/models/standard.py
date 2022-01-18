@@ -43,9 +43,10 @@ class VGG(MultiTaskModule):
                  variant: str,
                  in_channels: int,
                  output_classes: int,
-                 heads: int):
+                 heads: int,
+                 batch_norm: bool):
         super().__init__()
-        self.features = self.make_layers(self.CFG[variant], in_channels)
+        self.features = self.make_layers(self.CFG[variant], in_channels, batch_norm)
         self.classifier = nn.Sequential(
             nn.Linear(512, 4096),
             nn.ReLU(inplace=True),
@@ -72,7 +73,7 @@ class VGG(MultiTaskModule):
         return x
 
     @staticmethod
-    def make_layers(cfg, in_channels, batch_norm=False):
+    def make_layers(cfg, in_channels, batch_norm):
         layers = []
         input_channel = in_channels
         for l in cfg:
