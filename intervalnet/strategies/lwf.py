@@ -9,12 +9,7 @@ from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 
 from intervalnet.models.dynamic import MultiTaskModule
 
-
-def avalanche_forward(model, x, task_labels):
-    if isinstance(model, MultiTaskModule):
-        return model(x, task_labels)
-    else:  # no task labels
-        return model(x)
+from .utils import avalanche_forward
 
 
 class LwFPlugin(StrategyPlugin):

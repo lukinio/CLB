@@ -5,13 +5,14 @@ import avalanche.training.plugins
 import torch
 import torch.nn as nn
 from avalanche.benchmarks.utils import AvalancheDataset
-from avalanche.models.utils import avalanche_forward
 from avalanche.training.strategies.base_strategy import BaseStrategy
 from avalanche.training.utils import zerolike_params_dict
 from torch import Tensor
 from torch.nn import CrossEntropyLoss
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+
+from .utils import avalanche_forward
 
 
 class EWCPlugin(avalanche.training.plugins.ewc.EWCPlugin):
