@@ -90,6 +90,7 @@ class Settings(pytorch_yard.Settings):
     strategy: StrategyType = MISSING
     ewc_lambda: Optional[float] = None
     ewc_mode: Optional[str] = None
+    ewc_decay: Optional[float] = None
     si_lambda: Optional[float] = None
     lwf_alpha: Optional[float] = None
     lwf_temperature: Optional[float] = None

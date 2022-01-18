@@ -13,8 +13,10 @@
             "justMyCode": false,
             "args": [
                 "cfg=baseline_ewc",
-                // "cfg.scenario=INC_TASK",
-                "cfg.epochs=1"
+                "cfg.scenario=INC_DOMAIN",
+                "cfg.ewc_lambda=2048",
+                "cfg.ewc_mode=online",
+                "cfg.epochs=2"
                 // "cfg.enable_visdom=true",
                 // "cfg.visdom_reset_every_epoch=true",
                 // "cfg.interval.radius_multiplier=1",
