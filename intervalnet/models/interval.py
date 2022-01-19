@@ -308,12 +308,14 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             max_radius: float = 1.0):
         super().__init__()
         self.num_features = num_features
-        self.interval_statistic = interval_statistics
+        self.interval_statistics = interval_statistics
         self.affine = affine
         self.scale_init = scale_init
         self.max_radius = max_radius
-        self.normalize_shift = normalize_shift
         self.momentum = momentum
+
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = False
 
         self.epsilon = 1e-5
         if self.affine:
@@ -338,8 +340,6 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             return
 
         with torch.no_grad():
-            nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))  # type: ignore
-
             self.beta.zero_()
             self._beta_radius.fill_(self.max_radius)
             self._beta_shift.zero_()
@@ -367,6 +367,14 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             self._gamma_scale.fill_(5)
             self._beta_scale.fill_(5)
 
+    def clamp_radii(self) -> None:
+        if not self.affine:
+            return
+        with torch.no_grad():
+            max = self.max_radius / self.radius_multiplier
+            self._gamma_radius.clamp_(min=0, max=max)
+            self._beta_radius.clamp_(min=0, max=max)
+
     def switch_mode(self, mode: Mode) -> None:
         self.mode = mode
 
@@ -380,14 +388,14 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
                 p.grad = None
 
         disable([self.gamma, self._gamma_radius, self._gamma_shift, self._gamma_scale,
-                 self.beta, self._beta_radius, self.beta_shift, self._beta_scale])
+                 self.beta, self._beta_radius, self._beta_shift, self._beta_scale])
 
         if mode == Mode.VANILLA:
             enable([self.gamma, self.beta])
         elif mode == Mode.CONTRACTION_SHIFT:
-            enable([self._gamma_shift, self._gamma_shift])
+            enable([self._gamma_shift, self._beta_shift])
         elif mode == Mode.CONTRACTION_SCALE:
-            enable([self._gamma_scale, self._gamma_scale])
+            enable([self._gamma_scale, self._beta_scale])
 
     def radius_transform(self, params: Tensor):
         return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius + 0.1)
@@ -501,8 +509,8 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
                 mean_middle = x_middle.mean([0, 2, 3], keepdim=True)
                 var_middle = x_middle.var([0, 2, 3], keepdim=True)
             else:
-                mean_middle = self.running_mean
-                var_middle = self.running_var
+                mean_middle = self.running_mean.view(1, -1, 1, 1)
+                var_middle = self.running_var.view(1, -1, 1, 1)
 
             nominator_lower = x_lower - mean_middle
             nominator_middle = x_middle - mean_middle
@@ -515,17 +523,37 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             whitened_upper = nominator_upper / denominator
 
         if self.training:
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean_middle
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var_middle
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean_middle.view(-1)
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var_middle.view(-1)
 
         assert (whitened_lower <= whitened_middle).all()
         assert (whitened_middle <= whitened_upper).all()
 
-        # TODO: proper gamma radius
         if self.affine:
-            gamma_lower = (self.gamma - self.scale).view(1, -1, 1, 1)
-            gamma_middle = self.gamma.view(1, -1, 1, 1)
-            gamma_upper = (self.gamma + self.scale).view(1, -1, 1, 1)
+
+            if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
+                gamma_middle = self.gamma
+                gamma_lower = self.gamma - self.gamma_radius
+                gamma_upper = self.gamma + self.gamma_radius
+
+                beta_middle = self.beta
+                beta_lower = self.beta - self.gamma_radius
+                beta_upper = self.beta + self.gamma_radius
+            else:
+                assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
+                assert (0.0 <= self.gamma_scale).all() and (self.beta_scale <= 1.0).all(), "Scale must be in [0, 1] range."
+                assert (-1.0 <= self.gamma_shift).all() and (self.beta_shift <= 1.0).all(), "Shift must be in [-1, 1] range."
+                gamma_middle = self.gamma + self.gamma_shift * self.gamma_radius
+                gamma_lower = gamma_middle - self.gamma_scale * self.gamma_radius
+                gamma_upper = gamma_middle + self.gamma_scale * self.gamma_radius
+
+                beta_middle = self.beta + self.beta_shift * self.beta_radius
+                beta_lower = beta_middle - self.beta_scale * self.beta_radius
+                beta_upper = beta_middle + self.beta_scale * self.beta_radius
+
+            gamma_lower = gamma_lower.view(1, -1, 1, 1)
+            gamma_middle = gamma_middle.view(1, -1, 1, 1)
+            gamma_upper = gamma_upper.view(1, -1, 1, 1)
 
             gammafied_all = torch.stack([
                 gamma_lower * whitened_lower,
@@ -536,9 +564,9 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             gammafied_middle = gamma_middle * whitened_middle
             gammafied_upper, _ = gammafied_all.max(-1)
 
-            beta_lower = (self.beta - self.scale).view(1, -1, 1, 1)
-            beta_middle = self.beta.view(1, -1, 1, 1)
-            beta_upper = (self.beta + self.scale).view(1, -1, 1, 1)
+            beta_lower = beta_lower.view(1, -1, 1, 1)
+            beta_middle = beta_middle.view(1, -1, 1, 1)
+            beta_upper = beta_upper.view(1, -1, 1, 1)
 
             final_lower = gammafied_lower + beta_lower
             final_middle = gammafied_middle + beta_middle
@@ -785,7 +813,7 @@ class IntervalModel(MultiTaskModule):
         # TODO: hack
         return [("last" if "last" in n else n, m)
                 for n, m in self.named_modules()
-                if isinstance(m, IntervalModuleWithWeights)]
+                if isinstance(m, IntervalModuleWithWeights) and not isinstance(m, IntervalBatchNorm2d)]
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
@@ -1068,7 +1096,7 @@ class IntervalVGG(IntervalModel):
                                max_radius=self.max_radius, bias=self.bias, normalize_shift=self.normalize_shift,
                                normalize_scale=self.normalize_scale, scale_init=self.scale_init)]
             if batch_norm:
-                layers += [IntervalBatchNorm2d(l)]
+                layers += [IntervalBatchNorm2d(l, interval_statistics=False, affine=True)]
             layers += [nn.ReLU()]
             input_channel = l
         return nn.Sequential(*layers)
