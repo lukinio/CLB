@@ -174,7 +174,7 @@ class IntervalLinear(IntervalModuleWithWeights):
             self._radius.fill_(self.max_radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
-            if bias:
+            if self.bias is not None:
                 self.bias.zero_()
                 self._bias_radius.fill_(self.max_radius)
                 self._bias_shift.zero_()
@@ -1210,7 +1210,24 @@ class IntervalMobileNet(IntervalModel):
         end_layers = []
         end_layers.append(IntervalAvgPool2d(2))
         self.end_layers = nn.Sequential(*end_layers)
-        self.last = nn.ModuleList(nn.Linear(1024, output_classes) for _ in range(heads))
+        self.last = nn.ModuleList(PointLinear(1024, output_classes) for _ in range(heads))
+        if heads > 1:
+            # Incremental task, we don't have to use intervals
+            self.last = nn.ModuleList([
+                PointLinear(1024, self.output_classes) for _ in range(heads)
+            ])
+        else:
+            self.last = nn.ModuleList([
+                IntervalLinear(
+                    1024,
+                    output_classes,
+                    radius_multiplier=self.radius_multiplier,
+                    max_radius=self.max_radius,
+                    bias=True,
+                    normalize_shift=self.normalize_shift,
+                    normalize_scale=self.normalize_scale,
+                    scale_init=self.scale_init,
+                )])
 
     def _make_layers(self, in_channels):
         layers = []

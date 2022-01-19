@@ -5,13 +5,16 @@ dataset: CIFAR100
 
 _tags_: ~
 
-epochs: 200
+epochs: 100
 
 optimizer: SGD
 learning_rate: 0.1
 momentum: ~
 scenario: INC_TASK
 strategy: Interval
+milestones:
+  50: 0.1
+batchnorm: True
 
 interval:
   robust_accuracy_threshold: 0.9
@@ -23,4 +26,4 @@ interval:
   expansion_learning_rate: 0.1
   normalize_shift: True
   normalize_scale: False
-  radius_epochs: 20
+  contraction_epochs: 20
