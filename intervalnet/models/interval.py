@@ -90,7 +90,6 @@ class IntervalLinear(IntervalModuleWithWeights):
         self.out_features = out_features
         self.radius_multiplier = radius_multiplier
         self.max_radius = max_radius
-        self.bias = bias
         self.normalize_shift = normalize_shift
         self.normalize_scale = normalize_scale
         self.scale_init = scale_init
@@ -109,6 +108,8 @@ class IntervalLinear(IntervalModuleWithWeights):
             self._bias_radius = Parameter(torch.empty_like(self.bias), requires_grad=False)
             self._bias_shift = Parameter(torch.empty_like(self.bias), requires_grad=False)
             self._bias_scale = Parameter(torch.empty_like(self.bias), requires_grad=False)
+        else:
+            self.bias = None
         self.mode: Mode = Mode.VANILLA
         self.reset_parameters()
 
@@ -173,7 +174,7 @@ class IntervalLinear(IntervalModuleWithWeights):
             self._radius.fill_(self.max_radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
-            if hasattr(self, 'bias'):
+            if bias:
                 self.bias.zero_()
                 self._bias_radius.fill_(self.max_radius)
                 self._bias_shift.zero_()
@@ -199,6 +200,8 @@ class IntervalLinear(IntervalModuleWithWeights):
         elif mode == Mode.EXPANSION:
             with torch.no_grad():
                 self._radius.fill_(self.max_radius)
+                if self.bias is not None:
+                    self._bias_radius.fill_(self.max_radius)
             enable([self._radius, self._bias_radius])
         elif mode == Mode.CONTRACTION_SHIFT:
             enable([self._shift, self._bias_shift])
@@ -211,7 +214,7 @@ class IntervalLinear(IntervalModuleWithWeights):
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(self.scale_init)
-            if hasattr(self, 'bias'):
+            if self.bias is not None:
                 self.bias.copy_(self.bias + self.bias_shift * self.bias_radius)
                 self._bias_radius.copy_(self.bias_scale * self._bias_radius)
                 self._bias_shift.zero_()
@@ -250,7 +253,7 @@ class IntervalLinear(IntervalModuleWithWeights):
         upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
         middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
 
-        if hasattr(self, 'bias'):
+        if self.bias is not None:
             b_middle = self.bias + self.bias_shift * self.bias_radius
             b_lower = b_middle - self.bias_scale * self.bias_radius
             b_upper = b_middle + self.bias_scale * self.bias_radius
@@ -284,7 +287,6 @@ class IntervalDropout(nn.Module):
             return x
 
 
-
 class IntervalMaxPool2d(nn.MaxPool2d):
     def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False):
         super().__init__(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
@@ -298,14 +300,30 @@ class IntervalMaxPool2d(nn.MaxPool2d):
         return torch.stack([x_lower, x_middle, x_upper], dim=1).refine_names("N", "bounds", "C", "H",
                                                                              "W")  # type: ignore
 
+
+class IntervalAvgPool2d(nn.AvgPool2d):
+    def __init__(self, kernel_size, stride=None, padding=0, ceil_mode=False, count_include_pad=True,
+                 divisor_override=None):
+        super().__init__(kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override)
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", ...)
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+        x_lower = super().forward(x_lower)
+        x_middle = super().forward(x_middle)
+        x_upper = super().forward(x_upper)
+        return torch.stack([x_lower, x_middle, x_upper], dim=1).refine_names("N", "bounds", "C", "H",
+                                                                             "W")  # type: ignore
+
+
 class IntervalBatchNorm2d(IntervalModuleWithWeights):
     def __init__(self, num_features,
-            interval_statistics: bool = False,
-            affine: bool = True,
-            normalize_shift: bool = True,
-            momentum: float = 0.1,
-            scale_init: float = 5.0,
-            max_radius: float = 1.0):
+                 interval_statistics: bool = False,
+                 affine: bool = True,
+                 normalize_shift: bool = True,
+                 momentum: float = 0.1,
+                 scale_init: float = 5.0,
+                 max_radius: float = 1.0):
         super().__init__()
         self.num_features = num_features
         self.interval_statistics = interval_statistics
@@ -450,7 +468,6 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
         x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore
         x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
 
-
         if self.interval_statistics and self.training:
             # Calculating whitening nominator: x - E[x]
             mean_lower = x_lower.mean([0, 2, 3], keepdim=True)
@@ -464,16 +481,16 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             # Calculating denominator: sqrt(Var[x] + eps)
             # Var(x) = E[x^2] - E[x]^2
             mean_squared_lower = torch.where(
-                    torch.logical_and(x_lower <= 0, 0 <= x_upper),
-                    torch.zeros_like(x_middle),
-                    torch.minimum(x_upper ** 2, x_lower ** 2)).mean([0, 2, 3], keepdim=True)
+                torch.logical_and(x_lower <= 0, 0 <= x_upper),
+                torch.zeros_like(x_middle),
+                torch.minimum(x_upper ** 2, x_lower ** 2)).mean([0, 2, 3], keepdim=True)
             mean_squared_middle = (x_middle ** 2).mean([0, 2, 3], keepdim=True)
             mean_squared_upper = torch.maximum(x_upper ** 2, x_lower ** 2).mean([0, 2, 3], keepdim=True)
 
             squared_mean_lower = torch.where(
-                    torch.logical_and(mean_lower <= 0, 0 <= mean_upper),
-                    torch.zeros_like(mean_middle),
-                    torch.minimum(mean_lower ** 2, mean_upper ** 2))
+                torch.logical_and(mean_lower <= 0, 0 <= mean_upper),
+                torch.zeros_like(mean_middle),
+                torch.minimum(mean_lower ** 2, mean_upper ** 2))
             squared_mean_middle = mean_middle ** 2
             squared_mean_upper = torch.maximum(mean_lower ** 2, mean_upper ** 2)
 
@@ -541,8 +558,10 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
                 beta_upper = self.beta + self.gamma_radius
             else:
                 assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
-                assert (0.0 <= self.gamma_scale).all() and (self.beta_scale <= 1.0).all(), "Scale must be in [0, 1] range."
-                assert (-1.0 <= self.gamma_shift).all() and (self.beta_shift <= 1.0).all(), "Shift must be in [-1, 1] range."
+                assert (0.0 <= self.gamma_scale).all() and (
+                        self.beta_scale <= 1.0).all(), "Scale must be in [0, 1] range."
+                assert (-1.0 <= self.gamma_shift).all() and (
+                        self.beta_shift <= 1.0).all(), "Shift must be in [-1, 1] range."
                 gamma_middle = self.gamma + self.gamma_shift * self.gamma_radius
                 gamma_lower = gamma_middle - self.gamma_scale * self.gamma_radius
                 gamma_upper = gamma_middle + self.gamma_scale * self.gamma_radius
@@ -575,9 +594,11 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             assert (final_lower <= final_middle).all()
             assert (final_middle <= final_upper).all()
 
-            return torch.stack([final_lower, final_middle, final_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
+            return torch.stack([final_lower, final_middle, final_upper], dim=1).refine_names("N", "bounds", "C", "H",
+                                                                                             "W")
         else:
-            return torch.stack([whitened_lower, whitened_middle, whitened_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
+            return torch.stack([whitened_lower, whitened_middle, whitened_upper], dim=1).refine_names("N", "bounds",
+                                                                                                      "C", "H", "W")
 
 
 class IntervalAdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
@@ -687,7 +708,8 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         with torch.no_grad():
             max = self.max_radius / self.radius_multiplier
             self._radius.clamp_(min=0, max=max)
-            self._bias_radius.clamp_(min=0, max=max)
+            if self.bias is not None:
+                self._bias_radius.clamp_(min=0, max=max)
 
     def init_parameters(self) -> None:
         with torch.no_grad():
@@ -695,7 +717,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             self._radius.zero_()
             self._shift.zero_()
             self._scale.fill_(5)
-            if hasattr(self, 'bias'):
+            if self.bias is not None:
                 self.bias.zero_()
                 self._bias_radius.zero_()
                 self._bias_shift.zero_()
@@ -721,6 +743,8 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         elif mode == Mode.EXPANSION:
             with torch.no_grad():
                 self._radius.fill_(self.max_radius)
+                if self.bias is not None:
+                    self._bias_radius.fill_(self.max_radius)
             enable([self._radius, self._bias_radius])
         elif mode == Mode.CONTRACTION_SHIFT:
             enable([self._shift, self._bias_shift])
@@ -733,7 +757,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             self._radius.copy_(self.scale * self._radius)
             self._shift.zero_()
             self._scale.fill_(5)
-            if hasattr(self, 'bias'):
+            if self.bias is not None:
                 self.bias.copy_(self.bias + self.bias_shift * self.bias_radius)
                 self._bias_radius.copy_(self.bias_scale * self._bias_radius)
                 self._bias_shift.zero_()
@@ -750,7 +774,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             w_middle: Tensor = self.weight
             w_lower = self.weight - self.radius
             w_upper = self.weight + self.radius
-            if hasattr(self, 'bias'):
+            if self.bias is not None:
                 b_middle = self.bias
                 b_lower = b_middle - self.bias_radius
                 b_upper = b_middle + self.bias_radius
@@ -761,7 +785,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
             w_middle = self.weight + self.shift * self.radius
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
-            if hasattr(self, 'bias'):
+            if self.bias is not None:
                 b_middle = self.bias + self.bias_shift * self.bias_radius
                 b_lower = b_middle - self.bias_scale * self.bias_radius
                 b_upper = b_middle + self.bias_scale * self.bias_radius
@@ -787,7 +811,7 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
         # numerically unstable?
         # middle = F.conv2d(x_middle, w_middle, None, self.stride, self.padding, self.dilation, self.groups)
 
-        if hasattr(self, 'bias'):
+        if self.bias is not None:
             lower = lower + b_lower.view(1, b_lower.size(0), 1, 1)
             upper = upper + b_upper.view(1, b_upper.size(0), 1, 1)
             middle = middle + b_middle.view(1, b_middle.size(0), 1, 1)
@@ -979,6 +1003,9 @@ class IntervalMLP(IntervalModel):
         return self.fc1.weight.device
 
 
+BN_INTERVAL_STATISTICS = False
+
+
 class IntervalVGG(IntervalModel):
     CFG = {
         'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -1040,7 +1067,7 @@ class IntervalVGG(IntervalModel):
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, IntervalLinear) or isinstance(m, PointLinear):
                 nn.init.normal_(m.weight, 0, 0.01)
-            if hasattr(m, 'bias') and isinstance(m.bias, torch.Tensor):
+            if self.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x: Tensor, task_labels: torch.Tensor) -> Tensor:
@@ -1096,7 +1123,144 @@ class IntervalVGG(IntervalModel):
                                max_radius=self.max_radius, bias=self.bias, normalize_shift=self.normalize_shift,
                                normalize_scale=self.normalize_scale, scale_init=self.scale_init)]
             if batch_norm:
-                layers += [IntervalBatchNorm2d(l, interval_statistics=False, affine=True)]
+                layers += [IntervalBatchNorm2d(l, interval_statistics=BN_INTERVAL_STATISTICS, affine=True)]
             layers += [nn.ReLU()]
             input_channel = l
         return nn.Sequential(*layers)
+
+
+class IntervalMobileNet(IntervalModel):
+    class Block(nn.Module):
+        '''Depthwise conv + Pointwise conv'''
+
+        def __init__(self,
+                     in_channels,
+                     out_channels,
+                     radius_multiplier: float,
+                     max_radius: float,
+                     normalize_shift: bool,
+                     normalize_scale: bool,
+                     scale_init: float,
+                     stride=1):
+            super().__init__()
+            self.radius_multiplier = radius_multiplier
+            self.max_radius = max_radius
+            self.normalize_shift = normalize_shift
+            self.normalize_scale = normalize_scale
+            self.scale_init = scale_init
+            conv_layers = []
+            conv_layers.append(
+                IntervalConv2d(in_channels, in_channels, kernel_size=3, stride=stride, padding=1, groups=in_channels,
+                               radius_multiplier=self.radius_multiplier, max_radius=self.max_radius, bias=False,
+                               normalize_shift=self.normalize_shift, normalize_scale=self.normalize_scale,
+                               scale_init=self.scale_init))
+            conv_layers.append(
+                IntervalBatchNorm2d(in_channels, interval_statistics=BN_INTERVAL_STATISTICS, affine=True))
+            conv_layers.append(nn.ReLU())
+            conv_layers.append(
+                IntervalConv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0,
+                               radius_multiplier=self.radius_multiplier, max_radius=self.max_radius,
+                               bias=False, normalize_shift=self.normalize_shift,
+                               normalize_scale=self.normalize_scale, scale_init=self.scale_init))
+            conv_layers.append(
+                IntervalBatchNorm2d(out_channels, interval_statistics=BN_INTERVAL_STATISTICS, affine=True))
+            conv_layers.append(nn.ReLU())
+
+            self.layers = nn.Sequential(*conv_layers)
+
+        def forward(self, x):
+            fwd = self.layers(x)
+            return fwd
+
+    def __init__(self,
+                 in_channels: int,
+                 output_classes: int,
+                 radius_multiplier: float,
+                 max_radius: float,
+                 heads: int,
+                 batch_norm: bool,
+                 normalize_shift: bool,
+                 normalize_scale: bool,
+                 scale_init: float):
+        super().__init__(radius_multiplier=radius_multiplier, max_radius=max_radius)
+        self.radius_multiplier = radius_multiplier
+        self.max_radius = max_radius
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = normalize_scale
+        self.scale_init = scale_init
+        self.output_names = ['outputs']
+        self.cfg = [64, (128, 2), 128, (256, 2), 256, (512, 2), 512, 512, 512, 512, 512, (1024, 2), 1024]
+        if batch_norm is False:
+            raise NotImplementedError('MobileNet has no no-BN variant!')
+        self.in_channels = in_channels
+        self.output_classes = output_classes
+        self.initial_channels = 32
+        init_conv = []
+        init_conv.append(
+            IntervalConv2d(self.in_channels, self.initial_channels, kernel_size=3, stride=1, padding=1, bias=False,
+                           radius_multiplier=self.radius_multiplier, max_radius=self.max_radius,
+                           normalize_shift=self.normalize_shift, normalize_scale=self.normalize_scale,
+                           scale_init=self.scale_init))
+        init_conv.append(
+            IntervalBatchNorm2d(self.initial_channels, interval_statistics=BN_INTERVAL_STATISTICS, affine=True))
+        init_conv.append(nn.ReLU(inplace=True))
+        self.init_conv = nn.Sequential(*init_conv)
+        self.layers = nn.ModuleList()
+        self.layers.extend(self._make_layers(in_channels=self.initial_channels))
+        end_layers = []
+        end_layers.append(IntervalAvgPool2d(2))
+        self.end_layers = nn.Sequential(*end_layers)
+        self.last = nn.ModuleList(nn.Linear(1024, output_classes) for _ in range(heads))
+
+    def _make_layers(self, in_channels):
+        layers = []
+        for x in self.cfg:
+            out_channels = x if isinstance(x, int) else x[0]
+            stride = 1 if isinstance(x, int) else x[1]
+            layers.append(self.Block(in_channels, out_channels, radius_multiplier=self.radius_multiplier,
+                                     max_radius=self.max_radius, normalize_shift=self.normalize_shift,
+                                     normalize_scale=self.normalize_scale, scale_init=self.scale_init, stride=stride))
+            in_channels = out_channels
+        return layers
+
+    def forward_base(self, x: Tensor) -> dict[str, Tensor]:
+        x = x.unsqueeze(1).tile(1, 3, 1, 1, 1)
+        x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore  # expected input shape
+        x = self.init_conv(x)
+        for layer in self.layers:
+            x = layer(x)
+        x = self.end_layers(x)
+        x = x.rename(None).flatten(2).refine_names("N", "bounds", "features")
+        return {
+            "outputs": x,
+        }
+
+    def forward_single_task(self, x: Tensor, task_id: int) -> dict[str, Tensor]:
+        # Get activations from the second-to-last layer
+        activation_dict = self.forward_base(x)
+        activation_dict["last"] = self.last[task_id](activation_dict["outputs"])
+        return activation_dict
+
+    def forward(self, x: Tensor, task_labels: torch.Tensor) -> Tensor:
+        if isinstance(task_labels, int):
+            # fast path. mini-batch is single task.
+            return self.forward_single_task(x, task_labels)
+        else:
+            unique_tasks = torch.unique(task_labels)
+
+        full_out = {}
+        for task in unique_tasks:
+            task_mask = task_labels == task
+            x_task = x[task_mask]
+            out_task = self.forward_single_task(x_task, task.item())
+
+            if not full_out:
+                for key, val in out_task.items():
+                    full_out[key] = torch.empty(x.shape[0], *val.shape[1:],
+                                                device=val.device).rename(None)
+            for key, val in out_task.items():
+                full_out[key][task_mask] = val.rename(None)
+
+        for key, val in full_out.items():
+            full_out[key] = val.refine_names("N", "bounds", ...)
+        return full_out

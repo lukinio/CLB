@@ -17,17 +17,12 @@ for cfg in sgd; do
     done
 done
 
-# CIFAR-100 VGG11 LR search - with BN
-for lr in 0.5 1.0 5.0; do
-  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["batchnorm_lr_search"]
+# Standard CIFAR-100 LR search
+for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005; do
+  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["MobileNet","lr_search"]
 done
 
-# CIFAR-100 VGG11 LR search - without BN
-for lr in 0.5 1.0 5.0; do
-  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=False
-done
-
-# Interval CIFAR-100 VGG11 LR search - without BN
-for lr in 0.1 0.5 0.05 1.0 0.01 5.0 0.005 10.0 0.001; do
-  python train.py cfg=ic_cifar100_interval cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=False  tags=["lr_search","interval"]
+# Interval CIFAR-100 LR search
+for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005; do
+  python train.py cfg=ic_cifar100_interval cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True  tags=["MobileNet","interval","lr_search"]
 done

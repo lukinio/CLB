@@ -29,10 +29,10 @@ from intervalnet.cfg import (
 from intervalnet.datasets import mnist, cifar10, cifar100
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
-from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalVGG
-from intervalnet.models.standard import MLP, VGG
-from intervalnet.strategies.interval import IntervalTraining
+from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalMobileNet
+from intervalnet.models.standard import MLP, MobileNet
 from intervalnet.strategies import EWCPlugin, LwFPlugin, VanillaTraining
+from intervalnet.strategies.interval import IntervalTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -104,8 +104,9 @@ class Experiment(AvalancheExperiment):
                 self.strategy.valid_classes = self.scenario.n_classes
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore # noqa
-                for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
+                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)
+                # type: ignore # noqa
+                for t, exp in enumerate(self.scenario.test_stream[0: i + 1])  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
             seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
@@ -113,7 +114,8 @@ class Experiment(AvalancheExperiment):
             ).seen_test_stream  # type: ignore
 
             if self.cfg.offline is True:
-                self.strategy.train(self.scenario.train_stream, [self.scenario.test_stream, seen_test_stream])  # type: ignore
+                self.strategy.train(self.scenario.train_stream,
+                                    [self.scenario.test_stream, seen_test_stream])  # type: ignore
                 break  # only one valid experience in joint training
             else:
                 self.strategy.train(experience, [self.scenario.test_stream, seen_test_stream])  # type: ignore
@@ -228,13 +230,18 @@ class Experiment(AvalancheExperiment):
         )
 
     def _get_cnn_model(self):
-        return VGG(
-            variant='A',
-            in_channels=3,
-            output_classes=self.n_classes,
-            heads=self.n_heads,
-            batch_norm=self.cfg.batchnorm,
-        )
+        return MobileNet(in_channels=3,
+                         output_classes=self.n_classes,
+                         heads=self.n_heads,
+                         batch_norm=self.cfg.batchnorm)
+
+        # return VGG(
+        #     variant='A',
+        #     in_channels=3,
+        #     output_classes=self.n_classes,
+        #     heads=self.n_heads,
+        #     batch_norm=self.cfg.batchnorm,
+        # )
 
     def setup_naive(self):
         if self.cfg.dataset is DatasetType.MNIST:
@@ -288,41 +295,35 @@ class Experiment(AvalancheExperiment):
                 normalize_scale=self.cfg.interval.normalize_scale,
                 scale_init=self.cfg.interval.scale_init,
             )
-        elif self.cfg.dataset is DatasetType.CIFAR100:
-            self.model = IntervalVGG(
-                variant='A',
+        elif self.cfg.dataset is DatasetType.CIFAR100 or self.cfg.dataset is DatasetType.CIFAR10:
+            self.model = IntervalMobileNet(
                 in_channels=self.channels,
                 output_classes=self.n_classes_per_head,
                 radius_multiplier=self.cfg.interval.radius_multiplier,
                 max_radius=self.cfg.interval.max_radius,
-                bias=self.cfg.interval.bias,
                 heads=self.n_heads,
                 batch_norm=self.cfg.batchnorm,
                 normalize_shift=self.cfg.interval.normalize_shift,
                 normalize_scale=self.cfg.interval.normalize_scale,
-                scale_init=self.cfg.interval.scale_init,
-            )
-        elif self.cfg.dataset is DatasetType.CIFAR10:
-            self.model = IntervalVGG(
-                variant='A',
-                in_channels=self.channels,
-                output_classes=self.n_classes_per_head,
-                radius_multiplier=self.cfg.interval.radius_multiplier,
-                max_radius=self.cfg.interval.max_radius,
-                bias=self.cfg.interval.bias,
-                heads=self.n_heads,
-                batch_norm=self.cfg.batchnorm,
-                normalize_shift=self.cfg.interval.normalize_shift,
-                normalize_scale=self.cfg.interval.normalize_scale,
-                scale_init=self.cfg.interval.scale_init,
-            )
+                scale_init=self.cfg.interval.scale_init)
+            # self.model = IntervalVGG(
+            #     variant='A',
+            #     in_channels=self.channels,
+            #     output_classes=self.n_classes_per_head,
+            #     radius_multiplier=self.cfg.interval.radius_multiplier,
+            #     max_radius=self.cfg.interval.max_radius,
+            #     bias=self.cfg.interval.bias,
+            #     heads=self.n_heads,
+            #     batch_norm=self.cfg.batchnorm,
+            #     normalize_shift=self.cfg.interval.normalize_shift,
+            #     normalize_scale=self.cfg.interval.normalize_scale,
+            #     scale_init=self.cfg.interval.scale_init)
 
         self.strategy_ = functools.partial(
             IntervalTraining,
             enable_visdom=self.cfg.enable_visdom,
             visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
         )
-
 
 if __name__ == "__main__":
     Experiment("intervalnet", Settings)

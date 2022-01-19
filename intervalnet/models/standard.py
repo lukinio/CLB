@@ -86,3 +86,68 @@ class VGG(MultiTaskModule):
             layers += [nn.ReLU(inplace=True)]
             input_channel = l
         return nn.Sequential(*layers)
+
+
+class MobileNet(MultiTaskModule):
+    class Block(nn.Module):
+        '''Depthwise conv + Pointwise conv'''
+
+        def __init__(self, in_channels, out_channels, stride=1):
+            super().__init__()
+            conv_layers = []
+            conv_layers.append(
+                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=stride, padding=1, groups=in_channels,
+                          bias=False))
+            conv_layers.append(nn.BatchNorm2d(in_channels))
+            conv_layers.append(nn.ReLU())
+            conv_layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False))
+            conv_layers.append(nn.BatchNorm2d(out_channels))
+            conv_layers.append(nn.ReLU())
+
+            self.layers = nn.Sequential(*conv_layers)
+
+        def forward(self, x):
+            fwd = self.layers(x)
+            return fwd
+
+    def __init__(self,
+                 in_channels: int,
+                 output_classes: int,
+                 heads: int,
+                 batch_norm: bool):
+        super().__init__()
+        self.cfg = [64, (128, 2), 128, (256, 2), 256, (512, 2), 512, 512, 512, 512, 512, (1024, 2), 1024]
+        if batch_norm is False:
+            raise NotImplementedError('MobileNet has no no-BN variant!')
+        self.in_channels = in_channels
+        self.initial_channels = 32
+        init_conv = []
+        init_conv.append(
+            nn.Conv2d(self.in_channels, self.initial_channels, kernel_size=3, stride=1, padding=1, bias=False))
+        init_conv.append(nn.BatchNorm2d(self.initial_channels))
+        init_conv.append(nn.ReLU(inplace=True))
+        self.init_conv = nn.Sequential(*init_conv)
+        self.layers = nn.ModuleList()
+        self.layers.extend(self._make_layers(in_channels=self.initial_channels))
+        end_layers = []
+        end_layers.append(nn.AvgPool2d(2))
+        end_layers.append(nn.Flatten())
+        self.end_layers = nn.Sequential(*end_layers)
+        self.last = nn.ModuleList(nn.Linear(1024, output_classes) for _ in range(heads))
+
+    def _make_layers(self, in_channels):
+        layers = []
+        for x in self.cfg:
+            out_channels = x if isinstance(x, int) else x[0]
+            stride = 1 if isinstance(x, int) else x[1]
+            layers.append(self.Block(in_channels, out_channels, stride))
+            in_channels = out_channels
+        return layers
+
+    def forward_single_task(self, x: Tensor, task_id: int):  # type: ignore
+        x = self.init_conv(x)
+        for layer in self.layers:
+            x = layer(x)
+        x = self.end_layers(x)
+        x = self.last[task_id](x)
+        return x
