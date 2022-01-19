@@ -10,7 +10,7 @@ from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training.plugins.evaluation import EvaluationPlugin
-from avalanche.training.plugins.ewc import EWCPlugin
+from avalanche.training.plugins.synaptic_intelligence import SynapticIntelligencePlugin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
@@ -31,7 +31,8 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalVGG
 from intervalnet.models.standard import MLP, VGG
-from intervalnet.strategy import IntervalTraining, VanillaTraining
+from intervalnet.strategies.interval import IntervalTraining
+from intervalnet.strategies import EWCPlugin, LwFPlugin, VanillaTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -73,6 +74,10 @@ class Experiment(AvalancheExperiment):
             self.setup_naive()
         elif self.cfg.strategy is StrategyType.EWC:
             self.setup_ewc()
+        elif self.cfg.strategy is StrategyType.SI:
+            self.setup_si()
+        elif self.cfg.strategy is StrategyType.LWF:
+            self.setup_lwf()
         elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
         else:
@@ -99,9 +104,8 @@ class Experiment(AvalancheExperiment):
                 self.strategy.valid_classes = self.scenario.n_classes
 
             seen_datasets: list[AvalancheDataset[Tensor, int]] = [
-                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)
-                # type: ignore
-                for t, exp in enumerate(self.scenario.test_stream[0: i + 1])  # type: ignore
+                AvalancheDataset(exp.dataset, task_labels=t if self.cfg.scenario is ScenarioType.INC_TASK else 0)  # type: ignore # noqa
+                for t, exp in enumerate(self.scenario.test_stream[0 : i + 1])  # type: ignore
             ]
             seen_test = functools.reduce(lambda a, b: a + b, seen_datasets)  # type: ignore
             seen_test_stream: GenericScenarioStream[Any, Any] = create_multi_dataset_generic_benchmark(
@@ -248,9 +252,26 @@ class Experiment(AvalancheExperiment):
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
         self.strategy_ = functools.partial(
             VanillaTraining,
-            plugins=[EWCPlugin(self.cfg.reg_lambda)],
+            plugins=[EWCPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
+        )
+
+    def setup_si(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.si_lambda
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[SynapticIntelligencePlugin(self.cfg.si_lambda)],
+        )
+
+    def setup_lwf(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.lwf_alpha and self.cfg.lwf_temperature
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[LwFPlugin(self.cfg.lwf_alpha, self.cfg.lwf_temperature)],
         )
 
     def setup_interval(self):

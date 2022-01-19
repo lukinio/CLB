@@ -1,7 +1,6 @@
 from collections import deque
-from dataclasses import InitVar, dataclass, field, fields
-from types import MethodType
-from typing import Any, Optional, Sequence, Union, cast
+from dataclasses import dataclass, InitVar, fields, field
+from typing import Optional, Sequence, Any, cast
 
 import numpy as np
 import torch
@@ -9,109 +8,16 @@ import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
-from avalanche.benchmarks.scenarios import Experience
-from avalanche.benchmarks.utils import AvalancheConcatDataset
-from avalanche.training import BaseStrategy
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore # noqa
 from torch import Tensor
-from torch.nn.modules.loss import CrossEntropyLoss
 from torch.optim import Optimizer
 from torchmetrics.functional.classification.accuracy import accuracy
 
 from intervalnet.cfg import Settings
-from intervalnet.models.interval import IntervalBatchNorm2d, IntervalMLP, Mode
-
-
-class VanillaTraining(BaseStrategy):
-    """Benchmark CL training."""
-
-    def __init__(
-            self,
-            model: nn.Module,
-            optimizer: Optimizer,
-            train_mb_size: int = 1,
-            train_epochs: int = 1,
-            eval_mb_size: int = 1,
-            device: torch.device = torch.device("cpu"),
-            plugins: Optional[Sequence[StrategyPlugin]] = None,
-            evaluator: Optional[EvaluationPlugin] = None,
-            eval_every: int = -1,
-            *,
-            cfg: Settings,
-    ):
-        super().__init__(  # type: ignore
-            model,
-            optimizer,
-            criterion=nn.CrossEntropyLoss(),
-            train_mb_size=train_mb_size,
-            train_epochs=train_epochs,
-            eval_mb_size=eval_mb_size,
-            device=device,
-            plugins=plugins,
-            evaluator=evaluator,
-            eval_every=eval_every,
-        )
-
-        # Avalanche typing specifications
-        self.mb_it: int  # type: ignore
-        self.mb_output: Tensor  # type: ignore
-        self.loss: Tensor  # type: ignore
-        self.training_exp_counter: int  # type: ignore
-        self.optimizer: Optimizer
-        self._criterion: CrossEntropyLoss
-        self.device: torch.device
-
-        # Config values
-        self.cfg = cfg
-
-        self.valid_classes = 0
-
-        if self.cfg.offline is True:
-
-            def train(
-                    self,
-                    experiences: Union[Experience, Sequence[Experience]],
-                    eval_streams: Optional[Sequence[Union[Experience, Sequence[Experience]]]] = None,
-                    **kwargs: Any,
-            ):
-                """Repurposed code from Avalanche."""
-                self.is_training = True
-                self.model.train()
-                self.model.to(self.device)
-
-                # Normalize training and eval data.
-                if isinstance(experiences, Experience):
-                    experiences = [experiences]
-                if eval_streams is None:
-                    eval_streams = [experiences]
-                for i, exp in enumerate(eval_streams):
-                    if isinstance(exp, Experience):
-                        eval_streams[i] = [exp]  # type: ignore
-
-                self._experiences = experiences
-                self.before_training(**kwargs)  # type: ignore
-                for exp in experiences:
-                    self.train_exp(exp, eval_streams, **kwargs)  # type: ignore
-                    # Joint training only needs a single step because
-                    # it concatenates all the data at once.
-                    break
-                self.after_training(**kwargs)  # type: ignore
-
-            self.train = MethodType(train, self)
-
-            def train_dataset_adaptation(self, **kwargs: Any):
-                self.adapted_dataset = AvalancheConcatDataset(
-                    [exp.dataset for exp in self._experiences])  # type: ignore
-                self.adapted_dataset = self.adapted_dataset.train()  # type: ignore
-
-            self.train_dataset_adaptation = MethodType(train_dataset_adaptation, self)
-
-    @property
-    def mb_y(self) -> Tensor:
-        """Current mini-batch target."""
-        return super().mb_y  # type: ignore
+from intervalnet.models.interval import IntervalMLP, Mode, IntervalBatchNorm2d
+from intervalnet.strategies import VanillaTraining
 
 
 class IntervalTraining(VanillaTraining):

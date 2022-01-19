@@ -3,15 +3,14 @@ defaults:
 
 
 _tags_:
-  - EWC
+  - LWF
 
 epochs: 30
 
 optimizer: ADAM
 learning_rate: 0.001
 momentum: ~
-strategy: EWC
+strategy: LWF
 
-ewc_lambda: 100
-ewc_mode: "separate"
-ewc_decay: 1.0
+lwf_alpha: 1
+lwf_temperature: 2

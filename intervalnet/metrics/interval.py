@@ -13,7 +13,7 @@ from avalanche.training.strategies.base_strategy import BaseStrategy
 from torch import Tensor
 
 from intervalnet.models.interval import IntervalModel
-from intervalnet.strategy import IntervalTraining
+from ..strategies.interval import IntervalTraining
 
 from .generic import MetricNamingMixin
 

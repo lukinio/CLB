@@ -3,15 +3,13 @@ defaults:
 
 
 _tags_:
-  - EWC
+  - SI
 
 epochs: 30
 
 optimizer: ADAM
 learning_rate: 0.001
 momentum: ~
-strategy: EWC
+strategy: SI
 
-ewc_lambda: 100
-ewc_mode: "separate"
-ewc_decay: 1.0
+si_lambda: 100
