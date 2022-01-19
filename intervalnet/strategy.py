@@ -21,7 +21,7 @@ from torch.optim import Optimizer
 from torchmetrics.functional.classification.accuracy import accuracy
 
 from intervalnet.cfg import Settings
-from intervalnet.models.interval import IntervalMLP, Mode
+from intervalnet.models.interval import IntervalBatchNorm2d, IntervalMLP, Mode
 
 
 class VanillaTraining(BaseStrategy):
@@ -363,11 +363,11 @@ class IntervalTraining(VanillaTraining):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
 
-        if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
-            self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
         if self.mode in [Mode.VANILLA,
                          Mode.CONTRACTION_SHIFT] and self.epoch == self.train_epochs - self.cfg.interval.contraction_epochs:
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
+        if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
+            self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
 
         if self.viz_debug:
             self.reset_viz_debug()
@@ -425,6 +425,8 @@ class IntervalTraining(VanillaTraining):
         radii: list[Tensor] = []
 
         for name, module in self.model.named_interval_children():
+            if isinstance(module, IntervalBatchNorm2d):
+                continue
             radii.append((module.radius * module.scale).detach().cpu().flatten())
             self.status.radius_mean_[name] = radii[-1].mean()
 

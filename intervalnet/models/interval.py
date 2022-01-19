@@ -284,6 +284,7 @@ class IntervalDropout(nn.Module):
             return x
 
 
+
 class IntervalMaxPool2d(nn.MaxPool2d):
     def __init__(self, kernel_size, stride=None, padding=0, dilation=1, return_indices=False, ceil_mode=False):
         super().__init__(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
@@ -296,6 +297,287 @@ class IntervalMaxPool2d(nn.MaxPool2d):
         x_upper = super().forward(x_upper)
         return torch.stack([x_lower, x_middle, x_upper], dim=1).refine_names("N", "bounds", "C", "H",
                                                                              "W")  # type: ignore
+
+class IntervalBatchNorm2d(IntervalModuleWithWeights):
+    def __init__(self, num_features,
+            interval_statistics: bool = False,
+            affine: bool = True,
+            normalize_shift: bool = True,
+            momentum: float = 0.1,
+            scale_init: float = 5.0,
+            max_radius: float = 1.0):
+        super().__init__()
+        self.num_features = num_features
+        self.interval_statistics = interval_statistics
+        self.affine = affine
+        self.scale_init = scale_init
+        self.max_radius = max_radius
+        self.momentum = momentum
+
+        self.normalize_shift = normalize_shift
+        self.normalize_scale = False
+
+        self.epsilon = 1e-5
+        if self.affine:
+            self.gamma = nn.Parameter(torch.ones(num_features))
+            self._gamma_radius = Parameter(torch.empty(num_features), requires_grad=False)
+            self._gamma_shift = Parameter(torch.empty(num_features), requires_grad=False)
+            self._gamma_scale = Parameter(torch.empty(num_features), requires_grad=False)
+
+            self.beta = nn.Parameter(torch.zeros(num_features))
+            self._beta_radius = Parameter(torch.empty(num_features), requires_grad=False)
+            self._beta_shift = Parameter(torch.empty(num_features), requires_grad=False)
+            self._beta_scale = Parameter(torch.empty(num_features), requires_grad=False)
+
+        self.mode: Mode = Mode.VANILLA
+        self.register_buffer('running_mean', torch.zeros(num_features))
+        self.register_buffer('running_var', torch.ones(num_features))
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        if not self.affine:
+            return
+
+        with torch.no_grad():
+            self.beta.zero_()
+            self._beta_radius.fill_(self.max_radius)
+            self._beta_shift.zero_()
+            self._beta_scale.fill_(self.scale_init)
+
+            self.gamma.fill_(1.)
+            self._gamma_radius.fill_(self.max_radius)
+            self._gamma_shift.zero_()
+            self._gamma_scale.fill_(self.scale_init)
+
+    def freeze_task(self) -> None:
+        if not self.affine:
+            return
+
+        with torch.no_grad():
+            self.gamma.copy_(self.gamma + self.gamma_shift * self.gamma_radius)
+            self.beta.copy_(self.beta + self.beta_shift * self.beta_radius)
+
+            self._gamma_radius.copy_(self.gamma_scale * self._gamma_radius)
+            self._beta_radius.copy_(self.beta_scale * self._beta_radius)
+
+            self._beta_shift.zero_()
+            self._gamma_shift.zero_()
+
+            self._gamma_scale.fill_(5)
+            self._beta_scale.fill_(5)
+
+    def clamp_radii(self) -> None:
+        if not self.affine:
+            return
+        with torch.no_grad():
+            max = self.max_radius / self.radius_multiplier
+            self._gamma_radius.clamp_(min=0, max=max)
+            self._beta_radius.clamp_(min=0, max=max)
+
+    def switch_mode(self, mode: Mode) -> None:
+        self.mode = mode
+
+        def enable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_()
+
+        def disable(params: list[Parameter]):
+            for p in params:
+                p.requires_grad_(False)
+                p.grad = None
+
+        disable([self.gamma, self._gamma_radius, self._gamma_shift, self._gamma_scale,
+                 self.beta, self._beta_radius, self._beta_shift, self._beta_scale])
+
+        if mode == Mode.VANILLA:
+            enable([self.gamma, self.beta])
+        elif mode == Mode.CONTRACTION_SHIFT:
+            enable([self._gamma_shift, self._beta_shift])
+        elif mode == Mode.CONTRACTION_SCALE:
+            enable([self._gamma_scale, self._beta_scale])
+
+    def radius_transform(self, params: Tensor):
+        return (params * torch.tensor(self.radius_multiplier)).clamp(min=0, max=self.max_radius + 0.1)
+
+    @property
+    def gamma_radius(self) -> Tensor:
+        return self.radius_transform(self._gamma_radius)
+
+    @property
+    def beta_radius(self) -> Tensor:
+        return self.radius_transform(self._beta_radius)
+
+    @property
+    def gamma_shift(self) -> Tensor:
+        """Contracted interval middle shift (-1, 1)."""
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._gamma_shift.device)
+            return (self._gamma_shift / torch.max(self._gamma_radius, eps)).tanh()
+        else:
+            return self._gamma_shift.tanh()
+
+    @property
+    def beta_shift(self) -> Tensor:
+        """Contracted interval middle shift (-1, 1)."""
+        if self.normalize_shift:
+            eps = torch.tensor(1e-8).to(self._beta_shift.device)
+            return (self._beta_shift / torch.max(self._beta_radius, eps)).tanh()
+        else:
+            return self._beta_shift.tanh()
+
+    @property
+    def gamma_scale(self) -> Tensor:
+        """Contracted interval scale (0, 1)."""
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._gamma_scale.device)
+            scale = (self._gamma_scale / torch.max(self._gamma_radius, eps)).sigmoid()
+        else:
+            scale = self._gamma_scale.sigmoid()
+        return scale * (1.0 - torch.abs(self.gamma_shift))
+
+    @property
+    def beta_scale(self) -> Tensor:
+        """Contracted interval scale (0, 1)."""
+        if self.normalize_scale:
+            eps = torch.tensor(1e-8).to(self._beta_scale.device)
+            scale = (self._beta_scale / torch.max(self._beta_radius, eps)).sigmoid()
+        else:
+            scale = self._beta_scale.sigmoid()
+        return scale * (1.0 - torch.abs(self.beta_shift))
+
+    def forward(self, x):
+        x = x.refine_names("N", "bounds", "C", "H", "W")  # type: ignore
+        x_lower, x_middle, x_upper = map(lambda x_: cast(Tensor, x_.rename(None)), x.unbind("bounds"))  # type: ignore
+
+
+        if self.interval_statistics and self.training:
+            # Calculating whitening nominator: x - E[x]
+            mean_lower = x_lower.mean([0, 2, 3], keepdim=True)
+            mean_middle = x_middle.mean([0, 2, 3], keepdim=True)
+            mean_upper = x_upper.mean([0, 2, 3], keepdim=True)
+
+            nominator_upper = x_upper - mean_lower
+            nominator_middle = x_middle - mean_middle
+            nominator_lower = x_lower - mean_upper
+
+            # Calculating denominator: sqrt(Var[x] + eps)
+            # Var(x) = E[x^2] - E[x]^2
+            mean_squared_lower = torch.where(
+                    torch.logical_and(x_lower <= 0, 0 <= x_upper),
+                    torch.zeros_like(x_middle),
+                    torch.minimum(x_upper ** 2, x_lower ** 2)).mean([0, 2, 3], keepdim=True)
+            mean_squared_middle = (x_middle ** 2).mean([0, 2, 3], keepdim=True)
+            mean_squared_upper = torch.maximum(x_upper ** 2, x_lower ** 2).mean([0, 2, 3], keepdim=True)
+
+            squared_mean_lower = torch.where(
+                    torch.logical_and(mean_lower <= 0, 0 <= mean_upper),
+                    torch.zeros_like(mean_middle),
+                    torch.minimum(mean_lower ** 2, mean_upper ** 2))
+            squared_mean_middle = mean_middle ** 2
+            squared_mean_upper = torch.maximum(mean_lower ** 2, mean_upper ** 2)
+
+            var_lower = mean_squared_lower - squared_mean_upper
+            var_middle = mean_squared_middle - squared_mean_middle
+            var_upper = mean_squared_upper - squared_mean_lower
+
+            assert torch.all(var_lower <= var_middle)
+            assert torch.all(var_middle <= var_upper)
+
+            # TODO: Just clip?
+            var_lower = torch.clamp(var_lower, min=0)
+            assert torch.all(var_lower >= 0.), "Variance has to be non-negative"
+            assert torch.all(var_middle >= 0.), "Variance has to be non-negative"
+            assert torch.all(var_upper >= 0.), "Variance has to be non-negative"
+
+            denominator_lower = (var_lower + self.epsilon).sqrt()
+            denominator_middle = (var_middle + self.epsilon).sqrt()
+            denominator_upper = (var_upper + self.epsilon).sqrt()
+
+            # Dividing nominator by denominator
+            whitened_lower = torch.where(nominator_lower > 0,
+                                         nominator_lower / denominator_upper,
+                                         nominator_lower / denominator_lower)
+            whitened_middle = nominator_middle / denominator_middle
+            whitened_upper = torch.where(nominator_upper > 0,
+                                         nominator_upper / denominator_lower,
+                                         nominator_upper / denominator_upper)
+
+        else:
+
+            if self.training:
+                mean_middle = x_middle.mean([0, 2, 3], keepdim=True)
+                var_middle = x_middle.var([0, 2, 3], keepdim=True)
+            else:
+                mean_middle = self.running_mean.view(1, -1, 1, 1)
+                var_middle = self.running_var.view(1, -1, 1, 1)
+
+            nominator_lower = x_lower - mean_middle
+            nominator_middle = x_middle - mean_middle
+            nominator_upper = x_upper - mean_middle
+
+            denominator = (var_middle + self.epsilon).sqrt()
+
+            whitened_lower = nominator_lower / denominator
+            whitened_middle = nominator_middle / denominator
+            whitened_upper = nominator_upper / denominator
+
+        if self.training:
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean_middle.view(-1)
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var_middle.view(-1)
+
+        assert (whitened_lower <= whitened_middle).all()
+        assert (whitened_middle <= whitened_upper).all()
+
+        if self.affine:
+
+            if self.mode in [Mode.VANILLA, Mode.EXPANSION]:
+                gamma_middle = self.gamma
+                gamma_lower = self.gamma - self.gamma_radius
+                gamma_upper = self.gamma + self.gamma_radius
+
+                beta_middle = self.beta
+                beta_lower = self.beta - self.gamma_radius
+                beta_upper = self.beta + self.gamma_radius
+            else:
+                assert self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]
+                assert (0.0 <= self.gamma_scale).all() and (self.beta_scale <= 1.0).all(), "Scale must be in [0, 1] range."
+                assert (-1.0 <= self.gamma_shift).all() and (self.beta_shift <= 1.0).all(), "Shift must be in [-1, 1] range."
+                gamma_middle = self.gamma + self.gamma_shift * self.gamma_radius
+                gamma_lower = gamma_middle - self.gamma_scale * self.gamma_radius
+                gamma_upper = gamma_middle + self.gamma_scale * self.gamma_radius
+
+                beta_middle = self.beta + self.beta_shift * self.beta_radius
+                beta_lower = beta_middle - self.beta_scale * self.beta_radius
+                beta_upper = beta_middle + self.beta_scale * self.beta_radius
+
+            gamma_lower = gamma_lower.view(1, -1, 1, 1)
+            gamma_middle = gamma_middle.view(1, -1, 1, 1)
+            gamma_upper = gamma_upper.view(1, -1, 1, 1)
+
+            gammafied_all = torch.stack([
+                gamma_lower * whitened_lower,
+                gamma_lower * whitened_upper,
+                gamma_upper * whitened_lower,
+                gamma_upper * whitened_upper], dim=-1)
+            gammafied_lower, _ = gammafied_all.min(-1)
+            gammafied_middle = gamma_middle * whitened_middle
+            gammafied_upper, _ = gammafied_all.max(-1)
+
+            beta_lower = beta_lower.view(1, -1, 1, 1)
+            beta_middle = beta_middle.view(1, -1, 1, 1)
+            beta_upper = beta_upper.view(1, -1, 1, 1)
+
+            final_lower = gammafied_lower + beta_lower
+            final_middle = gammafied_middle + beta_middle
+            final_upper = gammafied_upper + beta_upper
+
+            assert (final_lower <= final_middle).all()
+            assert (final_middle <= final_upper).all()
+
+            return torch.stack([final_lower, final_middle, final_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
+        else:
+            return torch.stack([whitened_lower, whitened_middle, whitened_upper], dim=1).refine_names("N", "bounds", "C", "H", "W")
 
 
 class IntervalAdaptiveAvgPool2d(nn.AdaptiveAvgPool2d):
@@ -531,7 +813,7 @@ class IntervalModel(MultiTaskModule):
         # TODO: hack
         return [("last" if "last" in n else n, m)
                 for n, m in self.named_modules()
-                if isinstance(m, IntervalModuleWithWeights)]
+                if isinstance(m, IntervalModuleWithWeights) and not isinstance(m, IntervalBatchNorm2d)]
 
     def switch_mode(self, mode: Mode) -> None:
         if mode == Mode.VANILLA:
@@ -814,7 +1096,7 @@ class IntervalVGG(IntervalModel):
                                max_radius=self.max_radius, bias=self.bias, normalize_shift=self.normalize_shift,
                                normalize_scale=self.normalize_scale, scale_init=self.scale_init)]
             if batch_norm:
-                raise NotImplementedError()
+                layers += [IntervalBatchNorm2d(l, interval_statistics=False, affine=True)]
             layers += [nn.ReLU()]
             input_channel = l
         return nn.Sequential(*layers)
