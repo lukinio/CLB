@@ -8,8 +8,12 @@ _tags_: ~
 epochs: 150
 
 optimizer: SGD
-learning_rate: 0.05
+learning_rate: 0.1
 momentum: ~
+milestones:
+  40: 0.1
+  80: 0.1
+  110: 0.1
 scenario: INC_CLASS
 offline: False
 strategy: Naive

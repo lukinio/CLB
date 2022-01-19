@@ -31,12 +31,15 @@ def cifar100():
         cifar_train = CIFAR100(root=os.getenv('DATA_DIR', ''), train=True, download=True)
         cifar_test = CIFAR100(root=os.getenv('DATA_DIR', ''), train=False, download=True)
     cifar_train_transform = transforms.Compose([
-        transforms.TrivialAugmentWide(),
+        # transforms.TrivialAugmentWide(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomCrop(32, padding=4),
         transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     cifar_eval_transform = transforms.Compose([
         transforms.ToTensor(),
-
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     return cifar_train, cifar_test, cifar_train_transform, cifar_eval_transform
 
@@ -47,10 +50,14 @@ def cifar10():
         cifar_train = CIFAR10(root=os.getenv('DATA_DIR', ''), train=True, download=True)
         cifar_test = CIFAR10(root=os.getenv('DATA_DIR', ''), train=False, download=True)
     cifar_train_transform = transforms.Compose([
-        transforms.TrivialAugmentWide(),
+        # transforms.TrivialAugmentWide(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomCrop(32, padding=4),
         transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
     ])
     cifar_eval_transform = transforms.Compose([
         transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
     ])
     return cifar_train, cifar_test, cifar_train_transform, cifar_eval_transform

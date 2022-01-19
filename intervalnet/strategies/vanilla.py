@@ -15,7 +15,7 @@ from torch.nn.modules.loss import CrossEntropyLoss
 from torch.optim import Optimizer
 
 from intervalnet.cfg import Settings
-from intervalnet.models.dynamic import MultiTaskModule
+from intervalnet.models.interval import Mode
 
 
 class VanillaTraining(BaseStrategy):
@@ -122,3 +122,13 @@ class VanillaTraining(BaseStrategy):
     #         return self.model(self.mb_x, self.mb_task_id)
     #     else:  # no task labels
     #         return self.model(self.mb_x)
+
+    def before_training_epoch(self, **kwargs: Any):
+        """Switch to expansion phase when ready."""
+        super().before_training_epoch(**kwargs)  # type: ignore
+        # TODO hack - think of a better way to implement this
+        if not hasattr(self, 'mode') or self.mode == Mode.VANILLA:
+            if self.epoch in self.cfg.milestones.keys():
+                current_lr = self.optimizer.param_groups[0]["lr"]
+                new_lr = current_lr * self.cfg.milestones[self.epoch]
+                self.optimizer.param_groups[0]["lr"] = new_lr

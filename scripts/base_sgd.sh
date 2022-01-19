@@ -19,10 +19,16 @@ done
 
 # Standard CIFAR-100 LR search
 for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005; do
-  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["MobileNet","lr_search"]
+  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["lr_search"]
 done
 
 # Interval CIFAR-100 LR search
 for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005; do
-  python train.py cfg=ic_cifar100_interval cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True  tags=["MobileNet","interval","lr_search"]
+  python train.py cfg=ic_cifar100_interval cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True  tags=["interval","lr_search"]
+done
+
+# "borrowed" mobilnet C100 params:
+python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=0.1 cfg.momentum=0.9 cfg.weight_decay=0.0001 cfg.batchnorm=True tags=["weight_decay","schedule","momentum"]
+for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005 5.0; do
+  python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["schedule"]
 done

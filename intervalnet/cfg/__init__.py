@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Dict
 
 import pytorch_yard
 from omegaconf import MISSING
@@ -73,8 +73,9 @@ class Settings(pytorch_yard.Settings):
     epochs: int = MISSING
     learning_rate: float = MISSING
     momentum: Optional[float] = MISSING
-
     optimizer: OptimizerType = MISSING
+    weight_decay: float = 0.0
+    milestones: Dict[int, float] = MISSING
 
     # ----------------------------------------------------------------------------------------------
     # Dataset

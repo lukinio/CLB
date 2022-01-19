@@ -17,7 +17,7 @@ from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
 from pytorch_yard.experiments.avalanche import AvalancheExperiment
 from rich import print
 from torch import Tensor
-from torch.optim import SGD, Adam
+from torch.optim import SGD, AdamW
 
 from intervalnet.cfg import (
     DatasetType,
@@ -171,9 +171,12 @@ class Experiment(AvalancheExperiment):
                 self.model.parameters(),
                 lr=self.cfg.learning_rate,
                 momentum=self.cfg.momentum if self.cfg.momentum else 0,
+                weight_decay=self.cfg.weight_decay
             )
         elif self.cfg.optimizer is OptimizerType.ADAM:
-            self.optimizer = Adam(self.model.parameters(), lr=self.cfg.learning_rate)
+            self.optimizer = AdamW(self.model.parameters(),
+                                   lr=self.cfg.learning_rate,
+                                   weight_decay=self.cfg.weight_decay)
         else:
             raise ValueError(f"Unknown optimizer type: {self.cfg.optimizer}")
 
@@ -324,6 +327,7 @@ class Experiment(AvalancheExperiment):
             enable_visdom=self.cfg.enable_visdom,
             visdom_reset_every_epoch=self.cfg.visdom_reset_every_epoch,
         )
+
 
 if __name__ == "__main__":
     Experiment("intervalnet", Settings)
