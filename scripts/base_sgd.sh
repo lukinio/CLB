@@ -32,3 +32,5 @@ python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=0.1 cfg.momen
 for lr in 0.1 0.01 1.0 0.001 0.05 0.5 0.005 5.0; do
   python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=${lr} cfg.batchnorm=True tags=["schedule"]
 done
+
+python train.py cfg=ic_cifar100 cfg.offline=True cfg.learning_rate=1.0 cfg.batchnorm=True tags=["schedule"]

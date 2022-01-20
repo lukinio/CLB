@@ -75,7 +75,7 @@ class Settings(pytorch_yard.Settings):
     momentum: Optional[float] = MISSING
     optimizer: OptimizerType = MISSING
     weight_decay: float = 0.0
-    milestones: Dict[int, float] = MISSING
+    milestones: Optional[Dict[int, float]] = MISSING
 
     # ----------------------------------------------------------------------------------------------
     # Dataset

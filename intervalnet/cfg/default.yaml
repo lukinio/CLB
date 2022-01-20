@@ -9,4 +9,5 @@ epochs: 30
 optimizer: ADAM
 learning_rate: 0.01
 momentum: ~
+milestones: ~
 strategy: Interval
