@@ -100,3 +100,25 @@ class EWCPlugin(avalanche.training.plugins.ewc.EWCPlugin):
             imp = imp / float(len(dataloader))
 
         return importances
+
+
+class L2Plugin(EWCPlugin):
+    def compute_importances(
+        self,
+        model: nn.Module,
+        criterion: CrossEntropyLoss,
+        optimizer: Optimizer,
+        dataset: AvalancheDataset[Any, Any],
+        device: torch.device,
+        batch_size: int,
+    ):
+        """
+        Return identity importance matrix (for L2 distance)
+        """
+
+        # list of list
+        importances: list[tuple[str, Tensor]] = [
+            (k, torch.ones_like(p).to(p.device)) for k, p in model.named_parameters()
+        ]
+
+        return importances

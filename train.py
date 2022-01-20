@@ -32,6 +32,7 @@ from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
 from intervalnet.models.mlp import MLP
 from intervalnet.strategies import EWCPlugin, JointTraining, LwFPlugin, VanillaTraining
+from intervalnet.strategies.ewc import L2Plugin
 from intervalnet.strategy import IntervalTraining
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
@@ -71,6 +72,8 @@ class Experiment(AvalancheExperiment):
             self.setup_naive()
         elif self.cfg.strategy is StrategyType.EWC:
             self.setup_ewc()
+        elif self.cfg.strategy is StrategyType.L2:
+            self.setup_l2()
         elif self.cfg.strategy is StrategyType.SI:
             self.setup_si()
         elif self.cfg.strategy is StrategyType.LWF:
@@ -233,6 +236,14 @@ class Experiment(AvalancheExperiment):
         self.strategy_ = functools.partial(
             VanillaTraining,
             plugins=[EWCPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
+        )
+
+    def setup_l2(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[L2Plugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
         )
 
     def setup_si(self):
