@@ -8,6 +8,7 @@ import torch.linalg
 import torch.nn as nn
 import torch.nn.functional as F
 import visdom
+import wandb
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from avalanche.training.plugins.strategy_plugin import StrategyPlugin
 from rich import print  # type: ignore # noqa
@@ -274,6 +275,7 @@ class IntervalTraining(VanillaTraining):
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
         if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
+            wandb.log({'lr': self.cfg.interval.expansion_learning_rate})
 
         if self.viz_debug:
             self.reset_viz_debug()

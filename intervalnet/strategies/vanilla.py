@@ -4,6 +4,7 @@ from typing import Any, Optional, Sequence, Union
 import torch
 import torch.linalg
 import torch.nn as nn
+import wandb
 from avalanche.benchmarks.scenarios import Experience
 from avalanche.benchmarks.utils import AvalancheConcatDataset
 from avalanche.training import BaseStrategy
@@ -123,6 +124,13 @@ class VanillaTraining(BaseStrategy):
     #     else:  # no task labels
     #         return self.model(self.mb_x)
 
+    def before_training_exp(self, **kwargs: Any):
+        """Switch mode or freeze on each consecutive experience."""
+        super().before_training_exp(**kwargs)  # type: ignore
+        self.optimizer.param_groups[0]["lr"] = self.cfg.learning_rate
+        wandb.log({'lr': self.cfg.learning_rate})
+
+
     def before_training_epoch(self, **kwargs: Any):
         """Switch to expansion phase when ready."""
         super().before_training_epoch(**kwargs)  # type: ignore
@@ -132,3 +140,4 @@ class VanillaTraining(BaseStrategy):
                 current_lr = self.optimizer.param_groups[0]["lr"]
                 new_lr = current_lr * self.cfg.milestones[self.epoch]
                 self.optimizer.param_groups[0]["lr"] = new_lr
+                wandb.log({'lr': new_lr})
