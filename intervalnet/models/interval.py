@@ -6,7 +6,7 @@ from typing import cast
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from avalanche.models import MultiTaskModule
+from intervalnet.models.dynamic import MultiTaskModule
 from rich import print
 from torch import Tensor
 from torch.nn.parameter import Parameter

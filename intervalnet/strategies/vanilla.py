@@ -16,6 +16,7 @@ from torch.nn.modules.loss import CrossEntropyLoss
 from torch.optim import Optimizer
 
 from intervalnet.cfg import Settings
+from intervalnet.models.dynamic import MultiTaskModule
 from intervalnet.models.interval import Mode
 
 
@@ -118,11 +119,11 @@ class VanillaTraining(BaseStrategy):
         """Current mini-batch task labels."""
         return super().mb_task_id  # type: ignore
 
-    # def forward(self):
-    #     if isinstance(self.model, MultiTaskModule):
-    #         return self.model(self.mb_x, self.mb_task_id)
-    #     else:  # no task labels
-    #         return self.model(self.mb_x)
+    def forward(self):
+        if isinstance(self.model, MultiTaskModule):
+            return self.model(self.mb_x, self.mb_task_id)
+        else:  # no task labels
+            return self.model(self.mb_x)
 
     def before_training_exp(self, **kwargs: Any):
         """Switch mode or freeze on each consecutive experience."""
