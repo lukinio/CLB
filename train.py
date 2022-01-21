@@ -197,12 +197,13 @@ class Experiment(AvalancheExperiment):
             *metrics,
             benchmark=self.scenario,
             loggers=[
-                RichLogger(
-                    ignore_metrics=[
-                        r"Diagnostics/(.*)",
-                        r"DiagnosticsHist/(.*)",
-                    ]
-                ),
+                # TODO add a flag for optional RichLogger
+                # RichLogger(
+                #     ignore_metrics=[
+                #         r"Diagnostics/(.*)",
+                #         r"DiagnosticsHist/(.*)",
+                #     ]
+                # ),
                 self.wandb_logger,
             ],
         )
