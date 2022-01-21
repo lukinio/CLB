@@ -192,6 +192,7 @@ def interval_training_diagnostics(model: IntervalModel):
 
     metrics.extend([Reporter(f"Loss/{field.name}", "losses", field.name) for field in fields(losses)])
     if isinstance(model, IntervalMLP):  # Do not run all diagnostics for CNN archs
+    # if isinstance(model, IntervalModel):
         metrics.extend(
             [
                 Reporter(f"Status/{field.name}", "status", field.name)

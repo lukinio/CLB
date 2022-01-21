@@ -275,7 +275,6 @@ class IntervalTraining(VanillaTraining):
             self.model.switch_mode(Mode.CONTRACTION_SCALE)
         if self.mode in [Mode.CONTRACTION_SHIFT, Mode.CONTRACTION_SCALE]:
             self.optimizer.param_groups[0]["lr"] = self.cfg.interval.expansion_learning_rate  # type: ignore
-            wandb.log({'lr': self.cfg.interval.expansion_learning_rate})
 
         if self.viz_debug:
             self.reset_viz_debug()

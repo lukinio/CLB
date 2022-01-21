@@ -129,8 +129,6 @@ class VanillaTraining(BaseStrategy):
         """Switch mode or freeze on each consecutive experience."""
         super().before_training_exp(**kwargs)  # type: ignore
         self.optimizer.param_groups[0]["lr"] = self.cfg.learning_rate
-        wandb.log({'lr': self.cfg.learning_rate})
-
 
     def before_training_epoch(self, **kwargs: Any):
         """Switch to expansion phase when ready."""
@@ -141,4 +139,7 @@ class VanillaTraining(BaseStrategy):
                 current_lr = self.optimizer.param_groups[0]["lr"]
                 new_lr = current_lr * self.cfg.milestones[self.epoch]
                 self.optimizer.param_groups[0]["lr"] = new_lr
-                wandb.log({'lr': new_lr})
+
+    def after_training_epoch(self, **kwargs: Any):
+        super().after_training_epoch(**kwargs)
+        wandb.log({'lr': self.optimizer.param_groups[0]["lr"]}, commit=False)
