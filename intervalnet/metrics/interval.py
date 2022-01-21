@@ -12,7 +12,7 @@ from avalanche.evaluation.metrics.loss import LossPluginMetric
 from avalanche.training.strategies.base_strategy import BaseStrategy
 from torch import Tensor
 
-from intervalnet.models.interval import IntervalModel
+from intervalnet.models.interval import IntervalMLP, IntervalModel
 from ..strategies.interval import IntervalTraining
 
 from .generic import MetricNamingMixin
@@ -191,45 +191,46 @@ def interval_training_diagnostics(model: IntervalModel):
     status = IntervalTraining.Status()
 
     metrics.extend([Reporter(f"Loss/{field.name}", "losses", field.name) for field in fields(losses)])
-    metrics.extend(
-        [
-            Reporter(f"Status/{field.name}", "status", field.name)
-            for field in fields(status)
-            if issubclass(field.type, Tensor)
-        ]
-    )
-    metrics.extend(
-        [
-            Reporter(f"Status/{field.name}{layer}", "status", field.name, layer)
-            for layer, _ in model.named_interval_children()
-            for field in fields(status)
-            if field.name == 'radius_mean_'
-        ]
-    )
+    if isinstance(model, IntervalMLP):  # Do not run all diagnostics for CNN archs
+        metrics.extend(
+            [
+                Reporter(f"Status/{field.name}", "status", field.name)
+                for field in fields(status)
+                if issubclass(field.type, Tensor)
+            ]
+        )
+        metrics.extend(
+            [
+                Reporter(f"Status/{field.name}{layer}", "status", field.name, layer)
+                for layer, _ in model.named_interval_children()
+                for field in fields(status)
+                if field.name == 'radius_mean_'
+            ]
+        )
 
-    metrics.extend(
-        [
-            Reporter(f"Status/{field.name}{act_name}", "status", field.name, act_name)
-            for act_name in model.output_names
-            for field in fields(status)
-            if field.name == 'bounds_width_'
-        ]
-    )
+        metrics.extend(
+            [
+                Reporter(f"Status/{field.name}{act_name}", "status", field.name, act_name)
+                for act_name in model.output_names
+                for field in fields(status)
+                if field.name == 'bounds_width_'
+            ]
+        )
 
-    metrics.extend(
-        [
-            LayerDiagnostics(layer, transform=model.radius_transform, stop=model.max_radius)
-            for layer in model.state_dict().keys()
-            if "radius" in layer
-        ]
-    )
-    metrics.extend(
-        [
-            LayerDiagnosticsHist(layer, transform=model.radius_transform, stop=model.max_radius)
-            for layer in model.state_dict().keys()
-            if "radius" in layer
-        ]
-    )
-    metrics.extend([LayerDiagnostics(layer, grad=True) for layer in model.state_dict().keys() if "radius" in layer])
+        metrics.extend(
+            [
+                LayerDiagnostics(layer, transform=model.radius_transform, stop=model.max_radius)
+                for layer in model.state_dict().keys()
+                if "radius" in layer
+            ]
+        )
+        metrics.extend(
+            [
+                LayerDiagnosticsHist(layer, transform=model.radius_transform, stop=model.max_radius)
+                for layer in model.state_dict().keys()
+                if "radius" in layer
+            ]
+        )
+        metrics.extend([LayerDiagnostics(layer, grad=True) for layer in model.state_dict().keys() if "radius" in layer])
 
     return metrics

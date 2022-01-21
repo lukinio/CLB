@@ -735,8 +735,10 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
                 p.requires_grad_(False)
                 p.grad = None
 
-        disable([self.weight, self.bias, self._radius, self._shift, self._scale, self._bias_radius, self._bias_shift,
-                 self._bias_scale])
+        disable([self.weight, self._radius, self._shift, self._scale])
+        if self.bias is not None:
+            disable([self.bias, self._bias_radius, self._bias_shift, self._bias_scale])
+
 
         if mode == Mode.VANILLA:
             enable([self.weight, self.bias])
@@ -745,11 +747,17 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
                 self._radius.fill_(self.max_radius)
                 if self.bias is not None:
                     self._bias_radius.fill_(self.max_radius)
-            enable([self._radius, self._bias_radius])
+            enable([self._radius])
+            if self.bias is not None:
+                enable([self._bias_radius])
         elif mode == Mode.CONTRACTION_SHIFT:
-            enable([self._shift, self._bias_shift])
+            enable([self._shift])
+            if self.bias is not None:
+                enable([self._bias_shift])
         elif mode == Mode.CONTRACTION_SCALE:
-            enable([self._scale, self._bias_scale])
+            enable([self._scale])
+            if self.bias is not None:
+                enable([self._bias_scale])
 
     def freeze_task(self) -> None:
         with torch.no_grad():
