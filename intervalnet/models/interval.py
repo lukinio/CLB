@@ -348,8 +348,8 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             self._beta_scale = Parameter(torch.empty(num_features), requires_grad=False)
 
         self.mode: Mode = Mode.VANILLA
-        self.register_buffer('running_mean', torch.zeros(num_features))
-        self.register_buffer('running_var', torch.ones(num_features))
+        self.register_buffer('running_mean', torch.zeros(num_features, requires_grad=False))
+        self.register_buffer('running_var', torch.ones(num_features, requires_grad=False))
 
         self.reset_parameters()
 
@@ -540,8 +540,8 @@ class IntervalBatchNorm2d(IntervalModuleWithWeights):
             whitened_upper = nominator_upper / denominator
 
         if self.training:
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean_middle.view(-1)
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var_middle.view(-1)
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean_middle.view(-1).detach()
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * var_middle.view(-1).detach()
 
         assert (whitened_lower <= whitened_middle).all()
         assert (whitened_middle <= whitened_upper).all()

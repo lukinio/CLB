@@ -13,7 +13,7 @@ offline=False
 scenario=INC_TASK
 
 idx=0
-for elr in 0.01 0.1 1. 5.; do
+for elr in 1.; do
 	export CUDA_VISIBLE_DEVICES=${idx}
 	python train.py cfg=default_cifar100 cfg.scenario=${scenario} cfg.offline=${offline} \
 		cfg.strategy=Interval cfg.interval.expansion_learning_rate=${elr} cfg.interval.robust_lambda=1. \
