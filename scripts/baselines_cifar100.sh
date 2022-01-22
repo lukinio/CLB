@@ -77,13 +77,12 @@ for seed in 2001 2002 2003 2004 2005; do
 done
 
 ## Synaptic Intelligence
-#for seed in 2001; do
-#  for lambda in 128; do
-#    for scenario in INC_TASK INC_DOMAIN INC_CLASS; do
-#      python train.py cfg=default_cifar100 cfg.strategy=SI \
-#        cfg.seed=${seed} cfg.si_lambda=${lambda} cfg.scenario=${scenario} tags=["${scenario}","stdruns"] >/dev/null 2>&1 &
-#      echo "Running ${cfg} on ${scenario} with seed = ${seed}, lambda = ${lambda}"
-#    done
-#    wait
-#  done
-#done
+for seed in 2001 2002 2003 2004 2005; do
+  for lambda in 128; do
+    for scenario in INC_TASK INC_DOMAIN INC_CLASS; do
+      python train.py cfg=default_cifar100 cfg.strategy=SI \
+        cfg.seed=${seed} cfg.si_lambda=${lambda} cfg.scenario=${scenario} tags=["${scenario}","stdruns"] &
+    done
+    wait
+  done
+done

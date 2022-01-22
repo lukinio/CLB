@@ -1,0 +1,17 @@
+defaults:
+  - settings_schema
+
+
+_tags_:
+  - EWC
+
+epochs: 30
+
+optimizer: ADAM
+learning_rate: 0.001
+momentum: ~
+strategy: L2
+
+ewc_lambda: 1
+ewc_mode: "separate"
+ewc_decay: 1.0

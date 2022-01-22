@@ -10,7 +10,6 @@ from avalanche.benchmarks.scenarios.new_classes.nc_scenario import NCExperience
 from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training.plugins.evaluation import EvaluationPlugin
-from avalanche.training.plugins.synaptic_intelligence import SynapticIntelligencePlugin
 from pytorch_yard import info, info_bold
 from pytorch_yard.avalanche import RichLogger, incremental_domain
 from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
@@ -31,8 +30,7 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalMobileNet
 from intervalnet.models.standard import MLP, MobileNet
-from intervalnet.strategies import EWCPlugin, LwFPlugin, VanillaTraining
-from intervalnet.strategies.interval import IntervalTraining
+from intervalnet.strategies import EWCPlugin, LwFPlugin, VanillaTraining, IntervalTraining, SynapticIntelligencePlugin, L2Plugin
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -74,6 +72,8 @@ class Experiment(AvalancheExperiment):
             self.setup_naive()
         elif self.cfg.strategy is StrategyType.EWC:
             self.setup_ewc()
+        elif self.cfg.strategy is StrategyType.L2:
+            self.setup_l2()
         elif self.cfg.strategy is StrategyType.SI:
             self.setup_si()
         elif self.cfg.strategy is StrategyType.LWF:
@@ -250,9 +250,7 @@ class Experiment(AvalancheExperiment):
     def setup_naive(self):
         if self.cfg.dataset is DatasetType.MNIST:
             self.model = self._get_mlp_model()
-        elif self.cfg.dataset is DatasetType.CIFAR100:
-            self.model = self._get_cnn_model()
-        elif self.cfg.dataset is DatasetType.CIFAR10:
+        else:
             self.model = self._get_cnn_model()
         self.strategy_ = functools.partial(
             VanillaTraining,
@@ -269,8 +267,22 @@ class Experiment(AvalancheExperiment):
             plugins=[EWCPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
         )
 
+    def setup_l2(self):
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = self._get_mlp_model()
+        else:
+            self.model = self._get_cnn_model()
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[L2Plugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
+        )
+
     def setup_si(self):
-        self.model = self._get_mlp_model()
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = self._get_mlp_model()
+        else:
+            self.model = self._get_cnn_model()
         assert self.cfg.si_lambda
         self.strategy_ = functools.partial(
             VanillaTraining,
@@ -278,7 +290,10 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_lwf(self):
-        self.model = self._get_mlp_model()
+        if self.cfg.dataset is DatasetType.MNIST:
+            self.model = self._get_mlp_model()
+        else:
+            self.model = self._get_cnn_model()
         assert self.cfg.lwf_alpha and self.cfg.lwf_temperature
         self.strategy_ = functools.partial(
             VanillaTraining,

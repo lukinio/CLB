@@ -34,7 +34,7 @@ class LwFPlugin(StrategyPlugin):
         self.temperature = temperature
         self.prev_model = None
 
-        self.prev_classes = {"0": set()}
+        self.prev_classes = {0: set()}
         """ In Avalanche, targets of different experiences are not ordered. 
         As a result, some units may be allocated even though their 
         corresponding class has never been seen by the model.
@@ -61,17 +61,19 @@ class LwFPlugin(StrategyPlugin):
         if self.prev_model is None:
             return 0
         else:
-            with torch.no_grad():
-                if isinstance(self.prev_model, MultiTaskModule):
+            if isinstance(self.prev_model, MultiTaskModule):
+                with torch.no_grad():
                     # output from previous output heads.
                     y_prev = avalanche_forward(self.prev_model, x, None)
-                    # in a multitask scenario we need to compute the output
-                    # from all the heads, so we need to call forward again.
-                    # TODO: can we avoid this?
-                    y_curr = avalanche_forward(curr_model, x, None)
-                else:  # no task labels
-                    y_prev = {"0": self.prev_model(x)}
-                    y_curr = {"0": out}
+
+                # in a multitask scenario we need to compute the output
+                # from all the heads, so we need to call forward again.
+                # TODO: can we avoid this?
+                y_curr = avalanche_forward(curr_model, x, None)
+            else:  # no task labels
+                with torch.no_grad():
+                    y_prev = {0: self.prev_model(x)}
+                y_curr = {0: out}
 
             dist_loss = 0
             for task_id in y_prev.keys():
@@ -103,6 +105,6 @@ class LwFPlugin(StrategyPlugin):
             pc = set(task_data.targets)
 
             if task_id not in self.prev_classes:
-                self.prev_classes[str(task_id)] = pc
+                self.prev_classes[task_id] = pc
             else:
-                self.prev_classes[str(task_id)] = self.prev_classes[task_id].union(pc)
+                self.prev_classes[task_id] = self.prev_classes[task_id].union(pc)
