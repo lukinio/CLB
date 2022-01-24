@@ -8,7 +8,7 @@ from omegaconf import MISSING
 
 class DatasetType(Enum):
     MNIST = auto()
-    # FASHION_MNIST = auto()
+    FASHION_MNIST = auto()
     # CELEBA = auto()
     # CIFAR100 = auto()
 

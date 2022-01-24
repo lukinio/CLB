@@ -2,7 +2,7 @@ import os
 import warnings
 
 import torchvision.transforms as transforms
-from torchvision.datasets.mnist import MNIST
+from torchvision.datasets.mnist import MNIST, FashionMNIST
 
 
 def mnist():
@@ -23,3 +23,20 @@ def mnist():
     )
 
     return mnist_train, mnist_test, mnist_transforms
+
+
+def fashion_mnist():
+    """Fashion-MNIST dataset."""
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        train = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=True, download=True)
+        test = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=False, download=True)
+
+    transforms_ = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
+
+    return train, test, transforms_

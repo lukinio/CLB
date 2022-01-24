@@ -25,7 +25,7 @@ from intervalnet.cfg import (
     Settings,
     StrategyType,
 )
-from intervalnet.datasets import mnist
+from intervalnet.datasets import fashion_mnist, mnist
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP
@@ -136,6 +136,10 @@ class Experiment(AvalancheExperiment):
     def setup_dataset(self):
         if self.cfg.dataset is DatasetType.MNIST:
             self.train, self.test, self.transforms = mnist()
+            self.n_classes = 10
+            self.input_size = 28 * 28
+        elif self.cfg.dataset is DatasetType.FASHION_MNIST:
+            self.train, self.test, self.transforms = fashion_mnist()
             self.n_classes = 10
             self.input_size = 28 * 28
         else:
