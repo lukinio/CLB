@@ -3,7 +3,7 @@ import warnings
 
 import torchvision.transforms as transforms
 from torchvision.datasets.cifar import CIFAR10, CIFAR100
-from torchvision.datasets.mnist import MNIST
+from torchvision.datasets.mnist import MNIST, FashionMNIST
 
 
 def mnist():
@@ -61,3 +61,20 @@ def cifar10():
         # transforms.Normalize(mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
     ])
     return cifar_train, cifar_test, cifar_train_transform, cifar_eval_transform
+
+
+def fashion_mnist():
+    """Fashion-MNIST dataset."""
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        train = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=True, download=True)
+        test = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=False, download=True)
+
+    transforms_ = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
+
+    return train, test, transforms_, transforms_

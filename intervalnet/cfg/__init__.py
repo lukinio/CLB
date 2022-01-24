@@ -11,6 +11,7 @@ class DatasetType(Enum):
     CIFAR100 = auto()
     CIFAR10 = auto()
     # FASHION_MNIST = auto()
+    FASHION_MNIST = auto()
     # CELEBA = auto()
 
 

@@ -25,7 +25,7 @@ from intervalnet.cfg import (
     Settings,
     StrategyType,
 )
-from intervalnet.datasets import mnist, cifar10, cifar100
+from intervalnet.datasets import fashion_mnist, mnist, cifar10, cifar100
 from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalMobileNet
@@ -140,6 +140,12 @@ class Experiment(AvalancheExperiment):
             self.train, self.test, self.train_transform, self.eval_transform = cifar10()
             self.input_size = 32
             self.channels = 3
+            self.input_size = 28 * 28
+        elif self.cfg.dataset is DatasetType.FASHION_MNIST:
+            self.train, self.test, self.train_transform, self.eval_transform = fashion_mnist()
+            self.n_classes = 10
+            self.input_size = 28
+            self.channels = 1
         else:
             raise ValueError(f"Unknown dataset type: {self.cfg.dataset}")
 
@@ -301,7 +307,7 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_interval(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = IntervalMLP(
                 input_size=self.input_size ** 2 * self.channels,
                 hidden_dim=400,
