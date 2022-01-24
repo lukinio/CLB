@@ -7,7 +7,7 @@ _tags_:
 
 epochs: 100
 
-optimizer: ADAM
-learning_rate: 0.001
+optimizer: SGD
+learning_rate: 0.5
 momentum: 0
 strategy: Joint

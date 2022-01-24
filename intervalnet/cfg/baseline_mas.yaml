@@ -7,11 +7,11 @@ _tags_:
 
 epochs: 30
 
-optimizer: ADAM
+optimizer: SGD
 learning_rate: 0.001
-momentum: ~
+momentum: 0
 strategy: MAS
 
-ewc_lambda: 100
+ewc_lambda: 1
 ewc_mode: "online"
 ewc_decay: 1.0

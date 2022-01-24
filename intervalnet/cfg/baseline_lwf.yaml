@@ -7,10 +7,10 @@ _tags_:
 
 epochs: 30
 
-optimizer: ADAM
+optimizer: SGD
 learning_rate: 0.001
-momentum: ~
+momentum: 0
 strategy: LWF
 
-lwf_alpha: 1
-lwf_temperature: 2
+lwf_alpha: 0.5
+lwf_temperature: 0.5
