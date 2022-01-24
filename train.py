@@ -35,6 +35,7 @@ from intervalnet.strategies import (
     JointTraining,
     L2Plugin,
     LwFPlugin,
+    MASPlugin,
     SynapticIntelligencePlugin,
     VanillaTraining,
 )
@@ -83,6 +84,8 @@ class Experiment(AvalancheExperiment):
             self.setup_si()
         elif self.cfg.strategy is StrategyType.LWF:
             self.setup_lwf()
+        elif self.cfg.strategy is StrategyType.MAS:
+            self.setup_mas()
         elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
         elif self.cfg.strategy is StrategyType.Joint:
@@ -265,6 +268,14 @@ class Experiment(AvalancheExperiment):
         self.strategy_ = functools.partial(
             VanillaTraining,
             plugins=[LwFPlugin(self.cfg.lwf_alpha, self.cfg.lwf_temperature)],
+        )
+
+    def setup_mas(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[MASPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
         )
 
     def setup_interval(self):

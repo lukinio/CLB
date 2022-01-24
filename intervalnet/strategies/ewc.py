@@ -122,3 +122,43 @@ class L2Plugin(EWCPlugin):
         ]
 
         return importances
+
+
+class MASPlugin(EWCPlugin):
+    def compute_importances(
+        self,
+        model: nn.Module,
+        criterion: CrossEntropyLoss,
+        optimizer: Optimizer,
+        dataset: AvalancheDataset[Any, Any],
+        device: torch.device,
+        batch_size: int,
+    ):
+        """
+        Memory aware synapses.
+        """
+
+        model.eval()
+
+        # list of list
+        importances: list[tuple[str, Tensor]] = zerolike_params_dict(model)
+        dataloader = DataLoader(dataset, batch_size=batch_size)
+        for _, (x, y, task_labels) in enumerate(dataloader):
+            x, y = x.to(device), y.to(device)
+
+            optimizer.zero_grad()
+            out: Tensor = avalanche_forward(model, x, task_labels)
+
+            loss = out.pow(2).mean()
+            loss.backward()  # type: ignore
+
+            for (k1, p), (k2, imp) in zip(model.named_parameters(), importances):
+                assert k1 == k2
+                if p.grad is not None:
+                    imp += p.grad.data.clone().abs()
+
+        # average over mini batch length
+        for _, imp in importances:
+            imp = imp / float(len(dataloader))
+
+        return importances

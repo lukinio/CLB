@@ -27,6 +27,7 @@ class StrategyType(Enum):
     SI = auto()
     LWF = auto()
     L2 = auto()
+    MAS = auto()
 
 
 class OptimizerType(Enum):

@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "cfg=baseline_si",
+                "cfg=baseline_mas",
                 "cfg.scenario=INC_DOMAIN",
                 "cfg.optimizer=SGD",
                 // "cfg.lwf_alpha=1",
