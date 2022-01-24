@@ -241,25 +241,33 @@ class IntervalLinear(IntervalModuleWithWeights):
             w_lower = w_middle - self.scale * self.radius
             w_upper = w_middle + self.scale * self.radius
 
-        w_lower_pos = w_lower.clamp(min=0)
-        w_lower_neg = w_lower.clamp(max=0)
-        w_upper_pos = w_upper.clamp(min=0)
-        w_upper_neg = w_upper.clamp(max=0)
-        # Further splits only needed for numeric stability with asserts
-        w_middle_pos = w_middle.clamp(min=0)
-        w_middle_neg = w_middle.clamp(max=0)
+        if self.training and self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT]:
+            middle = x_middle @ w_middle
+            lower = upper = middle
+        else:
+            w_lower_pos = w_lower.clamp(min=0)
+            w_lower_neg = w_lower.clamp(max=0)
+            w_upper_pos = w_upper.clamp(min=0)
+            w_upper_neg = w_upper.clamp(max=0)
+            # Further splits only needed for numeric stability with asserts
+            w_middle_pos = w_middle.clamp(min=0)
+            w_middle_neg = w_middle.clamp(max=0)
 
-        lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
-        upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
-        middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
+            lower = x_lower @ w_lower_pos.t() + x_upper @ w_lower_neg.t()
+            upper = x_upper @ w_upper_pos.t() + x_lower @ w_upper_neg.t()
+            middle = x_middle @ w_middle_pos.t() + x_middle @ w_middle_neg.t()
 
         if self.bias is not None:
             b_middle = self.bias + self.bias_shift * self.bias_radius
-            b_lower = b_middle - self.bias_scale * self.bias_radius
-            b_upper = b_middle + self.bias_scale * self.bias_radius
-            lower = lower + b_lower
-            upper = upper + b_upper
-            middle = middle + b_middle
+            if self.training and self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT]:
+                middle = middle + b_middle
+                lower = upper = middle
+            else:
+                b_lower = b_middle - self.bias_scale * self.bias_radius
+                b_upper = b_middle + self.bias_scale * self.bias_radius
+                lower = lower + b_lower
+                upper = upper + b_upper
+                middle = middle + b_middle
 
         assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
         assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
@@ -798,31 +806,39 @@ class IntervalConv2d(nn.Conv2d, IntervalModuleWithWeights):
                 b_lower = b_middle - self.bias_scale * self.bias_radius
                 b_upper = b_middle + self.bias_scale * self.bias_radius
 
-        w_lower_pos = w_lower.clamp(min=0)
-        w_lower_neg = w_lower.clamp(max=0)
-        w_upper_pos = w_upper.clamp(min=0)
-        w_upper_neg = w_upper.clamp(max=0)
-        # Further splits only needed for numeric stability with asserts
-        w_middle_neg = w_middle.clamp(max=0)
-        w_middle_pos = w_middle.clamp(min=0)
+        if self.training and self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT]:
+            middle = F.conv2d(x_middle, w_middle, None, self.stride, self.padding, self.dilation, self.groups)
+            lower = upper = middle
+        else:
+            w_lower_pos = w_lower.clamp(min=0)
+            w_lower_neg = w_lower.clamp(max=0)
+            w_upper_pos = w_upper.clamp(min=0)
+            w_upper_neg = w_upper.clamp(max=0)
+            # Further splits only needed for numeric stability with asserts
+            w_middle_neg = w_middle.clamp(max=0)
+            w_middle_pos = w_middle.clamp(min=0)
 
-        l_lp = F.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups)
-        u_ln = F.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups)
-        u_up = F.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups)
-        l_un = F.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups)
-        m_mp = F.conv2d(x_middle, w_middle_pos, None, self.stride, self.padding, self.dilation, self.groups)
-        m_mn = F.conv2d(x_middle, w_middle_neg, None, self.stride, self.padding, self.dilation, self.groups)
+            l_lp = F.conv2d(x_lower, w_lower_pos, None, self.stride, self.padding, self.dilation, self.groups)
+            u_ln = F.conv2d(x_upper, w_lower_neg, None, self.stride, self.padding, self.dilation, self.groups)
+            u_up = F.conv2d(x_upper, w_upper_pos, None, self.stride, self.padding, self.dilation, self.groups)
+            l_un = F.conv2d(x_lower, w_upper_neg, None, self.stride, self.padding, self.dilation, self.groups)
+            m_mp = F.conv2d(x_middle, w_middle_pos, None, self.stride, self.padding, self.dilation, self.groups)
+            m_mn = F.conv2d(x_middle, w_middle_neg, None, self.stride, self.padding, self.dilation, self.groups)
 
-        lower = l_lp + u_ln
-        upper = u_up + l_un
-        middle = m_mp + m_mn
+            lower = l_lp + u_ln
+            upper = u_up + l_un
+            middle = m_mp + m_mn
         # numerically unstable?
         # middle = F.conv2d(x_middle, w_middle, None, self.stride, self.padding, self.dilation, self.groups)
 
         if self.bias is not None:
-            lower = lower + b_lower.view(1, b_lower.size(0), 1, 1)
-            upper = upper + b_upper.view(1, b_upper.size(0), 1, 1)
-            middle = middle + b_middle.view(1, b_middle.size(0), 1, 1)
+            if self.training and self.mode in [Mode.VANILLA, Mode.CONTRACTION_SHIFT]:
+                middle = middle + b_middle.view(1, b_middle.size(0), 1, 1)
+                lower = upper = middle
+            else:
+                lower = lower + b_lower.view(1, b_lower.size(0), 1, 1)
+                upper = upper + b_upper.view(1, b_upper.size(0), 1, 1)
+                middle = middle + b_middle.view(1, b_middle.size(0), 1, 1)
 
         assert (lower <= middle).all(), "Lower bound must be less than or equal to middle bound."
         assert (middle <= upper).all(), "Middle bound must be less than or equal to upper bound."
