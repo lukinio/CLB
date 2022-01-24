@@ -4,29 +4,34 @@ trap "kill 0" INT
 
 # Fashion MNIST
     
-for seed in 2001; do
-    for scenario in INC_DOMAIN; do
+for seed in 2001 2002 2003 2004 2005; do
+    for scenario in INC_DOMAIN INC_CLASS INC_TASK; do
+        common="cfg.seed=${seed} cfg.scenario=${scenario} tags=["${scenario}"] cfg.dataset=FASHION_MNIST"
         
-        # # SGD
-        python train.py cfg=baseline_sgd cfg.dataset=FASHION_MNIST group=fmnist_sgd cfg.seed=${seed} cfg.optimizer=SGD cfg.scenario=${scenario} tags=["${scenario}"] > /dev/null 2>&1 &
-        echo "Running SGD on ${scenario} with seed = ${seed}"
+        echo "Running SGD ${common}"
+        python train.py cfg=baseline_sgd group=fmnist_sgd ${commmon} > /dev/null 2>&1 &
 
-        # # Adam
-        python train.py cfg=baseline_adam cfg.dataset=FASHION_MNIST group=fmnist_adam cfg.seed=${seed} cfg.optimizer=ADAM cfg.scenario=${scenario} tags=["${scenario}"] > /dev/null 2>&1 &
-        echo "Running Adam on ${scenario} with seed = ${seed}"
-    
-        # Offline SGD
-        python train.py cfg=baseline_joint cfg.dataset=FASHION_MNIST group=fmnist_joint_sgd cfg.seed=${seed} cfg.optimizer=SGD cfg.learning_rate=0.5 cfg.scenario=${scenario} tags=["${scenario}"] > /dev/null 2>&1 &
-        echo "Running offline SGD on ${scenario} with seed = ${seed}"
+        echo "Running ADAM ${common}"
+        python train.py cfg=baseline_adam group=fmnist_adam ${commmon} > /dev/null 2>&1 &
 
-        # Offline Adam
-        python train.py cfg=baseline_joint cfg.dataset=FASHION_MNIST group=fmnist_joint_adam cfg.seed=${seed} cfg.optimizer=ADAM cfg.learning_rate=0.001 cfg.scenario=${scenario} tags=["${scenario}"] > /dev/null 2>&1 &
-        echo "Running offline Adam on ${scenario} with seed = ${seed}"
+        echo "Running L2 ${common}"
+        python train.py cfg=baseline_l2 group=fmnist_l2 ${common} > /dev/null 2>&1 &
 
-        # EWC SGD
-        python train.py cfg=baseline_ewc cfg.dataset=FASHION_MNIST group=fmnist_ewco cfg.seed=${seed} cfg.optimizer=SGD cfg.learning_rate=0.001 cfg.ewc_lambda=2048 cfg.ewc_mode=online cfg.scenario=${scenario} tags=["${scenario}"] > /dev/null 2>&1 &
-        echo "Running online EWC SGD on ${scenario} with seed = ${seed}"
+        echo "Running EWC ${common}"
+        python train.py cfg=baseline_ewc group=fmnist_ewc ${common} > /dev/null 2>&1 &
+        
+        echo "Running Online EWC ${common}"
+        python train.py cfg=baseline_ewc group=fmnist_ewco cfg.ewc_mode=online ${common} > /dev/null 2>&1 &
 
+        echo "Running SI ${common}"
+        python train.py cfg=baseline_si group=fmnist_si ${common} > /dev/null 2>&1 &
+
+        echo "Running MAS ${common}"
+        python train.py cfg=baseline_mas group=fmnist_mas ${common} > /dev/null 2>&1 &
+
+        echo "Running LWF ${common}"
+        python train.py cfg=baseline_lwf group=fmnist_lwf ${common} > /dev/null 2>&1 &
+       
         wait
 
     done
