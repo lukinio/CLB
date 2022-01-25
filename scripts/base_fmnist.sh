@@ -9,10 +9,10 @@ for seed in 2001 2002 2003 2004 2005; do
         common="cfg.seed=${seed} cfg.scenario=${scenario} tags=["${scenario}"] cfg.dataset=FASHION_MNIST"
         
         echo "Running SGD ${common}"
-        python train.py cfg=baseline_sgd group=fmnist_sgd ${commmon} > /dev/null 2>&1 &
+        python train.py cfg=baseline_sgd group=fmnist_sgd ${common} > /dev/null 2>&1 &
 
         echo "Running ADAM ${common}"
-        python train.py cfg=baseline_adam group=fmnist_adam ${commmon} > /dev/null 2>&1 &
+        python train.py cfg=baseline_adam group=fmnist_adam ${common} > /dev/null 2>&1 &
 
         echo "Running L2 ${common}"
         python train.py cfg=baseline_l2 group=fmnist_l2 ${common} > /dev/null 2>&1 &
@@ -32,8 +32,13 @@ for seed in 2001 2002 2003 2004 2005; do
         echo "Running LWF ${common}"
         python train.py cfg=baseline_lwf group=fmnist_lwf ${common} > /dev/null 2>&1 &
        
-        wait
+        echo "Running joint ${common}"
+        python train.py cfg=baseline_joint group=fmnist_joint ${common} > /dev/null 2>&1 &
+       
+        # wait
 
     done
+    
+    wait
 done
 
