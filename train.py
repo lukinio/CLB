@@ -30,7 +30,15 @@ from intervalnet.metrics.basic import EvalAccuracy, TotalLoss, TrainAccuracy
 from intervalnet.metrics.interval import interval_training_diagnostics
 from intervalnet.models.interval import IntervalMLP, IntervalModel, IntervalMobileNet
 from intervalnet.models.standard import MLP, MobileNet
-from intervalnet.strategies import EWCPlugin, LwFPlugin, VanillaTraining, IntervalTraining, SynapticIntelligencePlugin, L2Plugin
+from intervalnet.strategies import (
+    EWCPlugin,
+    L2Plugin,
+    LwFPlugin,
+    MASPlugin,
+    SynapticIntelligencePlugin,
+    VanillaTraining,
+    IntervalTraining
+)
 
 assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
@@ -78,6 +86,8 @@ class Experiment(AvalancheExperiment):
             self.setup_si()
         elif self.cfg.strategy is StrategyType.LWF:
             self.setup_lwf()
+        elif self.cfg.strategy is StrategyType.MAS:
+            self.setup_mas()
         elif self.cfg.strategy is StrategyType.Interval:
             self.setup_interval()
         else:
@@ -304,6 +314,14 @@ class Experiment(AvalancheExperiment):
         self.strategy_ = functools.partial(
             VanillaTraining,
             plugins=[LwFPlugin(self.cfg.lwf_alpha, self.cfg.lwf_temperature)],
+        )
+
+    def setup_mas(self):
+        self.model = self._get_mlp_model()
+        assert self.cfg.ewc_lambda and self.cfg.ewc_mode
+        self.strategy_ = functools.partial(
+            VanillaTraining,
+            plugins=[MASPlugin(self.cfg.ewc_lambda, self.cfg.ewc_mode, self.cfg.ewc_decay)],
         )
 
     def setup_interval(self):

@@ -8,7 +8,6 @@ from torchvision.datasets.mnist import MNIST, FashionMNIST
 
 def mnist():
     """MNIST dataset."""
-
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         mnist_train = MNIST(root=os.getenv('DATA_DIR', ''), train=True, download=True)
@@ -65,16 +64,13 @@ def cifar10():
 
 def fashion_mnist():
     """Fashion-MNIST dataset."""
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         train = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=True, download=True)
         test = FashionMNIST(root=os.getenv("DATA_DIR", ""), train=False, download=True)
-
     transforms_ = transforms.Compose(
         [
             transforms.ToTensor(),
         ]
     )
-
     return train, test, transforms_, transforms_

@@ -3,14 +3,15 @@ defaults:
 
 
 _tags_:
-  - LWF
+  - MAS
 
 epochs: 30
 
 optimizer: SGD
 learning_rate: 0.001
 momentum: 0
-strategy: LWF
+strategy: MAS
 
-lwf_alpha: 0.5
-lwf_temperature: 0.5
+ewc_lambda: 1
+ewc_mode: "online"
+ewc_decay: 1.0

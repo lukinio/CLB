@@ -8,10 +8,9 @@ from omegaconf import MISSING
 
 class DatasetType(Enum):
     MNIST = auto()
+    FASHION_MNIST = auto()
     CIFAR100 = auto()
     CIFAR10 = auto()
-    # FASHION_MNIST = auto()
-    FASHION_MNIST = auto()
     # CELEBA = auto()
 
 
@@ -29,6 +28,7 @@ class StrategyType(Enum):
     SI = auto()
     LWF = auto()
     L2 = auto()
+    MAS = auto()
 
 
 class OptimizerType(Enum):
