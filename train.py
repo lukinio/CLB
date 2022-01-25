@@ -264,7 +264,7 @@ class Experiment(AvalancheExperiment):
         # )
 
     def setup_naive(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
@@ -273,7 +273,7 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_ewc(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
@@ -284,7 +284,7 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_l2(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
@@ -295,7 +295,7 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_si(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
@@ -306,7 +306,7 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_lwf(self):
-        if self.cfg.dataset is DatasetType.MNIST:
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
             self.model = self._get_mlp_model()
         else:
             self.model = self._get_cnn_model()
@@ -317,7 +317,10 @@ class Experiment(AvalancheExperiment):
         )
 
     def setup_mas(self):
-        self.model = self._get_mlp_model()
+        if self.cfg.dataset is DatasetType.MNIST or self.cfg.dataset is DatasetType.FASHION_MNIST:
+            self.model = self._get_mlp_model()
+        else:
+            self.model = self._get_cnn_model()
         assert self.cfg.ewc_lambda and self.cfg.ewc_mode
         self.strategy_ = functools.partial(
             VanillaTraining,
