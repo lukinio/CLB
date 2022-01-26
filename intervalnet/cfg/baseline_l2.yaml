@@ -1,9 +1,8 @@
 defaults:
   - settings_schema
 
-
 _tags_:
-  - EWC
+  - L2
 
 epochs: 30
 
