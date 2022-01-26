@@ -1,5 +1,5 @@
 coolname
-git+https://github.com/ContinualAI/avalanche.git@b295ebabda0c5fe76ca1ad0e046bd24fcaa41df4
+pytorch-yard==2021.1.26.0
 gdown
 ipywidgets
 matplotlib

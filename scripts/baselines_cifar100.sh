@@ -78,7 +78,8 @@ for seed in 2001 2002 2003 2004 2005; do
 done
 
 ## Synaptic Intelligence
-for seed in 2001; do
+for seed in 2001 2002 2003 2004 2005; do
+#  for lambda in 0.001 0.1 1 8 32 128; do
   for lambda in 0.001 0.1 1 8 32 128; do
     for scenario in INC_TASK INC_DOMAIN INC_CLASS; do
       python train.py cfg=default_cifar100 cfg.strategy=SI \
@@ -89,10 +90,9 @@ for seed in 2001; do
 done
 
 ## MAS
-# for seed in 2001 2002 2003 2004 2005; do
-for seed in 2001; do
-  # for lambda in 0.001; do
-  for lambda in 0.0001 0.001 0.01 0.1 1.0 10 100; do
+for seed in 2001 2002 2003 2004 2005; do
+   for lambda in 0.001; do
+#  for lambda in 0.0001 0.001 0.01 0.1 1.0 10 100; do
     for scenario in INC_TASK INC_DOMAIN INC_CLASS; do
       python train.py cfg=default_cifar100 cfg.strategy=MAS cfg.seed=${seed} cfg.ewc_lambda=${lambda} \
         cfg.scenario=${scenario} tags=["${scenario}","stdruns"] &
