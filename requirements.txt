@@ -1,13 +1,15 @@
+git+https://github.com/ContinualAI/avalanche.git@b295ebabda0c5fe76ca1ad0e046bd24fcaa41df4
 coolname
 pytorch-yard==2021.1.26.0
+git+https://github.com/pytorch/hydra-torch/#subdirectory=hydra-configs-torchvision
 gdown
 ipywidgets
 matplotlib
 opencv-python-headless
 python-dotenv
-git+https://github.com/karolpiczak/pytorch-yard.git@eval_transform
 rich
 torchmetrics
 tqdm
 typer
 wandb
+visdom

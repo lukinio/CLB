@@ -11,7 +11,7 @@ from avalanche.benchmarks.utils.avalanche_dataset import AvalancheDataset
 from avalanche.evaluation.metric_definitions import PluginMetric
 from avalanche.training.plugins.evaluation import EvaluationPlugin
 from pytorch_yard import info, info_bold
-from pytorch_yard.avalanche import RichLogger, incremental_domain
+from pytorch_yard.avalanche import incremental_domain
 from pytorch_yard.avalanche.scenarios import incremental_class, incremental_task
 from pytorch_yard.experiments.avalanche import AvalancheExperiment
 from rich import print
@@ -39,8 +39,6 @@ from intervalnet.strategies import (
     VanillaTraining,
     IntervalTraining
 )
-
-assert pytorch_yard.__version__ == "2021.12.31.1", "Code not tested with different pytorch-yard versions."  # type: ignore # noqa
 
 
 class Experiment(AvalancheExperiment):
@@ -352,19 +350,6 @@ class Experiment(AvalancheExperiment):
                 normalize_shift=self.cfg.interval.normalize_shift,
                 normalize_scale=self.cfg.interval.normalize_scale,
                 scale_init=self.cfg.interval.scale_init)
-            # self.model = IntervalVGG(
-            #     variant='A',
-            #     in_channels=self.channels,
-            #     output_classes=self.n_classes_per_head,
-            #     radius_multiplier=self.cfg.interval.radius_multiplier,
-            #     max_radius=self.cfg.interval.max_radius,
-            #     bias=self.cfg.interval.bias,
-            #     heads=self.n_heads,
-            #     batch_norm=self.cfg.batchnorm,
-            #     normalize_shift=self.cfg.interval.normalize_shift,
-            #     normalize_scale=self.cfg.interval.normalize_scale,
-            #     scale_init=self.cfg.interval.scale_init)
-
         self.strategy_ = functools.partial(
             IntervalTraining,
             enable_visdom=self.cfg.enable_visdom,

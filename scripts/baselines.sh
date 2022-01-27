@@ -33,9 +33,9 @@ for dataset in MNIST FASHION_MNIST; do
         
             echo "Running joint ${common}"
             if [ "${dataset}" = "MNIST" ]; then
-                python train.py cfg=baseline_joint cfg.learning_rate=0.5 group=${dataset}_joint ${common} > /dev/null 2>&1 &
+                python train.py cfg=baseline_joint cfg.strategy=Naive cfg.offline=True cfg.learning_rate=0.5 group=${dataset}_joint ${common} > /dev/null 2>&1 &
             else
-                python train.py cfg=baseline_joint group=${dataset}_joint ${common} > /dev/null 2>&1 &
+                python train.py cfg=baseline_joint cfg.strategy=Naive cfg.offline=True group=${dataset}_joint ${common} > /dev/null 2>&1 &
             fi
         
             wait

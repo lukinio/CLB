@@ -9,6 +9,7 @@ epochs: 30
 optimizer: SGD
 learning_rate: 0.001
 momentum: 0
+milestones: ~
 strategy: L2
 
 ewc_lambda: 0.1

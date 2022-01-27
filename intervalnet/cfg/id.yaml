@@ -11,7 +11,7 @@ learning_rate: 0.01
 momentum: ~
 scenario: INC_DOMAIN
 strategy: Interval
-milestones: {}
+milestones: ~
 
 interval:
   robust_accuracy_threshold: 0.9

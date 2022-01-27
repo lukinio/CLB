@@ -9,4 +9,5 @@ epochs: 30
 optimizer: ADAM
 learning_rate: 0.001
 momentum: ~
+milestones: ~
 strategy: Naive

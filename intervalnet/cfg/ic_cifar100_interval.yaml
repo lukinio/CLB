@@ -10,6 +10,7 @@ epochs: 200
 optimizer: SGD
 learning_rate: 0.1
 momentum: ~
+milestones: ~
 scenario: INC_CLASS
 offline: False
 strategy: Interval

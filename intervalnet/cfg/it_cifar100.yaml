@@ -10,5 +10,6 @@ epochs: 150
 optimizer: SGD
 learning_rate: 0.05
 momentum: ~
+milestones: ~
 scenario: INC_TASK
 strategy: Naive
