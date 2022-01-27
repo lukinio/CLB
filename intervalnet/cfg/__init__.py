@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional, Dict
 
@@ -77,7 +77,7 @@ class Settings(pytorch_yard.Settings):
     momentum: Optional[float] = MISSING
     optimizer: OptimizerType = MISSING
     weight_decay: float = 0.0
-    milestones: Optional[Dict[int, float]] = MISSING
+    milestones: Optional[Dict[int, float]] = field(default_factory=lambda: {})
 
     # ----------------------------------------------------------------------------------------------
     # Dataset

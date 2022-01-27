@@ -135,7 +135,7 @@ class VanillaTraining(BaseStrategy):
         super().before_training_epoch(**kwargs)  # type: ignore
         # TODO hack - think of a better way to implement this
         if not hasattr(self, 'mode') or self.mode == Mode.VANILLA:
-            if self.epoch in self.cfg.milestones.keys():
+            if self.cfg.milestones is not None and self.epoch in self.cfg.milestones.keys():
                 current_lr = self.optimizer.param_groups[0]["lr"]
                 new_lr = current_lr * self.cfg.milestones[self.epoch]
                 self.optimizer.param_groups[0]["lr"] = new_lr
